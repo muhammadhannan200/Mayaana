@@ -25,13 +25,23 @@ export default async function ClinicStaffPage() {
           <Link className="text-link" href="/doctor">العودة</Link>
         </div>
         <p className="message message-info">حسابات الطبيب والسكرتيرة المرتبطة بهذه العيادة.</p>
-        {error ? <p className="message message-error" role="alert">تعذّر تحميل الحسابات. حاول مرة أخرى.</p> : (
+        {error ? (
+          <p className="message message-error" role="alert">
+            تعذّر تحميل الحسابات. حاول مرة أخرى.
+          </p>
+        ) : staff?.length === 0 ? (
+          <p className="message message-info">
+            لا توجد حسابات في هذه العيادة حتى الآن.
+          </p>
+        ) : (
           <ul className="staff-list">
             {staff?.map((member) => (
               <li className="staff-item" key={member.user_id}>
                 <strong>{member.display_name}</strong>
                 <span dir="ltr">{member.login_email}</span>
-                <span>{member.role === "doctor" ? "طبيب" : "سكرتيرة"} · {member.active ? "نشط" : "موقوف"}</span>
+                <span>
+                  {member.role === "doctor" ? "طبيب" : "سكرتيرة"} · {member.active ? "نشط" : "موقوف"}
+                </span>
                 {member.must_change_password && <span>ينتظر تعيين كلمة مرور جديدة</span>}
               </li>
             ))}
