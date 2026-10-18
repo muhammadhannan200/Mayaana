@@ -1,0 +1,67 @@
+name: Issue Planner
+
+on:
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: "One open GitHub issue to plan"
+        required: true
+        type: number
+
+permissions: {}
+
+concurrency:
+  group: issue-planner-${{ inputs.issue_number }}
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Generate plan from selected issue and repository
+        run: node scripts/issue-planner.mjs
+        env:
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+          GITHUB_TOKEN: ${{ github.token }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: issue-plan-${{ inputs.issue_number }}
+          path: planner-output/
+          if-no-files-found: error
+          retention-days: 90
+      - name: Confirm repository was not modified
+        run: test -z "$(git status --porcelain --untracked-files=no)"
+
+  publish:
+    needs: plan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - uses: actions/download-artifact@v4
+        with:
+          name: issue-plan-${{ inputs.issue_number }}
+          path: planner-output/
+      - name: Publish plan on selected issue
+        run: node scripts/publish-issue-plan.mjs
+        env:
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+          GITHUB_TOKEN: ${{ github.token }}
