@@ -1,0 +1,2 @@
+# Preserve upstream skill Markdown's intentional hard line breaks.
+.agents/skills/** whitespace=-blank-at-eol

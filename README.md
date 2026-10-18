@@ -1,36 +1,31 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Mayaana / Rashaqa clinic
 
-## Getting Started
+An Arabic, right-to-left clinic web app built with Next.js. The current app provides email/password sign-in and guarded doctor and secretary destinations; broader patient and clinic workflows are documented as product references, not implemented routes.
 
-First, run the development server:
+## Repository map
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+| Path                   | Responsibility                                                            |
+| ---------------------- | ------------------------------------------------------------------------- |
+| `app/`                 | Next.js pages, actions and UI                                             |
+| `lib/`                 | Application helpers and server-side Supabase clients                      |
+| `public/`              | Static assets                                                             |
+| `supabase/migrations/` | Versioned clinic database migrations                                      |
+| `tests/`               | UI audit tests                                                            |
+| `docs/`                | Product, auth, database, audit and agent workflow documentation           |
+| `.agents/skills/`      | Project-local agent skills (`skills-lock.json` records installed sources) |
+| `.github/`             | GitHub automation and CI                                                  |
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Documentation
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- [Clinic vocabulary](GLOSSARY.md)
+- [Product overview](docs/product/overview.md), [Figma screen index](docs/product/figma-structure.md), [observed design system](docs/product/design-system.md) and [UI patterns](docs/product/ui-patterns.md)
+- [Clinic sign-in decisions and setup](docs/auth/login-flow.md)
+- [Clinic staff database and provisioning](docs/database.md)
+- [Deterministic UI audit](docs/ui-audit.md)
+- [Agent issue tracker](docs/agents/issue-tracker.md), [domain docs](docs/agents/domain.md) and [triage labels](docs/agents/triage-labels.md)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Local development
 
-## Learn More
+Use Node.js 24 and `npm ci`. Copy the variable names in [`.env.example`](.env.example) to a local `.env.local` and supply values for your environment; never commit local credentials. Start the app with `npm run dev` and open <http://localhost:3000>.
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Run `npx next typegen`, `npm run typecheck`, `npm run lint`, and `npm run build` to check the app. UI audit commands and browser setup are in [docs/ui-audit.md](docs/ui-audit.md). Git workflow and PR rules are in [AGENTS.md](AGENTS.md).

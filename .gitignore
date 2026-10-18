@@ -65,3 +65,6 @@ next-env.d.ts
 /.claude/skills/
 /.opencode/opencode.json
 /.opencode/tui.json
+
+# Skill installer download (the unpacked skill is kept under .agents/skills)
+/.agents/skills/deploy-to-vercel/Archive.zip
