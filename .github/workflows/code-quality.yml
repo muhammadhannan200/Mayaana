@@ -21,6 +21,7 @@ jobs:
       - run: npm ci
         env:
           HUSKY: "0"
+      - run: npx next typegen
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run build
