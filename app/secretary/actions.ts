@@ -67,8 +67,13 @@ export async function createPatientAndQueue(
   const clinicId = await clinicForAction();
   const name = form.get("name");
   const phone = form.get("phone");
+  const patientId = form.get("patientId");
   const visitType = form.get("visitType");
   if (
+    typeof patientId !== "string" ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      patientId
+    ) ||
     typeof name !== "string" ||
     name.trim().length < 2 ||
     name.trim().length > 160 ||
@@ -82,28 +87,56 @@ export async function createPatientAndQueue(
   const supabase = await createClient();
   const queueDate = clinicDay();
   const normalizedPhone = phone.trim();
+  const normalizedName = name.trim();
   const { data, error } = await supabase
     .from("patients")
     .insert({
+      id: patientId,
       clinic_id: clinicId,
-      full_name: name.trim(),
+      full_name: normalizedName,
       phone: normalizedPhone || null,
     })
     .select("id")
     .single();
+  let resolvedPatientId = data?.id;
   if (error?.code === "23505") {
-    return {
-      error:
-        "رقم الهاتف مسجّل مسبقاً. ابحث عن ملف المريض وتحقق منه ثم أضفه للدور بمعرّفه.",
-    };
+    // The form UUID makes a retry identifiable even when the phone is blank.
+    const { data: byId, error: idError } = await supabase
+      .from("patients")
+      .select("id, full_name, phone")
+      .eq("clinic_id", clinicId)
+      .eq("id", patientId)
+      .maybeSingle();
+    if (idError) return { error: "تعذّر التحقق من ملف المريض. حاول مرة أخرى." };
+    let existing = byId;
+    if (!existing && normalizedPhone) {
+      const { data: byPhone, error: phoneError } = await supabase
+        .from("patients")
+        .select("id, full_name, phone")
+        .eq("clinic_id", clinicId)
+        .eq("phone", normalizedPhone)
+        .maybeSingle();
+      if (phoneError)
+        return { error: "تعذّر التحقق من ملف المريض. حاول مرة أخرى." };
+      existing = byPhone;
+    }
+    if (
+      !existing ||
+      existing.full_name !== normalizedName ||
+      existing.phone !== (normalizedPhone || null)
+    )
+      return {
+        error: "الملف الموجود لا يطابق البيانات المدخلة. ابحث عن المريض وتحقق من ملفه.",
+      };
+    resolvedPatientId = existing.id;
   }
-  if (error || !data) {
+  if ((error && error.code !== "23505") || !resolvedPatientId) {
     return { error: "تعذّر إنشاء ملف المريض. حاول مرة أخرى." };
   }
 
   const { error: queueError } = await supabase.from("daily_queue").insert({
     clinic_id: clinicId,
-    patient_id: data.id,
+    patient_id: resolvedPatientId,
     queue_date: queueDate,
     visit_type: visitType,
   });
@@ -112,7 +145,7 @@ export async function createPatientAndQueue(
       .from("daily_queue")
       .select("id, visit_type")
       .eq("clinic_id", clinicId)
-      .eq("patient_id", data.id)
+      .eq("patient_id", resolvedPatientId)
       .eq("queue_date", queueDate)
       .maybeSingle();
     if (!existing)

@@ -1,5 +1,9 @@
 -- One encounter per queue entry; existing patients and queue rows are untouched.
 -- The composite keys enforce clinic and patient identity, not name matching.
+-- A form-generated patient UUID identifies retries even when no phone is supplied.
+-- The patient/queue migration remains identical to the version already applied remotely.
+grant insert (id) on public.patients to authenticated;
+
 create unique index daily_queue_clinic_id_patient_idx
   on public.daily_queue (clinic_id, id, patient_id);
 
