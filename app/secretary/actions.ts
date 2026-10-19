@@ -1,0 +1,71 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { getCurrentAccount } from "@/lib/auth";
+import { clinicDay } from "@/lib/clinic-queue";
+import { createClient } from "@/lib/supabase/server";
+
+export type QueueActionResult = { error: string } | null;
+
+async function clinicForAction() {
+  const account = await getCurrentAccount();
+  if (!account) redirect("/");
+  if (account.mustChangePassword) redirect("/change-password");
+  if (account.role !== "secretary" && account.role !== "doctor") redirect("/");
+  return account.clinicId;
+}
+
+export async function addToQueue(_previous: QueueActionResult, form: FormData): Promise<QueueActionResult> {
+  const clinicId = await clinicForAction();
+  const patientId = form.get("patientId");
+  const visitType = form.get("visitType");
+  if (typeof patientId !== "string" || !/^[0-9a-f-]{36}$/i.test(patientId) ||
+    (visitType !== "follow_up" && visitType !== "full_exam")) {
+    return { error: "اختر المريض ونوع الزيارة ثم حاول مجدداً." };
+  }
+  const supabase = await createClient();
+  const { error } = await supabase.from("daily_queue").insert({
+    clinic_id: clinicId, patient_id: patientId, queue_date: clinicDay(), visit_type: visitType,
+  });
+  if (error) return { error: error.code === "23505" ? "هذا المريض موجود بالفعل في دور اليوم." : "تعذّرت إضافة المريض للدور. حاول مرة أخرى." };
+  revalidatePath("/secretary");
+  redirect("/secretary?added=1");
+}
+
+export async function createPatientAndQueue(_previous: QueueActionResult, form: FormData): Promise<QueueActionResult> {
+  const clinicId = await clinicForAction();
+  const name = form.get("name");
+  const phone = form.get("phone");
+  const visitType = form.get("visitType");
+  if (typeof name !== "string" || name.trim().length < 2 || name.trim().length > 160 ||
+    typeof phone !== "string" || (phone.trim().length > 0 && (phone.trim().length < 6 || phone.trim().length > 32)) ||
+    (visitType !== "follow_up" && visitType !== "full_exam")) {
+    return { error: "تحقق من الاسم ورقم الهاتف ونوع الزيارة." };
+  }
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("patients")
+    .insert({ clinic_id: clinicId, full_name: name.trim(), phone: phone.trim() || null })
+    .select("id").single();
+  if (error || !data) return { error: error?.code === "23505" ? "رقم الهاتف مسجّل لمريض آخر. ابحث عنه وأضفه للدور." : "تعذّر إنشاء ملف المريض. حاول مرة أخرى." };
+
+  const { error: queueError } = await supabase.from("daily_queue").insert({
+    clinic_id: clinicId, patient_id: data.id, queue_date: clinicDay(), visit_type: visitType,
+  });
+  if (queueError) return { error: "تم إنشاء ملف المريض، لكن لم يُضف للدور. ابحث عنه وأضفه من شاشة البحث." };
+  revalidatePath("/secretary");
+  redirect("/secretary?added=1");
+}
+
+export async function sendToDoctor(_previous: QueueActionResult, form: FormData): Promise<QueueActionResult> {
+  const clinicId = await clinicForAction();
+  const id = form.get("entryId");
+  if (typeof id !== "string" || !/^[0-9a-f-]{36}$/i.test(id)) return { error: "لم يتم العثور على المريض في الدور." };
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("daily_queue").update({ status: "with_doctor" })
+    .eq("id", id).eq("clinic_id", clinicId).eq("queue_date", clinicDay()).eq("status", "waiting")
+    .select("id").maybeSingle();
+  if (error || !data) return { error: "تعذّر إدخال المريض. حدّث الدور وتحقق من حالته ثم حاول مجدداً." };
+  revalidatePath("/secretary");
+  redirect("/secretary?sent=1");
+}

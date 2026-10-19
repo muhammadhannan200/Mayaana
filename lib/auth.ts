@@ -1,6 +1,6 @@
 import "server-only";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, isSupabaseConfigured } from "@/lib/supabase/server";
 
 export type ClinicRole = "doctor" | "secretary";
 export type ClinicAccount = { role: ClinicRole; mustChangePassword: boolean; clinicId: string };
@@ -26,6 +26,7 @@ export function homeForRole(role: ClinicRole) {
 }
 
 export async function getCurrentAccount(): Promise<ClinicAccount | null> {
+  if (!isSupabaseConfigured()) return null;
   const supabase = await createClient();
   const { data: { user }, error } = await supabase.auth.getUser();
   if (error || !user) return null;
