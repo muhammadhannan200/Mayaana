@@ -25,6 +25,12 @@ create table public.visit_measurements (
   visit_id uuid not null unique,
   recorded_by uuid not null references auth.users (id) on delete restrict,
   weight_kg numeric(5,2) check (weight_kg > 0 and weight_kg <= 500),
+  body_fat_percent numeric(5,2) check (body_fat_percent between 0 and 100),
+  muscle_mass_kg numeric(5,2) check (muscle_mass_kg > 0 and muscle_mass_kg <= 300),
+  visceral_fat_level numeric(5,2) check (visceral_fat_level >= 0 and visceral_fat_level <= 100),
+  basal_metabolic_rate_kcal numeric(6,1) check (basal_metabolic_rate_kcal > 0 and basal_metabolic_rate_kcal <= 10000),
+  waist_cm numeric(5,2) check (waist_cm > 0 and waist_cm <= 300),
+  arm_cm numeric(5,2) check (arm_cm > 0 and arm_cm <= 150),
   height_cm numeric(5,2) check (height_cm > 0 and height_cm <= 300),
   systolic_mmhg smallint check (systolic_mmhg between 40 and 300),
   diastolic_mmhg smallint check (diastolic_mmhg between 20 and 200),
@@ -32,7 +38,9 @@ create table public.visit_measurements (
   temperature_c numeric(4,1) check (temperature_c between 30 and 45),
   recorded_at timestamptz not null default now(),
   foreign key (clinic_id, visit_id) references public.visits (clinic_id, id) on delete restrict,
-  check (weight_kg is not null or height_cm is not null or systolic_mmhg is not null
+  check (weight_kg is not null or body_fat_percent is not null or muscle_mass_kg is not null
+    or visceral_fat_level is not null or basal_metabolic_rate_kcal is not null
+    or waist_cm is not null or arm_cm is not null or height_cm is not null or systolic_mmhg is not null
     or diastolic_mmhg is not null or pulse_bpm is not null or temperature_c is not null)
 );
 
@@ -53,10 +61,13 @@ alter table public.visit_private_notes enable row level security;
 revoke all on public.visits, public.visit_measurements, public.visit_private_notes from anon, authenticated;
 grant select on public.visits, public.visit_measurements to authenticated;
 grant insert (clinic_id, queue_id, patient_id, created_by) on public.visits to authenticated;
-grant insert (clinic_id, visit_id, recorded_by, weight_kg, height_cm,
+grant insert (clinic_id, visit_id, recorded_by, weight_kg, body_fat_percent, muscle_mass_kg,
+  visceral_fat_level, basal_metabolic_rate_kcal, waist_cm, arm_cm, height_cm,
   systolic_mmhg, diastolic_mmhg, pulse_bpm, temperature_c)
   on public.visit_measurements to authenticated;
-grant update (weight_kg, height_cm, systolic_mmhg, diastolic_mmhg, pulse_bpm, temperature_c)
+grant update (weight_kg, body_fat_percent, muscle_mass_kg, visceral_fat_level,
+  basal_metabolic_rate_kcal, waist_cm, arm_cm, height_cm,
+  systolic_mmhg, diastolic_mmhg, pulse_bpm, temperature_c)
   on public.visit_measurements to authenticated;
 grant select on public.visit_private_notes to authenticated;
 grant insert (clinic_id, visit_id, author_id, body) on public.visit_private_notes to authenticated;
