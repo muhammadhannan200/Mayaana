@@ -28,7 +28,7 @@ The existing Rashaqa Figma mobile web canvas is the visual reference, particular
 
 ## Evidence on Hand
 
-See `docs/product/overview.md`, `docs/product/figma-structure.md`, `docs/product/design-system.md`, `docs/auth/login-flow.md`, and `docs/database.md`. No real patient content is provided; sample names in Figma are not production records.
+See `docs/product-overview.md`, `docs/figma-structure.md`, `docs/design-system.md`, `docs/login-flow.md`, and `docs/database.md`. No real patient content is provided; sample names in Figma are not production records.
 
 ## Product Principles
 
