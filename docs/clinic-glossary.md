@@ -1,6 +1,6 @@
 # Clinic access vocabulary
 
-This glossary describes the Rashaqa clinic access context. The existing root `GLOSSARY.md` belongs to a separate calculator context and is intentionally preserved.
+This glossary describes the Mayaana clinic access context and the vocabulary used by the current clinic product.
 
 ## Language
 
