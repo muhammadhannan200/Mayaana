@@ -14,7 +14,7 @@ This is the **product-owner decision record** from the interview after the [Figm
 
 ## Implemented in the app
 
-- Arabic RTL login form styled against the scoped Figma frame, with its placed mark and Noto Sans Arabic; accepts an email address and sends its lowercase trimmed form to Supabase Auth.
+- Arabic RTL login form styled against the scoped Figma frame and using Noto Sans Arabic; accepts an email address and sends its lowercase trimmed form to Supabase Auth.
 - Server-side email/password authentication with Supabase SSR cookies, staff role, matching Auth email and activation checks from the administrator-managed `clinic_staff` table, role-specific guarded destinations, and a first-login change-password screen. Doctor-only signed-in password change, sign-out and distinct form/service errors are included.
 - The `/doctor` and `/secretary` routes are **minimal authenticated destinations**, not the doctor dashboard or secretary queue UI from Figma.
 - `/doctor/staff` is a read-only staff directory for the doctor's clinic. The `active` column can disable an account at the app's authorization boundary, including an otherwise valid Auth session.
