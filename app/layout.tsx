@@ -17,8 +17,9 @@ const ibmPlexArabic = IBM_Plex_Sans_Arabic({
 });
 
 export const metadata: Metadata = {
-  title: "معاينة | دخول العيادة",
-  description: "متابعة الوزن والتغذية للعيادة",
+  title: "معاينة | إدارة العيادة ومتابعة المرضى",
+  description:
+    "نظام لإدارة العيادة ومتابعة المرضى والزيارات والقياسات والبرامج الغذائية.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
