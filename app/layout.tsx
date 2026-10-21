@@ -4,6 +4,7 @@ import "./globals.css";
 
 const notoArabic = Noto_Sans_Arabic({
   subsets: ["arabic", "latin"],
+  weight: ["400", "500", "600", "700"],
   display: "swap",
   variable: "--font-arabic",
 });
