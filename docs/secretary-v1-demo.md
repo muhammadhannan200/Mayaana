@@ -41,7 +41,7 @@ Supporting patient-list and account routes are functional. The signed-in doctor 
 ## State and boundaries
 
 - `lib/demo-clinic.tsx` is the small centralized browser store. Versioned localStorage retains records/drafts on reload; a shared browser instance keeps Next's retained routes consistent, and storage events synchronize tabs.
-- Signed-in state is namespaced by clinic, public demo by `public`. This is **not** a security boundary or production patient storage. No real clinical data should be entered. Clearing site storage resets the demo. If storage is blocked, only in-memory state is available.
+- Signed-in state is namespaced by clinic, public demo by `public`. This is **not** a security boundary or production patient storage. No real clinical data should be entered. Use **إعادة ضبط العرض التجريبي** in `/demo/secretary/account` to restore the seed (with confirmation), or clear site storage. If storage is blocked, only in-memory state is available.
 - The fresh browser seed contains أحمد الخطيب (waiting), ليان منصور (partial measurements), سامر درويش (ready), نور الحسن (with doctor), and مريم العلي (completed). ريم الخطيب remains available for the search/add walkthrough. All names, measurements, histories and notes are fictional; seeded phone numbers use the reserved North American `202-555-01xx` example range, not actual patient contacts.
 - For an immediate doctor demo, open نور's file from `/demo/doctor`: measurements, previous visit, notes, a sample day with breakfast/lunch/dinner/two snacks, and a follow-up date two weeks ahead are populated. مريم's completed visit also contains a saved sample plan. Appointment time and previous-program copying have no existing UI and remain deferred.
 - Existing saved demo records are preserved, not silently replaced. To load the populated seed in a previously used browser, open **الحساب → إعادة ضبط العرض التجريبي** and confirm. Only this browser's public-demo namespace is reset; the reset syncs to its other tabs. No authentication is required.
@@ -72,7 +72,7 @@ Completion-pass results:
 - New doctor screens follow Figma D8 `122:340`, D9 `122:422`, D9b `142:1326`, D10 `122:533`: 390px RTL shell, existing font and tokens, teal weight card, 16px content spacing, 12/16px corners and bottom review sheet.
 - Deliberate demo deviations: extra two-step navigation, always-visible editable native date field instead of the Figma date summary/edit affordance, compact meal edit controls, dynamic real dates and counts. Upload/camera and previous-program copy controls are omitted rather than presenting dead actions.
 - D3/D4 retain the inherited functional lists/file summary; the full Figma profile tabs, charts and richer visit history are not reproduced. Check these in final Visual QA, along with icon geometry, text wrapping and vertical density against each frame. Desktop deliberately keeps the centered 390px mobile composition.
-- The inherited login still references `/rashaqa/login-mark-layer-b-1e6366b.png`, absent from current tracked public assets; signed-out guard testing reports an image 404. This predates this completion work; authentication, fonts and branding were not modified here.
+- Launch pass restored the placed Figma login artwork at `/rashaqa/login-mark-layer-b-1e6366.png`, refined D3/D4 hierarchy and D9/D10 density. See [v1-launch-audit.md](v1-launch-audit.md) for the full screen/deferred inventory and current validation; the historical results above are not the final launch results.
 
 ## Launch-demo polish
 

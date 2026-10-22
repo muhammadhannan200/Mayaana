@@ -213,7 +213,7 @@ function Flow({ route, demo = false }: { route: string; demo?: boolean }) {
     <header className="secretary-subheader">
       <h1>{title}</h1>
       <Link href={href(back)} aria-label="العودة">
-        <Icon name="close" />
+        <Icon name={doctor ? "arrow" : "close"} />
       </Link>
     </header>
   );
@@ -813,7 +813,7 @@ function Flow({ route, demo = false }: { route: string; demo?: boolean }) {
     content = (
       <>
         {subheader("المرضى", "doctor")}
-        <div className="secretary-content search-content">
+        <div className="secretary-content search-content doctor-patient-list">
           <label className="patient-search-input">
             <Icon name="search" size={20} />
             <input
@@ -836,7 +836,14 @@ function Flow({ route, demo = false }: { route: string; demo?: boolean }) {
                   <span>
                     <strong>{p.name}</strong>
                     <small>
-                      <bdi>{p.phone}</bdi> · {p.visits.length} زيارات
+                      {p.visits[0] ? (
+                        <>
+                          آخر زيارة <bdi>{p.visits[0].date}</bdi> ·{" "}
+                          <bdi>{p.visits[0].measurements.weight} كغ</bdi>
+                        </>
+                      ) : (
+                        "زيارة أولى اليوم"
+                      )}
                     </small>
                   </span>
                   <Icon name="arrow" />
@@ -855,12 +862,45 @@ function Flow({ route, demo = false }: { route: string; demo?: boolean }) {
   else {
     const record = patients.find((p) => p.id === route.split("/")[2]);
     const today = queue.find((e) => e.patientId === record?.id);
+    const latest =
+      today && today.status !== "waiting"
+        ? today.measurements
+        : record?.visits[0]?.measurements;
+    const startingWeight = record?.visits.at(-1)?.measurements.weight;
+    const change =
+      latest?.weight && startingWeight
+        ? Number(latest.weight) - Number(startingWeight)
+        : null;
     content = (
       <>
         {subheader(record?.name ?? "الملف غير موجود", "doctor")}
         <div className="secretary-content demo-patient-file">
           {record ? (
             <>
+              {latest?.weight && (
+                <section className="patient-progress">
+                  <h2>التقدم منذ البداية</h2>
+                  <p>
+                    <strong>
+                      <bdi>{latest.weight}</bdi>
+                    </strong>{" "}
+                    كغ
+                    {startingWeight && (
+                      <small>
+                        {" "}
+                        من <bdi>{startingWeight}</bdi>
+                      </small>
+                    )}
+                  </p>
+                  {change !== null && (
+                    <span>
+                      {change < 0 ? "نزول" : change > 0 ? "زيادة" : "ثبات"}{" "}
+                      <bdi>{Math.abs(change).toFixed(1)}</bdi> كغ ·{" "}
+                      {record.visits.length} زيارات سابقة
+                    </span>
+                  )}
+                </section>
+              )}
               <section>
                 <h2>معلومات المريض</h2>
                 <dl className="demo-patient-info">

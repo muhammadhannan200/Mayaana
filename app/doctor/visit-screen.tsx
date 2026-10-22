@@ -207,6 +207,10 @@ export function DoctorVisit({
                 className="visit-icon"
                 aria-label={`حذف اليوم ${index + 1}`}
                 onClick={() => {
+                  if (
+                    !window.confirm("حذف هذا اليوم وجميع وجباته من البرنامج؟")
+                  )
+                    return;
                   save((current) => ({
                     ...current,
                     days: current.days.filter((item) => item.id !== day.id),
@@ -214,7 +218,7 @@ export function DoctorVisit({
                   if (editing?.day === day.id) setEditing(null);
                 }}
               >
-                <Icon name="close" size={18} />
+                <Icon name="trash" size={18} />
               </button>
             )}
           </div>

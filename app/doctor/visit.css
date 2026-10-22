@@ -134,7 +134,10 @@
   min-width: 0;
 }
 .visit-meal strong {
-  font-size: 14px;
+  color: var(--brand);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 24px;
 }
 .visit-meal p {
   margin: 4px 0 0;
@@ -144,7 +147,7 @@
 }
 .visit-meal-actions {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
 }
 .visit-icon {
   display: grid;
@@ -177,10 +180,14 @@
 .visit-new-meal {
   display: grid;
   gap: 12px;
-  border: 1px solid #99f6e4;
+  border: 2px solid var(--focus);
   background: var(--soft);
   border-radius: 12px;
   padding: 12px;
+}
+.visit-new-meal h3 {
+  color: var(--brand);
+  font-size: 16px;
 }
 .visit-meal-types {
   display: flex;
@@ -198,7 +205,8 @@
   border-radius: 9999px;
   padding: 6px 8px;
   background: white;
-  font-size: 12px;
+  font-size: 14px;
+  line-height: 20px;
   cursor: pointer;
 }
 .visit-meal-types .selected {
@@ -219,10 +227,9 @@
 .visit-appointment {
   display: grid;
   gap: 12px;
-  border: 1px solid #99f6e4;
   border-radius: 16px;
   padding: 16px;
-  background: var(--soft);
+  background: #f1f5f9;
 }
 .visit-appointment h2 {
   margin: 0;
@@ -282,24 +289,38 @@
 }
 .visit-review h2 {
   margin: 0;
-  font-size: 24px;
-  line-height: 32px;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 28px;
 }
 .visit-review > p {
   margin: 8px 0 16px;
 }
 .visit-summary {
   margin: 0 0 16px;
-  padding: 12px 16px;
+  padding: 0;
+  border: 1px solid var(--line);
   border-radius: 12px;
-  background: #f8fafc;
+  background: white;
 }
 .visit-summary div {
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  padding: 8px 0;
+  padding: 12px 16px;
   font-size: 14px;
+}
+.visit-summary div + div {
+  border-top: 1px solid var(--line);
+}
+.visit-summary dt {
+  color: var(--muted);
+}
+.visit-summary dd {
+  font-weight: 600;
+}
+.visit-review .secretary-primary {
+  flex: 3;
 }
 .visit-summary dd {
   margin: 0;

@@ -16,7 +16,8 @@ export function Icon({
     | "edit"
     | "info"
     | "down"
-    | "ruler";
+    | "ruler"
+    | "trash";
   size?: number;
 }) {
   const paths: Record<typeof name, React.ReactNode> = {
@@ -58,6 +59,7 @@ export function Icon({
       </>
     ),
     close: <path d="M6 6l12 12M18 6 6 18" />,
+    trash: <path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7" />,
     check: <path d="m4 12 5 5L20 6" />,
     edit: (
       <>

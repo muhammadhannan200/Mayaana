@@ -2,6 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
 async function checkSurface(page: Page) {
+  await expect(page).toHaveTitle(/\S/);
   await expect(page.getByRole("main")).toHaveAttribute("dir", "rtl");
   expect(
     await page.evaluate(
@@ -22,6 +23,9 @@ test("complete V1: secretary intake → measurements → handoff → doctor note
   const errors: string[] = [];
   const writes: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
+  page.on("console", (message) => {
+    if (message.type() === "error") errors.push(message.text());
+  });
   page.on("request", (r) => {
     if (["POST", "PATCH", "DELETE", "PUT"].includes(r.method()))
       writes.push(r.url());
@@ -77,6 +81,9 @@ test("complete V1: secretary intake → measurements → handoff → doctor note
   await page.getByRole("button", { name: /حفظ القياسات/ }).click();
   const doctor = await context.newPage();
   doctor.on("pageerror", (e) => errors.push(e.message));
+  doctor.on("console", (message) => {
+    if (message.type() === "error") errors.push(message.text());
+  });
   await doctor.goto("/demo/doctor");
   await doctor.getByRole("link", { name: "فتح الملف", exact: true }).click();
   await checkSurface(doctor);
@@ -123,7 +130,7 @@ test("complete V1: secretary intake → measurements → handoff → doctor note
   ).toContainText("ريم الخطيب");
   await doctor.getByRole("link", { name: /ريم الخطيب/ }).click();
   await expect(doctor.locator(".demo-measurements")).toContainText("64.5");
-  await expect(doctor.getByText(/68.2/)).toBeVisible();
+  await expect(doctor.locator(".demo-visit-history")).toContainText("68.2");
   await doctor.reload();
   await expect(doctor.locator(".demo-measurements")).toContainText("64.5");
   await checkSurface(doctor);
@@ -154,6 +161,7 @@ test("complete V1: secretary intake → measurements → handoff → doctor note
     .getByLabel("تفاصيل الوجبة")
     .fill("بيضتان مسلوقتان + خبز أسمر + خيار");
   await doctor.screenshot({ path: info.outputPath("d9b.png"), fullPage: true });
+  await checkSurface(doctor);
   await doctor
     .getByRole("button", { name: "إضافة الوجبة", exact: true })
     .click();
@@ -167,6 +175,14 @@ test("complete V1: secretary intake → measurements → handoff → doctor note
   await doctor.reload();
   await expect(doctor.getByLabel("تاريخ الموعد")).toHaveValue(appointment);
   await expect(doctor.locator(".visit-meal")).toContainText("خضار");
+  await doctor.getByRole("button", { name: "إضافة يوم", exact: true }).click();
+  doctor.once("dialog", (dialog) => dialog.dismiss());
+  await doctor.getByRole("button", { name: "حذف اليوم 2" }).click();
+  await expect(doctor.locator(".visit-day")).toHaveCount(2);
+  doctor.once("dialog", (dialog) => dialog.accept());
+  await doctor.getByRole("button", { name: "حذف اليوم 2" }).click();
+  await expect(doctor.locator(".visit-day")).toHaveCount(1);
+  await expect(doctor.locator(".visit-meal")).toContainText("خضار");
   await checkSurface(doctor);
   await doctor.screenshot({ path: info.outputPath("d9.png"), fullPage: true });
   await doctor
@@ -174,12 +190,14 @@ test("complete V1: secretary intake → measurements → handoff → doctor note
     .click();
   await expect(doctor.getByRole("dialog")).toContainText("ريم الخطيب");
   await doctor.screenshot({ path: info.outputPath("d10.png"), fullPage: true });
+  await checkSurface(doctor);
   await doctor
     .getByRole("button", { name: "حفظ وإنهاء الزيارة", exact: true })
     .click();
   await expect(doctor.getByRole("status")).toContainText("اكتملت الزيارة");
   await doctor.reload();
   await expect(doctor.getByRole("status")).toContainText("اكتملت الزيارة");
+  await checkSurface(doctor);
   await expect(doctor.getByLabel("ملاحظاتي")).toHaveValue(
     "تقليل السكريات والمشي يومياً"
   );
@@ -297,7 +315,15 @@ test("recovery, cancel, unknown demo route and staff guards remain functional", 
   await page.getByRole("link", { name: "إلغاء", exact: true }).press("Enter");
   await expect(page).toHaveURL(/demo\/secretary\/search/);
   const response = await page.goto("/demo/unknown");
-  expect(response?.status()).toBe(404);
+  // Next streams the demo shell in production: notFound can keep HTTP 200.
+  expect([200, 404]).toContain(response?.status());
+  await expect(
+    page.getByRole("heading", { name: "404", exact: true })
+  ).toBeVisible();
+  await expect(page.locator('meta[name="robots"]').first()).toHaveAttribute(
+    "content",
+    /noindex/
+  );
   for (const path of [
     "/secretary",
     "/secretary/search",

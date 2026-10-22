@@ -23,6 +23,14 @@ test("critical controls have labels and an explicit unavailable state", async ({
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
   await expect(page.getByRole("main")).toBeVisible();
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  await expect(page.locator(".brand-mark")).toBeVisible();
+  await expect
+    .poll(() =>
+      page
+        .locator(".brand-mark")
+        .evaluate((image: HTMLImageElement) => image.naturalWidth)
+    )
+    .toBeGreaterThan(0);
   await expect(page.getByLabel("البريد الإلكتروني")).toHaveAttribute(
     "type",
     "email"
