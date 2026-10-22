@@ -14,7 +14,7 @@ async function checkSurface(page: Page) {
   );
 }
 
-test("existing patient: empty queue → search → confirm → S5/S5b → handoff → doctor, including reload and tab sync", async ({
+test("complete V1: secretary intake → measurements → handoff → doctor notes → diet and meal → completed visit", async ({
   page,
   context,
 }, info) => {
@@ -63,6 +63,7 @@ test("existing patient: empty queue → search → confirm → S5/S5b → handof
   await expect(page.getByLabel("الوزن اليوم")).toHaveValue("٦٤٫٥");
   await page.getByRole("button", { name: /حفظ القياسات/ }).click();
   const doctor = await context.newPage();
+  doctor.on("pageerror", (e) => errors.push(e.message));
   await doctor.goto("/demo/doctor");
   await expect(
     doctor.locator(".doctor-queue").filter({ hasText: "الدور برّا" })
@@ -83,6 +84,72 @@ test("existing patient: empty queue → search → confirm → S5/S5b → handof
   await expect(
     page.getByRole("button", { name: "إضافة للدور", exact: true })
   ).toHaveCount(0);
+  await doctor.getByRole("link", { name: "زيارة اليوم", exact: true }).click();
+  await expect(
+    doctor.getByRole("heading", { name: "زيارة اليوم" })
+  ).toBeVisible();
+  await expect(doctor.locator(".visit-weight")).toContainText("64.5");
+  await doctor.getByLabel("ملاحظاتي").fill("تقليل السكريات والمشي يومياً");
+  await doctor.reload();
+  await expect(doctor.getByLabel("ملاحظاتي")).toHaveValue(
+    "تقليل السكريات والمشي يومياً"
+  );
+  await checkSurface(doctor);
+  await doctor.screenshot({ path: info.outputPath("d8.png"), fullPage: true });
+  await doctor.getByRole("link", { name: "متابعة للبرنامج والموعد" }).click();
+  await doctor.getByRole("button", { name: "إضافة يوم", exact: true }).click();
+  await doctor.getByRole("button", { name: "إضافة وجبة", exact: true }).click();
+  await doctor.getByRole("radio", { name: "فطور", exact: true }).check();
+  await doctor
+    .getByLabel("تفاصيل الوجبة")
+    .fill("بيضتان مسلوقتان + خبز أسمر + خيار");
+  await doctor.screenshot({ path: info.outputPath("d9b.png"), fullPage: true });
+  await doctor
+    .getByRole("button", { name: "إضافة الوجبة", exact: true })
+    .click();
+  await doctor.getByRole("button", { name: "تعديل فطور", exact: true }).click();
+  await doctor
+    .getByLabel("تفاصيل الوجبة")
+    .fill("بيضتان مسلوقتان + خبز أسمر + خضار");
+  await doctor.getByRole("button", { name: "حفظ الوجبة", exact: true }).click();
+  const appointment = "2030-11-15";
+  await doctor.getByLabel("تاريخ الموعد").fill(appointment);
+  await doctor.reload();
+  await expect(doctor.getByLabel("تاريخ الموعد")).toHaveValue(appointment);
+  await expect(doctor.locator(".visit-meal")).toContainText("خضار");
+  await checkSurface(doctor);
+  await doctor.screenshot({ path: info.outputPath("d9.png"), fullPage: true });
+  await doctor
+    .getByRole("button", { name: "إنهاء الزيارة", exact: true })
+    .click();
+  await expect(doctor.getByRole("dialog")).toContainText("ريم الخطيب");
+  await doctor.screenshot({ path: info.outputPath("d10.png"), fullPage: true });
+  await doctor
+    .getByRole("button", { name: "حفظ وإنهاء الزيارة", exact: true })
+    .click();
+  await expect(doctor.getByRole("status")).toContainText("اكتملت الزيارة");
+  await doctor.reload();
+  await expect(doctor.getByRole("status")).toContainText("اكتملت الزيارة");
+  await expect(doctor.getByLabel("ملاحظاتي")).toHaveValue(
+    "تقليل السكريات والمشي يومياً"
+  );
+  await expect(doctor.locator(".visit-meal")).toContainText("خضار");
+  await expect(doctor.locator(".visit-appointment")).toContainText(appointment);
+  await expect(
+    doctor.getByRole("button", { name: "إنهاء الزيارة", exact: true })
+  ).toHaveCount(0);
+  await page.getByRole("link", { name: "العودة للدور", exact: true }).click();
+  await expect(page.getByText("اكتملت الزيارة", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "عند الطبيب (0)" })
+  ).toHaveCount(0);
+  await doctor
+    .getByRole("link", { name: "العودة للرئيسية", exact: true })
+    .click();
+  await expect(doctor.locator(".doctor-current")).toHaveCount(0);
+  await expect(
+    doctor.getByRole("heading", { name: "الزيارات المكتملة (1)" })
+  ).toBeVisible();
   expect(errors).toEqual([]);
   expect(writes).toEqual([]);
 });

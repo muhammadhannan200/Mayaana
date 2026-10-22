@@ -1,0 +1,294 @@
+/* D8–D10: preserve Figma's 390px RTL, teal weight card, day rows and review sheet. */
+.visit-shell {
+  position: relative;
+}
+.visit-shell .doctor-back svg {
+  transform: rotate(180deg);
+}
+.visit-content {
+  display: grid;
+  gap: 16px;
+  padding: 16px 16px 112px;
+}
+.visit-content h2,
+.visit-notes > label {
+  margin: 0 0 12px;
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 28px;
+}
+.visit-content h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+.visit-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--line);
+}
+.visit-tabs a {
+  flex: 1;
+  padding: 12px 4px;
+  font-size: 14px;
+  text-align: center;
+  color: var(--muted);
+  text-decoration: none;
+}
+.visit-tabs a[aria-current] {
+  border-bottom: 3px solid var(--brand);
+  color: var(--brand);
+  font-weight: 700;
+}
+.visit-weight {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 16px;
+  background: var(--soft);
+  border: 1px solid #99f6e4;
+  border-radius: 16px;
+}
+.visit-weight strong {
+  display: block;
+  font-size: 30px;
+  line-height: 38px;
+}
+.visit-content small,
+.visit-review > p {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 20px;
+}
+.visit-weight small {
+  display: block;
+  margin-top: 4px;
+}
+.visit-delta {
+  background: #f1f5f9;
+  padding: 4px 8px;
+  border-radius: 9999px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.visit-delta.good {
+  background: #f0fdf4;
+  color: #15803d;
+}
+.visit-notes {
+  display: grid;
+}
+.visit-content textarea {
+  width: 100%;
+  min-width: 0;
+  resize: vertical;
+  padding: 12px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: white;
+  color: var(--ink);
+  font: inherit;
+  line-height: 24px;
+}
+.visit-content textarea:focus,
+.visit-content input:focus {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+.visit-content textarea::placeholder {
+  color: var(--muted);
+}
+.visit-diet {
+  display: grid;
+  gap: 12px;
+}
+.visit-section-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.visit-section-heading h2 {
+  margin-bottom: 0;
+}
+.visit-day {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+}
+.visit-meal {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  background: white;
+  border-radius: 8px;
+}
+.visit-meal > div:first-child {
+  min-width: 0;
+}
+.visit-meal strong {
+  font-size: 14px;
+}
+.visit-meal p {
+  margin: 4px 0 0;
+  font-size: 14px;
+  line-height: 22px;
+  overflow-wrap: anywhere;
+}
+.visit-meal-actions {
+  display: flex;
+  flex-direction: column;
+}
+.visit-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.visit-dashed {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px;
+  border: 1px dashed var(--focus);
+  border-radius: 12px;
+  color: var(--brand);
+  background: white;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+.visit-new-meal {
+  display: grid;
+  gap: 12px;
+  border: 1px solid #99f6e4;
+  background: var(--soft);
+  border-radius: 12px;
+  padding: 12px;
+}
+.visit-meal-types {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0;
+  margin: 0;
+  border: 0;
+}
+.visit-meal-types label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: 9999px;
+  padding: 6px 8px;
+  background: white;
+  font-size: 12px;
+  cursor: pointer;
+}
+.visit-meal-types .selected {
+  border-color: var(--brand);
+  color: white;
+  background: var(--brand);
+}
+.visit-meal-types input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+.visit-meal-types label:has(input:focus-visible) {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+.visit-appointment {
+  display: grid;
+  gap: 12px;
+  border: 1px solid #99f6e4;
+  border-radius: 16px;
+  padding: 16px;
+  background: var(--soft);
+}
+.visit-appointment h2 {
+  margin: 0;
+  font-size: 16px;
+}
+.visit-appointment p {
+  margin: 0;
+  font-size: 24px;
+}
+.visit-buttons {
+  display: flex;
+  gap: 12px;
+}
+.visit-buttons > * {
+  flex: 1;
+}
+.visit-actionbar {
+  position: fixed;
+  bottom: 0;
+  width: min(100%, 390px);
+  padding: 12px 16px max(24px, env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line);
+  background: white;
+}
+.visit-actionbar > * {
+  width: 100%;
+}
+.visit-review {
+  position: fixed;
+  inset: auto 0 0;
+  width: min(100%, 390px);
+  max-width: 100%;
+  max-height: 90dvh;
+  margin: 0 auto;
+  padding: 20px 20px 32px;
+  border: 0;
+  border-radius: 24px 24px 0 0;
+  color: var(--ink);
+  background: white;
+}
+.visit-review::backdrop {
+  background: rgba(5, 8, 20, 0.55);
+}
+.visit-review h2 {
+  margin: 0;
+  font-size: 24px;
+  line-height: 32px;
+}
+.visit-review > p {
+  margin: 8px 0 16px;
+}
+.visit-summary {
+  margin: 0 0 16px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+.visit-summary div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  font-size: 14px;
+}
+.visit-summary dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.visit-content .demo-measurements:empty {
+  display: none;
+}

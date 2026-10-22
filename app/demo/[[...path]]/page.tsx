@@ -12,7 +12,7 @@ export default async function DemoPage({
   const { path = ["secretary"] } = await params;
   const route = path.join("/");
   if (
-    !/^(secretary(?:\/(?:search|confirm|account|patients(?:\/new)?|measurements\/(?:follow-up|previous|full-exam)))?|doctor(?:\/patients(?:\/[^/]+)?)?)$/.test(
+    !/^(secretary(?:\/(?:search|confirm|account|patients(?:\/new)?|measurements\/(?:follow-up|previous|full-exam)))?|doctor(?:\/(?:patients(?:\/[^/]+)?|visits\/[^/]+))?)$/.test(
       route
     )
   )

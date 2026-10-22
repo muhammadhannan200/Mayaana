@@ -26,8 +26,17 @@ export type DemoEntry = {
   id: string;
   patientId: string;
   kind: "follow_up" | "full_exam";
-  status: "waiting" | "ready" | "with_doctor";
+  status: "waiting" | "ready" | "with_doctor" | "completed";
   measurements: VisitMeasurement;
+  visit?: DemoVisit;
+};
+export type DemoMeal = { id: string; type: string; description: string };
+export type DemoDay = { id: string; meals: DemoMeal[] };
+export type DemoVisit = {
+  notes: string;
+  days: DemoDay[];
+  appointment: string;
+  completedAt?: string;
 };
 type State = { patients: DemoPatient[]; queue: DemoEntry[] };
 const initial: State = {
@@ -92,7 +101,9 @@ function createStore(scope: string) {
               (e) =>
                 typeof e.id === "string" &&
                 parsed.patients.some((p) => p.id === e.patientId) &&
-                ["waiting", "ready", "with_doctor"].includes(e.status) &&
+                ["waiting", "ready", "with_doctor", "completed"].includes(
+                  e.status
+                ) &&
                 e.measurements
             )
           )

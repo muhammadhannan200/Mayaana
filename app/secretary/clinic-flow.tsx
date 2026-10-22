@@ -11,6 +11,7 @@ import {
 } from "@/lib/demo-clinic";
 import { Icon } from "./components";
 import { MeasurementScreen } from "./measurements/measurement-screen";
+import { DoctorVisit } from "@/app/doctor/visit-screen";
 import { measurementFields } from "./measurements/mock-visits";
 import "./secretary.css";
 
@@ -37,8 +38,11 @@ function Flow({ route, demo = false }: { route: string; demo?: boolean }) {
   const entry = queue.find((e) => e.id === params.get("entry"));
   const patient = patients.find((p) => p.id === entry?.patientId);
   const go = (path: string) => router.push(href(path));
-  const waiting = queue.filter((e) => e.status !== "with_doctor");
+  const waiting = queue.filter(
+    (e) => e.status === "waiting" || e.status === "ready"
+  );
   const current = queue.filter((e) => e.status === "with_doctor");
+  const completed = queue.filter((e) => e.status === "completed");
   const normalize = (value: string) =>
     value
       .trim()
@@ -113,7 +117,12 @@ function Flow({ route, demo = false }: { route: string; demo?: boolean }) {
   }
 
   if (route.includes("/measurements/")) {
-    if (!entry || !patient || entry.status === "with_doctor")
+    if (
+      !entry ||
+      !patient ||
+      entry.status === "with_doctor" ||
+      entry.status === "completed"
+    )
       return (
         <main className="secretary-shell recovery" dir="rtl">
           <h1>اختر مريضاً من الدور</h1>
@@ -164,6 +173,9 @@ function Flow({ route, demo = false }: { route: string; demo?: boolean }) {
       />
     );
   }
+
+  if (route.startsWith("doctor/visits/"))
+    return <DoctorVisit entryId={route.split("/")[2]} demo={demo} />;
 
   const doctor = route.startsWith("doctor");
   const active = doctor
@@ -242,7 +254,7 @@ function Flow({ route, demo = false }: { route: string; demo?: boolean }) {
               <span>عند الطبيب</span>
             </div>
             <div>
-              <strong>0</strong>
+              <strong>{completed.length}</strong>
               <span>انتهت</span>
             </div>
           </div>
@@ -335,6 +347,19 @@ function Flow({ route, demo = false }: { route: string; demo?: boolean }) {
                   <li key={e.id} className="queue-card doctor-card">
                     <strong>{findPatient(e).name}</strong>
                     <span className="queue-status">عند الطبيب</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+          {completed.length > 0 && (
+            <section className="queue-section">
+              <h2>انتهت ({completed.length})</h2>
+              <ul className="queue-list">
+                {completed.map((e) => (
+                  <li key={e.id} className="queue-card doctor-card">
+                    <strong>{findPatient(e).name}</strong>
+                    <span className="queue-status">اكتملت الزيارة</span>
                   </li>
                 ))}
               </ul>
@@ -732,6 +757,21 @@ function Flow({ route, demo = false }: { route: string; demo?: boolean }) {
               ))}
             </ol>
           </section>
+          {completed.length > 0 && (
+            <section className="doctor-queue">
+              <h2>الزيارات المكتملة ({completed.length})</h2>
+              <ul>
+                {completed.map((e) => (
+                  <li key={e.id}>
+                    <Link href={href(`doctor/visits/${e.id}`)}>
+                      <span>{findPatient(e).name}</span>
+                      <span className="doctor-ready">اكتملت الزيارة</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
           <DemoNote demo={demo} href={href("secretary")} secretary />
         </div>
       </>
@@ -769,6 +809,18 @@ function Flow({ route, demo = false }: { route: string; demo?: boolean }) {
               <p className="secretary-muted">
                 <bdi>{record.phone}</bdi> · {record.height} سم · {record.goal}
               </p>
+              {today &&
+                (today.status === "with_doctor" ||
+                  today.status === "completed") && (
+                  <Link
+                    className="secretary-primary"
+                    href={href(`doctor/visits/${today.id}`)}
+                  >
+                    {today.status === "completed"
+                      ? "عرض الزيارة المكتملة"
+                      : "زيارة اليوم"}
+                  </Link>
+                )}
               <h2>قياسات اليوم</h2>
               {today && today.status !== "waiting" ? (
                 <dl className="demo-measurements">
