@@ -18,7 +18,7 @@ test("complete V1: secretary intake → measurements → handoff → doctor note
   page,
   context,
 }, info) => {
-  test.setTimeout(60000);
+  test.setTimeout(90000);
   const errors: string[] = [];
   const writes: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
@@ -27,11 +27,18 @@ test("complete V1: secretary intake → measurements → handoff → doctor note
       writes.push(r.url());
   });
   await page.goto("/demo/secretary");
+  await expect(page.locator(".queue-totals")).toHaveText(
+    /3بالانتظار1عند الطبيب1انتهت/
+  );
   await expect(
-    page.getByRole("heading", { name: "الدور فارغ الآن" })
+    page.getByText("القياسات غير مكتملة", { exact: false })
   ).toBeVisible();
+  await page.screenshot({
+    path: info.outputPath("populated-queue.png"),
+    fullPage: true,
+  });
   await checkSurface(page);
-  await page.getByRole("link", { name: "إضافة مريض للدور" }).click();
+  await page.getByRole("link", { name: "إضافة للدور", exact: true }).click();
   await page.getByLabel("اسم المريض أو رقم هاتفه").fill("ريم");
   await page.getByRole("link", { name: /ريم الخطيب/ }).click();
   await page.getByRole("radio", { name: /مراجعة/ }).check();
@@ -39,9 +46,15 @@ test("complete V1: secretary intake → measurements → handoff → doctor note
   await page
     .getByRole("button", { name: "إضافة للدور", exact: true })
     .dblclick();
-  await expect(page.locator(".queue-list:visible > li")).toHaveCount(1);
+  await expect(
+    page.locator(".queue-card").filter({ hasText: "ريم الخطيب" })
+  ).toHaveCount(1);
   await page.screenshot({ path: info.outputPath("s1.png"), fullPage: true });
-  await page.getByRole("link", { name: "أخذ القياس" }).click();
+  await page
+    .locator(".queue-card")
+    .filter({ hasText: "ريم الخطيب" })
+    .getByRole("link", { name: "أخذ القياس" })
+    .click();
   const weight = page.getByLabel("الوزن اليوم");
   await expect(weight).toHaveValue("");
   await page.getByRole("button", { name: /حفظ القياسات/ }).click();
@@ -65,13 +78,50 @@ test("complete V1: secretary intake → measurements → handoff → doctor note
   const doctor = await context.newPage();
   doctor.on("pageerror", (e) => errors.push(e.message));
   await doctor.goto("/demo/doctor");
+  await doctor.getByRole("link", { name: "فتح الملف", exact: true }).click();
+  await checkSurface(doctor);
+  await doctor.screenshot({
+    path: info.outputPath("populated-patient-file.png"),
+    fullPage: true,
+  });
+  await doctor.getByRole("link", { name: "زيارة اليوم", exact: true }).click();
+  await expect(doctor.getByLabel("ملاحظاتي")).toHaveValue(/نزول تدريجي جيد/);
+  await doctor.getByRole("link", { name: "متابعة للبرنامج والموعد" }).click();
+  await expect(doctor.locator(".visit-meal")).toHaveCount(5);
+  await expect(doctor.getByLabel("تاريخ الموعد")).not.toHaveValue("");
+  await doctor.screenshot({
+    path: info.outputPath("featured-plan.png"),
+    fullPage: true,
+  });
+  await doctor.reload();
+  await expect(doctor.locator(".visit-meal")).toHaveCount(5);
+  await doctor.goto("/demo/doctor/patients");
+  await checkSurface(doctor);
+  await doctor.screenshot({
+    path: info.outputPath("populated-patient-list.png"),
+    fullPage: true,
+  });
+  await doctor.getByLabel("اسم المريض أو رقم هاتفه").fill("مريم");
+  await doctor.getByRole("link", { name: /مريم العلي/ }).click();
+  await doctor.getByRole("link", { name: "عرض الزيارة المكتملة" }).click();
+  await expect(doctor.getByRole("status")).toContainText("اكتملت الزيارة");
+  await expect(doctor.locator(".visit-meal")).toHaveCount(5);
+  await doctor.goto("/demo/doctor");
   await expect(
     doctor.locator(".doctor-queue").filter({ hasText: "الدور برّا" })
   ).toContainText("ريم الخطيب");
-  await page.getByRole("button", { name: "إدخال عند الطبيب" }).click();
-  await expect(page.locator(".doctor-card")).toContainText("ريم الخطيب");
-  await expect(doctor.locator(".doctor-current")).toContainText("ريم الخطيب");
-  await doctor.getByRole("link", { name: "فتح الملف", exact: true }).click();
+  await page
+    .locator(".queue-card")
+    .filter({ hasText: "ريم الخطيب" })
+    .getByRole("button", { name: "إدخال عند الطبيب" })
+    .click();
+  await expect(
+    page.locator(".doctor-card").filter({ hasText: "ريم الخطيب" })
+  ).toBeVisible();
+  await expect(
+    doctor.locator(".doctor-queue").filter({ hasText: "عند الطبيب" })
+  ).toContainText("ريم الخطيب");
+  await doctor.getByRole("link", { name: /ريم الخطيب/ }).click();
   await expect(doctor.locator(".demo-measurements")).toContainText("64.5");
   await expect(doctor.getByText(/68.2/)).toBeVisible();
   await doctor.reload();
@@ -139,17 +189,32 @@ test("complete V1: secretary intake → measurements → handoff → doctor note
     doctor.getByRole("button", { name: "إنهاء الزيارة", exact: true })
   ).toHaveCount(0);
   await page.getByRole("link", { name: "العودة للدور", exact: true }).click();
-  await expect(page.getByText("اكتملت الزيارة", { exact: true })).toBeVisible();
+  await expect(
+    page.locator(".queue-card").filter({ hasText: "ريم الخطيب" })
+  ).toContainText("اكتملت الزيارة");
   await expect(
     page.getByRole("heading", { name: "عند الطبيب (0)" })
   ).toHaveCount(0);
   await doctor
     .getByRole("link", { name: "العودة للرئيسية", exact: true })
     .click();
-  await expect(doctor.locator(".doctor-current")).toHaveCount(0);
+  await expect(doctor.locator(".doctor-current")).toContainText("نور الحسن");
+  await expect(
+    doctor.getByRole("heading", { name: "الزيارات المكتملة (2)" })
+  ).toBeVisible();
+  await page.goto("/demo/secretary/account");
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: "إعادة ضبط العرض التجريبي" }).click();
+  await expect(page.locator(".queue-totals")).toHaveText(
+    /3بالانتظار1عند الطبيب1انتهت/
+  );
   await expect(
     doctor.getByRole("heading", { name: "الزيارات المكتملة (1)" })
   ).toBeVisible();
+  await page.reload();
+  await expect(page.locator(".queue-totals")).toHaveText(
+    /3بالانتظار1عند الطبيب1انتهت/
+  );
   expect(errors).toEqual([]);
   expect(writes).toEqual([]);
 });
@@ -174,7 +239,11 @@ test("new patient: E2 → S4 → S3 → S6 validates all fields and shares ident
   await page.getByRole("button", { name: /حفظ ومتابعة/ }).click();
   await expect(page.getByRole("heading", { name: "هبة أحمد" })).toBeVisible();
   await page.getByRole("button", { name: "إضافة للدور", exact: true }).click();
-  await page.getByRole("link", { name: "أخذ القياس" }).click();
+  await page
+    .locator(".queue-card")
+    .filter({ hasText: "هبة أحمد" })
+    .getByRole("link", { name: "أخذ القياس" })
+    .click();
   await expect(
     page.getByRole("heading", { name: "قياس كامل", exact: true })
   ).toBeVisible();
@@ -195,16 +264,26 @@ test("new patient: E2 → S4 → S3 → S6 validates all fields and shares ident
   for (const [label, value] of Object.entries(values))
     await page.getByRole("textbox", { name: label, exact: true }).fill(value);
   await page.getByRole("link", { name: "إغلاق شاشة القياس" }).click();
-  await page.getByRole("link", { name: "أخذ القياس" }).click();
+  await page
+    .locator(".queue-card")
+    .filter({ hasText: "هبة أحمد" })
+    .getByRole("link", { name: "أخذ القياس" })
+    .click();
   await expect(
     page.getByRole("textbox", { name: "الوزن", exact: true })
   ).toHaveValue("82.7");
   await checkSurface(page);
   await page.getByRole("button", { name: /حفظ القياسات/ }).click();
-  await page.getByRole("button", { name: "إدخال عند الطبيب" }).click();
+  await page
+    .locator(".queue-card")
+    .filter({ hasText: "هبة أحمد" })
+    .getByRole("button", { name: "إدخال عند الطبيب" })
+    .click();
   await page.getByRole("link", { name: "عرض الطبيب" }).click();
-  await expect(page.locator(".doctor-current")).toContainText("هبة أحمد");
-  await page.getByRole("link", { name: "فتح الملف", exact: true }).click();
+  await expect(
+    page.locator(".doctor-queue").filter({ hasText: "عند الطبيب" })
+  ).toContainText("هبة أحمد");
+  await page.getByRole("link", { name: /هبة أحمد/ }).click();
   await expect(page.locator(".demo-measurements > div")).toHaveCount(9);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("هبة أحمد");
 });

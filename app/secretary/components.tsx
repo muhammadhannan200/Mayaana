@@ -61,7 +61,7 @@ export function Icon({
     check: <path d="m4 12 5 5L20 6" />,
     edit: (
       <>
-        <path d="M13 5l6 6M4 20l4-.7L19 8a2 2 0 0 0-3-3L5 16l-1 4Z" />
+        <path d="m15 5 4 4M4 20l4-1L20 7a2.8 2.8 0 0 0-4-4L5 16l-1 4Z" />
       </>
     ),
     info: (

@@ -24,7 +24,7 @@ export function ClinicFlow(props: { route: string; demo?: boolean }) {
 }
 
 function Flow({ route, demo = false }: { route: string; demo?: boolean }) {
-  const { patients, queue, update } = useDemoClinic();
+  const { patients, queue, update, reset } = useDemoClinic();
   const router = useRouter();
   const params = useSearchParams();
   const href = (path: string) => `${demo ? "/demo" : ""}/${path}`;
@@ -67,6 +67,10 @@ function Flow({ route, demo = false }: { route: string; demo?: boolean }) {
                 patientId: id,
                 kind: visitKind,
                 status: "waiting",
+                arrivalTime: new Date().toLocaleTimeString("en-GB", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                }),
                 measurements: {},
               },
             ],
@@ -226,7 +230,11 @@ function Flow({ route, demo = false }: { route: string; demo?: boolean }) {
         <header className="secretary-header">
           <div>
             <h1>دور اليوم</h1>
-            <p>العيادة · دور اليوم</p>
+            <p>
+              {demo
+                ? "عرض تجريبي · جميع البيانات خيالية"
+                : "العيادة · دور اليوم"}
+            </p>
           </div>
           <span className="secretary-bell">
             <Icon name="bell" />
@@ -274,8 +282,16 @@ function Flow({ route, demo = false }: { route: string; demo?: boolean }) {
                         <span>
                           {e.status === "ready"
                             ? "جاهز للدخول"
-                            : "بانتظار القياس"}{" "}
+                            : Object.keys(e.measurements).length
+                              ? "القياسات غير مكتملة"
+                              : "بانتظار القياس"}{" "}
                           · الزيارة {findPatient(e).visits.length + 1}
+                          {e.arrivalTime && (
+                            <>
+                              {" "}
+                              · <bdi>{e.arrivalTime}</bdi>
+                            </>
+                          )}
                         </span>
                       </div>
                       {badge(e)}
@@ -670,6 +686,23 @@ function Flow({ route, demo = false }: { route: string; demo?: boolean }) {
           <Link className="secretary-outline" href={href("secretary")}>
             العودة للدور
           </Link>
+          {demo && (
+            <button
+              className="secretary-outline"
+              onClick={() => {
+                if (
+                  window.confirm(
+                    "إعادة بيانات العرض الخيالية؟ ستُحذف تعديلات العرض في هذا المتصفح فقط."
+                  )
+                ) {
+                  reset();
+                  go("secretary");
+                }
+              }}
+            >
+              إعادة ضبط العرض التجريبي
+            </button>
+          )}
           {!demo && (
             <form action={signOut}>
               <button className="secretary-primary signout">
@@ -780,20 +813,42 @@ function Flow({ route, demo = false }: { route: string; demo?: boolean }) {
     content = (
       <>
         {subheader("المرضى", "doctor")}
-        <div className="secretary-content">
+        <div className="secretary-content search-content">
+          <label className="patient-search-input">
+            <Icon name="search" size={20} />
+            <input
+              aria-label="اسم المريض أو رقم هاتفه"
+              placeholder="ابحث بالاسم أو رقم الهاتف"
+              value={term}
+              onChange={(event) => setTerm(event.target.value)}
+              maxLength={80}
+            />
+          </label>
+          <p className="secretary-muted">إجمالي المرضى ({matches.length})</p>
           <ul className="patient-result-list">
-            {patients.map((p) => (
+            {matches.map((p) => (
               <li key={p.id}>
                 <Link
                   className="patient-result patient-result-link"
                   href={href(`doctor/patients/${p.id}`)}
                 >
-                  <strong>{p.name}</strong>
+                  <span className="patient-avatar">{p.name[0]}</span>
+                  <span>
+                    <strong>{p.name}</strong>
+                    <small>
+                      <bdi>{p.phone}</bdi> · {p.visits.length} زيارات
+                    </small>
+                  </span>
                   <Icon name="arrow" />
                 </Link>
               </li>
             ))}
           </ul>
+          {matches.length === 0 && (
+            <p className="secretary-muted">
+              لا توجد نتائج. جرّب اسماً أو رقماً آخر.
+            </p>
+          )}
         </div>
       </>
     );
@@ -803,12 +858,37 @@ function Flow({ route, demo = false }: { route: string; demo?: boolean }) {
     content = (
       <>
         {subheader(record?.name ?? "الملف غير موجود", "doctor")}
-        <div className="secretary-content">
+        <div className="secretary-content demo-patient-file">
           {record ? (
             <>
-              <p className="secretary-muted">
-                <bdi>{record.phone}</bdi> · {record.height} سم · {record.goal}
-              </p>
+              <section>
+                <h2>معلومات المريض</h2>
+                <dl className="demo-patient-info">
+                  <div>
+                    <dt>الهدف</dt>
+                    <dd>{record.goal}</dd>
+                  </div>
+                  <div>
+                    <dt>الطول</dt>
+                    <dd>{record.height} سم</dd>
+                  </div>
+                  {record.birthYear && (
+                    <div>
+                      <dt>العمر التقريبي</dt>
+                      <dd>
+                        {new Date().getFullYear() - Number(record.birthYear)}{" "}
+                        سنة
+                      </dd>
+                    </div>
+                  )}
+                  <div>
+                    <dt>الهاتف التجريبي</dt>
+                    <dd>
+                      <bdi>{record.phone}</bdi>
+                    </dd>
+                  </div>
+                </dl>
+              </section>
               {today &&
                 (today.status === "with_doctor" ||
                   today.status === "completed") && (
@@ -841,11 +921,20 @@ function Flow({ route, demo = false }: { route: string; demo?: boolean }) {
                 <p>لم تُستكمل قياسات اليوم بعد.</p>
               )}
               <h2>الزيارات السابقة ({record.visits.length})</h2>
-              {record.visits.map((v) => (
-                <p key={v.id}>
-                  {v.date} · <bdi>{v.measurements.weight} كغ</bdi>
-                </p>
-              ))}
+              <ul className="demo-visit-history">
+                {record.visits.map((v) => (
+                  <li key={v.id}>
+                    <span>
+                      {v.date}
+                      <small>
+                        {v.kind === "full_exam" ? "كشفية" : "مراجعة"} · الزيارة{" "}
+                        {v.number}
+                      </small>
+                    </span>
+                    <bdi>{v.measurements.weight} كغ</bdi>
+                  </li>
+                ))}
+              </ul>
             </>
           ) : (
             <p>اختر مريضاً من القائمة.</p>
