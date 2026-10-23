@@ -1,0 +1,50 @@
+name: Auth E2E
+
+on:
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  auth-e2e:
+    name: Auth E2E (isolated Supabase, twice)
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.81.3
+      - run: npm ci
+        env:
+          HUSKY: "0"
+      - run: npx playwright install --with-deps chromium
+      - name: Auth E2E — first clean run
+        run: npm run test:auth
+      - name: Preserve first-run evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: auth-e2e-run-1
+          path: |
+            artifacts/auth/
+            test-results/
+          retention-days: 7
+      - name: Auth E2E — second clean run
+        run: npm run test:auth
+      - name: Preserve second-run evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: auth-e2e-run-2
+          path: |
+            artifacts/auth/
+            test-results/
+          retention-days: 7
