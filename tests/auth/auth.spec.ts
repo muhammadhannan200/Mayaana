@@ -59,7 +59,18 @@ test.beforeAll(async () => {
         if (value && !["host", "connection", "content-length"].includes(key))
           headers.set(key, Array.isArray(value) ? value.join(",") : value);
       }
-      const response = await fetch(upstream + req.url, {
+      const incoming = new URL(req.url ?? "/", "http://127.0.0.1:55439");
+      const endpoints = [
+        "http://127.0.0.1:55431/auth/v1/token",
+        "http://127.0.0.1:55431/auth/v1/user",
+        "http://127.0.0.1:55431/auth/v1/logout",
+        "http://127.0.0.1:55431/rest/v1/clinic_staff",
+      ];
+      const endpoint = endpoints.find(value => new URL(value).pathname === incoming.pathname);
+      if (!endpoint) { res.writeHead(404); res.end(); return; }
+      const destination = new URL(endpoint);
+      destination.search = incoming.search;
+      const response = await fetch(destination, {
         method: req.method,
         headers,
         body: chunks.length ? Buffer.concat(chunks) : undefined,
@@ -173,6 +184,7 @@ for (const role of ["doctor", "secretary"] as const) {
     await expect(page).toHaveURL(`/${role}`);
     await page.goto(role === "doctor" ? "/secretary" : "/doctor");
     await expect(page).toHaveURL(`/${role}`);
+    if (role === "secretary") await page.goto("/secretary/account");
     await page.getByRole("button", { name: "تسجيل الخروج" }).click();
     await expect(page).toHaveURL("/");
     await page.goto(`/${role}`);
@@ -191,11 +203,11 @@ test("invalid credentials and inactive staff use generic denial", async ({
   page,
 }) => {
   await login(page, "doctor", password + "wrong");
-  await expect(page.getByRole("alert")).toHaveText(
+  await expect(page.locator("p[role=alert]")).toHaveText(
     "البريد الإلكتروني أو كلمة المرور غير صحيحة."
   );
   await login(page, "inactive");
-  await expect(page.getByRole("alert")).toHaveText(
+  await expect(page.locator("p[role=alert]")).toHaveText(
     "البريد الإلكتروني أو كلمة المرور غير صحيحة."
   );
   await page.goto("/secretary");
@@ -205,7 +217,7 @@ test("invalid credentials and inactive staff use generic denial", async ({
 test("backend failure is distinct from credentials", async ({ page }) => {
   fault = true;
   await login(page, "doctor");
-  await expect(page.getByRole("alert")).toHaveText(
+  await expect(page.locator("p[role=alert]")).toHaveText(
     "تعذّر الاتصال بالخدمة. حاول مرة أخرى."
   );
   await expect(page).toHaveURL("/");
@@ -247,13 +259,13 @@ for (const role of ["first-doctor", "first-secretary"] as const) {
     await page.getByLabel("كلمة المرور الجديدة", { exact: true }).fill("short");
     await page.getByLabel("تأكيد كلمة المرور").fill("short");
     await page.getByRole("button", { name: "حفظ كلمة المرور" }).click();
-    await expect(page.getByRole("alert")).toContainText("8 أحرف");
+    await expect(page.locator("p[role=alert]")).toContainText("8 أحرف");
     await page
       .getByLabel("كلمة المرور الجديدة", { exact: true })
       .fill(password + "new");
     await page.getByLabel("تأكيد كلمة المرور").fill(password + "different");
     await page.getByRole("button", { name: "حفظ كلمة المرور" }).click();
-    await expect(page.getByRole("alert")).toContainText("غير مطابق");
+    await expect(page.locator("p[role=alert]")).toContainText("غير مطابق");
     await page
       .getByLabel("كلمة المرور الجديدة", { exact: true })
       .fill(password + "new");
@@ -272,6 +284,7 @@ for (const role of ["first-doctor", "first-secretary"] as const) {
     await expect(page).toHaveURL(destination);
     await page.goto("/");
     await expect(page).toHaveURL(destination);
+    if (role === "first-secretary") await page.goto("/secretary/account");
     await page.getByRole("button", { name: "تسجيل الخروج" }).click();
     await expect(page).toHaveURL("/");
     await login(page, role, password + "new");
