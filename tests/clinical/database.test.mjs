@@ -100,7 +100,7 @@ test("measurement persistence, stale rejection, retry-safe handoff and no post-h
   const oldRevision = queue.revision;
   queue = await rpc(staff.secretary, "clinical_save_measurements", { p_queue: queue.id, p_revision: queue.revision, p_values: measurements });
   assert.equal(queue.status, "ready");
-  const stale = await denied(staff.secretary.rpc("clinical_save_measurements", { p_queue: queue.id, p_revision: oldRevision, p_values: { ...measurements, weight: 90 } })); assert.equal(stale.code, "40001");
+  const stale = await denied(staff.secretary.rpc("clinical_save_measurements", { p_queue: queue.id, p_revision: oldRevision, p_values: { ...measurements, weight: 90 } })); assert.equal(stale.code, "PT409");
   const handoff = { p_queue: queue.id, p_revision: queue.revision, p_request: randomUUID() };
   const [first, retry] = await Promise.all([rpc(staff.secretary, "clinical_handoff", handoff), rpc(staff.secretary, "clinical_handoff", handoff)]);
   assert.deepEqual(first, retry); queue = first; assert.equal(queue.status, "with_doctor");

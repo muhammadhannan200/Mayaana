@@ -209,7 +209,7 @@ begin
     if tg_table_name = 'appointments' then v_id := old.originating_visit_id; else v_id := old.visit_id; end if;
     select completed_at is not null into finished from public.visits where id = v_id;
   end if;
-  if finished then raise exception using errcode = '55000', message = 'Completed clinical record is immutable'; end if;
+  if finished then raise exception using errcode = 'PT409', message = 'Completed clinical record is immutable'; end if;
   if tg_op = 'DELETE' then return old; end if;
   return new;
 end $$;
@@ -227,8 +227,8 @@ begin
   if not found then raise exception using errcode = '42501', message = 'Clinical record unavailable'; end if;
   r := clinical_private.staff_role(q.clinic_id);
   if r is null or (p_doctor and r <> 'doctor') then raise exception using errcode = '42501', message = 'Clinical access denied'; end if;
-  if p_revision is null or q.revision <> p_revision then raise exception using errcode = '40001', message = 'Clinical revision conflict'; end if;
-  if not q.status = any(p_states) then raise exception using errcode = '55000', message = 'Invalid clinical transition'; end if;
+  if p_revision is null or q.revision <> p_revision then raise exception using errcode = 'PT409', message = 'Clinical revision conflict'; end if;
+  if not q.status = any(p_states) then raise exception using errcode = 'PT409', message = 'Invalid clinical transition'; end if;
   return q;
 end $$;
 
@@ -246,7 +246,7 @@ begin
   select * into existing from public.patients where id = p_id;
   if not found or existing.clinic_id <> p_clinic or existing.full_name is distinct from btrim(p_name) or existing.phone is distinct from p_phone
     or existing.height_cm is distinct from p_height or existing.gender is distinct from p_gender or existing.birth_year is distinct from p_birth_year or existing.goal is distinct from p_goal then
-    raise exception using errcode = '40001', message = 'Patient request conflict';
+    raise exception using errcode = 'PT409', message = 'Patient request conflict';
   end if;
   return existing.id;
 end $$;
@@ -259,7 +259,7 @@ begin
   insert into public.daily_queue(clinic_id,patient_id,visit_type,created_by,updated_by)
     values(p_clinic,p_patient,p_kind,auth.uid(),auth.uid()) on conflict(clinic_id,patient_id,queue_date) do nothing;
   select * into q from public.daily_queue where clinic_id=p_clinic and patient_id=p_patient and queue_date=(now() at time zone 'Asia/Damascus')::date for update;
-  if not found or q.visit_type is distinct from p_kind then raise exception using errcode='40001',message='Queue request conflict'; end if;
+  if not found or q.visit_type is distinct from p_kind then raise exception using errcode='PT409',message='Queue request conflict'; end if;
   insert into public.visits(clinic_id,patient_id,queue_entry_id,created_by,updated_by)
     values(q.clinic_id,q.patient_id,q.id,auth.uid(),auth.uid()) on conflict(queue_entry_id) do nothing;
   return q;
@@ -271,7 +271,7 @@ declare p public.patients;
 begin
   select * into p from public.patients where id=p_id for update;
   if not found or clinical_private.staff_role(p.clinic_id) is null then raise exception using errcode='42501',message='Clinical record unavailable'; end if;
-  if p_revision is null or p.revision<>p_revision then raise exception using errcode='40001',message='Patient revision conflict'; end if;
+  if p_revision is null or p.revision<>p_revision then raise exception using errcode='PT409',message='Patient revision conflict'; end if;
   if p_height is null or p_gender is null or p_goal is null or p_phone is null or p_phone !~ '^[+]?[0-9]{6,15}$'
     or (p_birth_year is not null and p_birth_year>extract(year from now())) then raise exception using errcode='22023',message='Invalid patient details'; end if;
   update public.patients set full_name=btrim(p_name),phone=p_phone,height_cm=p_height,gender=p_gender,birth_year=p_birth_year,goal=p_goal,
