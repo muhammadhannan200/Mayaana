@@ -23,7 +23,7 @@ let started = false;
 try {
   cpSync(join(root, "supabase"), join(workdir, "supabase"), { recursive: true, filter: source => !source.includes(`${process.platform === "win32" ? "\\" : "/"}.temp`) });
   const config = join(workdir, "supabase", "config.toml");
-  writeFileSync(config, readFileSync(config, "utf8").replace(/project_id = "[^"]+"/, `project_id = "clinical-${randomUUID()}"`));
+  writeFileSync(config, readFileSync(config, "utf8").replace(/project_id = "[^"]+"/, `project_id = "clinical-${randomUUID().slice(0, 18)}"`));
   for (const port of [55430, 55431, 55432]) {
     await new Promise((resolve, reject) => {
       const server = createServer();

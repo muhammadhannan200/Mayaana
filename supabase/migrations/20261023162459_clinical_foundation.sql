@@ -11,14 +11,15 @@ do $$ begin
   end if;
 end $$;
 grant mayaana_clinical_api to postgres;
+-- Supabase owns auth schema grants. Inherit its existing authenticated identity
+-- helper privileges rather than attempting to re-grant protected auth objects.
+-- Membership is ONE WAY: authenticated can never assume this API role.
+grant authenticated to mayaana_clinical_api with inherit true;
 create schema clinical_private;
 revoke all on schema clinical_private from public;
 grant usage on schema clinical_private to authenticated, mayaana_clinical_api;
-grant usage on schema public, auth to mayaana_clinical_api;
-grant execute on function auth.uid() to mayaana_clinical_api;
+grant usage on schema public to mayaana_clinical_api;
 grant select on public.clinic_staff to mayaana_clinical_api;
-create policy clinical_api_own_staff on public.clinic_staff for select to mayaana_clinical_api
-  using (user_id = (select auth.uid()));
 
 create function clinical_private.staff_role(p_clinic uuid) returns text
 language sql stable security invoker set search_path = '' as $$
