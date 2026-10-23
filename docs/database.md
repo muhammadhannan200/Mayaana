@@ -1,5 +1,9 @@
 # Clinic staff database
 
+## Slice 1 reconciliation
+
+The owner subsequently verified applied migration `20261019092326_create_patients_and_daily_queue` and existing RLS-enabled `patients` / `daily_queue` tables. Its original SQL is now restored unchanged in this repository. The new `20261023160531_clinical_persistence_slice_1` migration is **pending operator deployment**, not claimed applied remotely. It adds visits/measurements, queue readiness/revisions, same-clinic integrity and role-specific transactional operations. See [persistence-slice-1.md](persistence-slice-1.md) for the exact history, permissions, test strategy and deployment gate. No hosted data is changed by adding these files.
+
 The connected Supabase project contains two public tables created by migrations `20261012063351_create_clinic_staff_directory` and `20261012063623_combine_clinic_staff_read_policy`, with the staff login field changed by `20261015053810_switch_staff_login_to_email`. Their checked-in SQL is under [`supabase/migrations/`](../supabase/migrations/). This describes the **clinic login directory**, not patient medical records. The migrations did not insert any clinic, staff or patient data.
 
 ## What lives where
@@ -28,4 +32,4 @@ To disable a staff member, set `active = false` through an authorized administra
 
 ## Remaining scope
 
-Patient files, appointments, visits, attachments and medical measurements have **no tables yet**. Define their ownership and RLS separately before adding them. At the email-login migration check, `clinics` and `clinic_staff` both had zero rows; an Auth user existed independently without a linked staff record. Do not assume its role. No end-to-end login with a linked clinic account has been verified yet.
+Appointments, attachments, diet plans, private notes and visit completion remain outside Slice 1. The target's visits/measurements tables were absent at reconciliation; the pending additive migration supplies them. Historical statements above about empty staff tables describe the email-login migration check, not a current live row count. Do not assume any existing Auth user's role. Real authentication E2E assurance remains tracked separately in issue #20.
