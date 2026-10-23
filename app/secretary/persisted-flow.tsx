@@ -40,14 +40,20 @@ export function PersistedClinicFlow({ route }: { route: string }) {
   const generation = useRef(0);
   const refresh = useCallback(async () => {
     const current = ++generation.current;
-    const result = await readClinic();
-    if (current !== generation.current) return false;
-    if (result.error) {
-      setError(result.error);
+    try {
+      const result = await readClinic();
+      if (current !== generation.current) return false;
+      if (result.error) {
+        setError(result.error);
+        return false;
+      }
+      setSnapshot(result.data!);
+      return true;
+    } catch {
+      if (current === generation.current)
+        setError("تعذّر الاتصال. أعد التحميل بعد التحقق من الشبكة.");
       return false;
     }
-    setSnapshot(result.data!);
-    return true;
   }, []);
   useEffect(() => {
     let active = true;
@@ -86,6 +92,11 @@ export function PersistedClinicFlow({ route }: { route: string }) {
       if (!loaded) return false;
       if (destination) router.push(destination.replace("{id}", result.data!));
       return true;
+    } catch {
+      setError(
+        "تعذّر الحفظ. احتفظ بالقيم وأعد المحاولة بعد التحقق من الاتصال."
+      );
+      return false;
     } finally {
       busy.current = false;
       setPending(false);
@@ -124,8 +135,8 @@ export function PersistedClinicFlow({ route }: { route: string }) {
         className="text-link"
         disabled={pending}
         onClick={() => {
-          setError("");
-          void refresh();
+          // Explicitly discard the stale editor and acquire a fresh revision.
+          window.location.reload();
         }}
       >
         إعادة التحميل
@@ -194,7 +205,11 @@ export function PersistedClinicFlow({ route }: { route: string }) {
     content = (
       <>
         {back("ملف مريض جديد")}
-        <form className="secretary-content new-patient-form" onSubmit={create}>
+        <form
+          className="secretary-content new-patient-form"
+          onSubmit={create}
+          inert={pending}
+        >
           <label className="secretary-field">
             الاسم الكامل *
             <input

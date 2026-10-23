@@ -64,31 +64,27 @@ async function actor(
     target = randomUUID();
     expect(
       (
-        await admin
-          .from("clinics")
-          .insert({
-            id: target,
-            name: "Synthetic test clinic",
-            doctor_user_id: user.id,
-          })
+        await admin.from("clinics").insert({
+          id: target,
+          name: "Synthetic test clinic",
+          doctor_user_id: user.id,
+        })
       ).error
     ).toBeNull();
     clinics.push(target);
   }
   expect(
     (
-      await admin
-        .from("clinic_staff")
-        .insert({
-          user_id: user.id,
-          clinic_id: target,
-          role,
-          login_email: email,
-          display_name: name,
-          active: true,
-          must_change_password: false,
-          ...flags,
-        })
+      await admin.from("clinic_staff").insert({
+        user_id: user.id,
+        clinic_id: target,
+        role,
+        login_email: email,
+        display_name: name,
+        active: true,
+        must_change_password: false,
+        ...flags,
+      })
     ).error
   ).toBeNull();
   expect(
@@ -253,33 +249,27 @@ test("composite foreign keys reject clinic and patient relationship substitution
   const entry = randomUUID();
   expect(
     (
-      await admin
-        .from("daily_queue")
-        .insert({
-          id: entry,
-          clinic_id: clinic,
-          patient_id: p.id,
-          visit_type: "full_exam",
-        })
+      await admin.from("daily_queue").insert({
+        id: entry,
+        clinic_id: clinic,
+        patient_id: p.id,
+        visit_type: "full_exam",
+      })
     ).error
   ).toBeNull();
-  const wrongPatient = await admin
-    .from("visits")
-    .insert({
-      clinic_id: clinic,
-      queue_id: entry,
-      patient_id: second.id,
-      created_by: secretary.id,
-    });
+  const wrongPatient = await admin.from("visits").insert({
+    clinic_id: clinic,
+    queue_id: entry,
+    patient_id: second.id,
+    created_by: secretary.id,
+  });
   expect(wrongPatient.error?.code).toBe("23503");
-  const wrongClinic = await admin
-    .from("visits")
-    .insert({
-      clinic_id: clinicB,
-      queue_id: entry,
-      patient_id: p.id,
-      created_by: other.id,
-    });
+  const wrongClinic = await admin.from("visits").insert({
+    clinic_id: clinicB,
+    queue_id: entry,
+    patient_id: p.id,
+    created_by: other.id,
+  });
   expect(wrongClinic.error?.code).toBe("23503");
   await enqueue(secretary.db, p.id);
   const visit = await secretary.db
@@ -289,17 +279,15 @@ test("composite foreign keys reject clinic and patient relationship substitution
     .single();
   expect(
     (
-      await admin
-        .from("visit_measurements")
-        .insert({
-          clinic_id: clinicB,
-          visit_id: visit.data!.id,
-          recorded_by: other.id,
-          request_id: randomUUID(),
-          request_payload: {},
-          expected_revision: 0,
-          weight_kg: 70,
-        })
+      await admin.from("visit_measurements").insert({
+        clinic_id: clinicB,
+        visit_id: visit.data!.id,
+        recorded_by: other.id,
+        request_id: randomUUID(),
+        request_payload: {},
+        expected_revision: 0,
+        weight_kg: 70,
+      })
     ).error
   ).not.toBeNull();
 });
@@ -352,7 +340,7 @@ test("measurements enforce ranges, revisions, retries, serialized races and immu
         p_values: { ...full, weight: "75" },
       })
     ).error?.code
-  ).toBe("40001");
+  ).toBe("PT409");
   const races = await Promise.all(
     ["75", "76"].map((weight) =>
       secretary.db.rpc("clinical_save_measurements", {
@@ -364,7 +352,7 @@ test("measurements enforce ranges, revisions, retries, serialized races and immu
     )
   );
   expect(races.filter((r) => !r.error)).toHaveLength(1);
-  expect(races.filter((r) => r.error?.code === "40001")).toHaveLength(1);
+  expect(races.filter((r) => r.error?.code === "PT409")).toHaveLength(1);
   const handed = await Promise.all(
     [1, 2].map(() =>
       secretary.db.rpc("clinical_handoff", { p_entry: entry, p_revision: 2 })
@@ -474,6 +462,17 @@ test("two independent browser sessions see the persisted Secretary to Doctor han
     await s.getByLabel("الاسم الكامل *", { exact: true }).fill(name);
     await s.getByLabel("رقم الهاتف *", { exact: true }).fill("+12025550199");
     await s.getByLabel("الطول *", { exact: true }).fill("165");
+    await s.route("**/secretary/patients/new", (route) =>
+      route.request().method() === "POST"
+        ? route.abort("failed")
+        : route.continue()
+    );
+    await s.getByRole("button", { name: "حفظ ومتابعة الإضافة للدور" }).click();
+    await expect(s.getByRole("alert")).toContainText("تعذّر الحفظ");
+    await expect(s.getByLabel("الاسم الكامل *", { exact: true })).toHaveValue(
+      name
+    );
+    await s.unroute("**/secretary/patients/new");
     await s.getByRole("button", { name: "حفظ ومتابعة الإضافة للدور" }).click();
     await expect(s).toHaveURL(/\/secretary\/confirm\?patient=/);
     await s.getByRole("button", { name: "إضافة للدور", exact: true }).click();
@@ -494,6 +493,27 @@ test("two independent browser sessions see the persisted Secretary to Doctor han
         .getByRole("textbox", { name: label, exact: true })
         .fill(full[key as keyof typeof full]);
     }
+    // A competing session saves after this editor acquired revision zero.
+    const editedEntry = new URL(s.url()).searchParams.get("entry");
+    expect(
+      (
+        await secretary.db.rpc("clinical_save_measurements", {
+          p_entry: editedEntry,
+          p_revision: 0,
+          p_request: randomUUID(),
+          p_values: full,
+        })
+      ).error
+    ).toBeNull();
+    await s.getByRole("button", { name: "حفظ القياسات وتجهيز للدخول" }).click();
+    await expect(s.getByRole("alert")).toContainText("تغيّرت البيانات");
+    await expect(
+      s.getByRole("textbox", { name: "الوزن", exact: true })
+    ).toHaveValue("74.8");
+    await s.getByRole("button", { name: "إعادة التحميل", exact: true }).click();
+    await expect(
+      s.getByRole("textbox", { name: "الوزن", exact: true })
+    ).toHaveValue("74.8");
     await s.getByRole("button", { name: "حفظ القياسات وتجهيز للدخول" }).click();
     await expect(s).toHaveURL(/measured=1/);
     await s

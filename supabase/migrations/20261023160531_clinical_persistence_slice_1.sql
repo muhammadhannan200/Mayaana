@@ -108,7 +108,7 @@ begin
     raise exception 'Queue entry is no longer editable' using errcode = '22023';
   end if;
   if new.revision <> old.revision + 1 then
-    raise exception 'Revision conflict' using errcode = '40001';
+    raise exception 'Revision conflict' using errcode = 'PT409';
   end if;
   select (m.weight_kg is not null and (old.visit_type = 'follow_up' or
     (m.body_fat_percent is not null and m.muscle_mass_kg is not null
@@ -142,10 +142,10 @@ begin
     raise exception 'Measurements are not editable' using errcode = '22023';
   end if;
   if new.expected_revision is null or new.expected_revision <> q.revision then
-    raise exception 'Revision conflict' using errcode = '40001';
+    raise exception 'Revision conflict' using errcode = 'PT409';
   end if;
   if tg_op = 'UPDATE' and new.request_id = old.request_id then
-    raise exception 'Use a fresh request identifier for an edit' using errcode = '40001';
+    raise exception 'Use a fresh request identifier for an edit' using errcode = 'PT409';
   end if;
   new.recorded_at := now();
   return new;
@@ -193,7 +193,7 @@ begin
     or existing.phone is distinct from p_phone or existing.height_cm is distinct from p_height::numeric
     or existing.gender is distinct from p_gender or existing.birth_year is distinct from nullif(p_birth_year,'')::smallint
     or existing.goal is distinct from p_goal then
-    raise exception 'Patient retry does not match' using errcode = '40001';
+    raise exception 'Patient retry does not match' using errcode = 'PT409';
   end if;
   return p_id;
 end $$;
@@ -216,7 +216,7 @@ begin
   select * into q from public.daily_queue where clinic_id = c and patient_id = p_patient
     and queue_date = (now() at time zone 'Asia/Damascus')::date for update;
   if q.id is null then raise exception 'Patient unavailable' using errcode = '42501'; end if;
-  if q.visit_type <> p_kind then raise exception 'Check-in type conflict' using errcode = '40001'; end if;
+  if q.visit_type <> p_kind then raise exception 'Check-in type conflict' using errcode = 'PT409'; end if;
   insert into public.visits (clinic_id, queue_id, patient_id, created_by)
     values (c, q.id, p_patient, auth.uid()) on conflict (queue_id) do nothing;
   return q.id;
@@ -238,10 +238,10 @@ begin
     raise exception 'Invalid measurements' using errcode = '22023';
   end if;
   if m.request_id = p_request then
-    if m.request_payload is distinct from p_values then raise exception 'Retry payload changed' using errcode = '40001'; end if;
+    if m.request_payload is distinct from p_values then raise exception 'Retry payload changed' using errcode = 'PT409'; end if;
     return q.id;
   end if;
-  if p_revision is null or q.revision <> p_revision then raise exception 'Revision conflict' using errcode = '40001'; end if;
+  if p_revision is null or q.revision <> p_revision then raise exception 'Revision conflict' using errcode = 'PT409'; end if;
   if q.status = 'with_doctor' then raise exception 'Already handed off' using errcode = '22023'; end if;
   for item in select * from jsonb_each_text(p_values) loop
     if item.key not in ('weight','fat','muscle','visceral','bmr','waist','arm','thigh','hip')
@@ -277,7 +277,7 @@ begin
     raise exception 'Not authorized' using errcode = '42501';
   end if;
   if q.status = 'with_doctor' then return q.id; end if;
-  if p_revision is null or q.revision <> p_revision then raise exception 'Revision conflict' using errcode = '40001'; end if;
+  if p_revision is null or q.revision <> p_revision then raise exception 'Revision conflict' using errcode = 'PT409'; end if;
   if q.status <> 'ready' then raise exception 'Patient is not ready' using errcode = '22023'; end if;
   update public.daily_queue set status = 'with_doctor', revision = revision + 1 where id = q.id;
   return q.id;

@@ -540,7 +540,7 @@ export function MeasurementScreen({
         }
       />
       <form className="measure-form" onSubmit={submit} noValidate>
-        <div className="measure-content">
+        <div className="measure-content" inert={pending}>
           {full ? (
             <>
               <p className="measure-tip">

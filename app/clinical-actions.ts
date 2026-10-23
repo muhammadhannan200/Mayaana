@@ -134,7 +134,7 @@ export async function mutateClinic(
         return { error: "طلب غير صالح." };
     }
     if (result.error) {
-      if (result.error.code === "40001")
+      if (result.error.code === "PT409")
         return {
           error:
             "تغيّرت البيانات من جهاز آخر. أعد التحميل وراجعها قبل المحاولة.",
