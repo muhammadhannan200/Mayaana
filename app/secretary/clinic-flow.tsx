@@ -14,11 +14,16 @@ import { MeasurementScreen } from "./measurements/measurement-screen";
 import { DoctorVisit } from "@/app/doctor/visit-screen";
 import { measurementFields } from "./measurements/mock-visits";
 import "./secretary.css";
+import { PersistedClinicFlow } from "./persisted-flow";
 
 export function ClinicFlow(props: { route: string; demo?: boolean }) {
   return (
     <Suspense fallback={<p className="secretary-muted">جارٍ تحميل العرض…</p>}>
-      <Flow {...props} />
+      {props.demo ? (
+        <Flow {...props} />
+      ) : (
+        <PersistedClinicFlow route={props.route} />
+      )}
     </Suspense>
   );
 }

@@ -159,10 +159,17 @@ export async function changePassword(
 
 export async function signOut(): Promise<FormResult> {
   try {
-    const supabase = await createClient();
+    // auth-js clears local storage even on a logout service failure. Do not
+    // expire the browser session until remote revocation actually succeeds:
+    // otherwise the protected-page rerender redirects before showing the error.
+    const cookieWrites: Array<() => void> = [];
+    const supabase = await createClient({
+      deferCookieWrite: (commit) => cookieWrites.push(commit),
+    });
     const { error } = await supabase.auth.signOut();
     if (error)
       return { kind: "service", error: "تعذّر تسجيل الخروج. حاول مرة أخرى." };
+    cookieWrites.forEach((commit) => commit());
   } catch {
     return { kind: "service", error: "تعذّر تسجيل الخروج. حاول مرة أخرى." };
   }

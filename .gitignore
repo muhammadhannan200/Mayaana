@@ -16,7 +16,9 @@
 /test-results/
 /artifacts/ui-audit/
 /artifacts/auth/
+/artifacts/persistence/
 /supabase/.temp/
+/supabase/.branches/
 
 # next.js
 /.next/

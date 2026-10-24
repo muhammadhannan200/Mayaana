@@ -26,6 +26,7 @@ let failActivation = false;
 let hold: Promise<void> | undefined;
 let release: (() => void) | undefined;
 let passwordRequests = 0;
+let logoutFailures = 0;
 
 function checked(error: unknown) {
   if (error) throw error;
@@ -52,6 +53,8 @@ test.beforeAll(async () => {
           req.method === "PATCH" &&
           req.url?.startsWith("/rest/v1/clinic_staff"))
       ) {
+        if (failLogout && req.url?.startsWith("/auth/v1/logout"))
+          logoutFailures++;
         res.writeHead(failActivation ? 403 : 503, {
           "content-type": "application/json",
         });
@@ -275,11 +278,15 @@ test("failed sign-out is visible, does not claim success, and can be retried", a
 }) => {
   await login(page, "doctor");
   await expect(page).toHaveURL("/doctor");
+  const failuresBefore = logoutFailures;
   failLogout = true;
   await page.getByRole("button", { name: "تسجيل الخروج" }).click();
   await expect(page.locator("p[role=alert]")).toHaveText(
     "تعذّر تسجيل الخروج. حاول مرة أخرى."
   );
+  await expect(page).toHaveURL("/doctor");
+  expect(logoutFailures).toBeGreaterThan(failuresBefore);
+  await page.reload();
   await expect(page).toHaveURL("/doctor");
   failLogout = false;
   await page.getByRole("button", { name: "تسجيل الخروج" }).click();

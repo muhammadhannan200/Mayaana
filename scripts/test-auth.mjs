@@ -24,7 +24,7 @@ let started = false;
 try {
   cpSync(join(root, "supabase"), join(workdir, "supabase"), { recursive: true, filter: source => !source.includes(`${process.platform === "win32" ? "\\" : "/"}.temp`) });
   const config = join(workdir, "supabase", "config.toml");
-  writeFileSync(config, readFileSync(config, "utf8").replace('project_id = "mayaana-auth-tests"', `project_id = "auth-${randomUUID()}"`));
+  writeFileSync(config, readFileSync(config, "utf8").replace(/^project_id = ".*"/m, `project_id = "auth-${randomUUID()}"`));
   for (const port of [55430, 55431, 55432, 55439, 3102]) {
     await new Promise((resolve, reject) => {
       const server = createServer();
