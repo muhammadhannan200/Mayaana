@@ -33,6 +33,10 @@ enabled = true
 site_url = "http://127.0.0.1:3101"
 enable_signup = false
 
+[auth.rate_limit]
+token_refresh = 1000
+sign_in_sign_ups = 1000
+
 [analytics]
 enabled = false
 
