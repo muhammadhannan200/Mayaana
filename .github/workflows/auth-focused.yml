@@ -1,0 +1,37 @@
+name: Auth Focused Validation
+
+on:
+  push:
+    branches: [fix/pr37-auth-focused]
+
+permissions:
+  contents: read
+
+jobs:
+  auth-focused:
+    name: Focused Auth (isolated Supabase)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.81.3
+      - run: npm ci
+        env:
+          HUSKY: "0"
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:auth -- --grep 'real login|failed sign-out|failed activation|forced password setup'
+      - name: Preserve focused evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: auth-focused
+          path: |
+            artifacts/auth/
+            test-results/
+          retention-days: 7
