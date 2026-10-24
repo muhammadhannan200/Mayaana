@@ -210,11 +210,13 @@ function PreviousSheet({
   onClose,
   onSave,
   shared = false,
+  readOnly = false,
 }: {
   visit: MockVisit;
   onClose: () => void;
   onSave: (measurements: VisitMeasurement) => void;
   shared?: boolean;
+  readOnly?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<VisitMeasurement>({
@@ -364,12 +366,14 @@ function PreviousSheet({
               )
             );
           })}
-          <p className="measure-info">
-            <Icon name="info" size={16} />
-            {shared
-              ? "يُحفظ التعديل في هذا المتصفح ويظهر في ملف الطبيب التجريبي."
-              : "التعديل تجريبي هنا فقط ولا يظهر للطبيب."}
-          </p>
+          {!readOnly && (
+            <p className="measure-info">
+              <Icon name="info" size={16} />
+              {shared
+                ? "يُحفظ التعديل في هذا المتصفح ويظهر في ملف الطبيب التجريبي."
+                : "التعديل تجريبي هنا فقط ولا يظهر للطبيب."}
+            </p>
+          )}
           <div className="measure-sheet-actions">
             {editing ? (
               <>
@@ -390,19 +394,21 @@ function PreviousSheet({
               </>
             ) : (
               <>
-                <button
-                  type="button"
-                  className="measure-soft"
-                  onClick={(event) => {
-                    // The same button becomes a submit control after this render.
-                    // Cancel this click's default action before switching modes.
-                    event.preventDefault();
-                    setEditing(true);
-                  }}
-                >
-                  <Icon name="edit" size={18} />
-                  تعديل القياسات
-                </button>
+                {!readOnly && (
+                  <button
+                    type="button"
+                    className="measure-soft"
+                    onClick={(event) => {
+                      // The same button becomes a submit control after this render.
+                      // Cancel this click's default action before switching modes.
+                      event.preventDefault();
+                      setEditing(true);
+                    }}
+                  >
+                    <Icon name="edit" size={18} />
+                    تعديل القياسات
+                  </button>
+                )}
                 <button
                   type="button"
                   className="measure-secondary"
@@ -430,6 +436,9 @@ export function MeasurementScreen({
   onDraftChange,
   onHistoryChange,
   onComplete,
+  readOnlyHistory = false,
+  pending = false,
+  externalError,
 }: {
   mode: Mode;
   preview?: boolean;
@@ -440,7 +449,10 @@ export function MeasurementScreen({
   historyHref?: string;
   onDraftChange?: (measurements: VisitMeasurement) => void;
   onHistoryChange?: (visits: MockVisit[]) => void;
-  onComplete?: (measurements: VisitMeasurement) => void;
+  onComplete?: (measurements: VisitMeasurement) => void | Promise<void>;
+  readOnlyHistory?: boolean;
+  pending?: boolean;
+  externalError?: React.ReactNode;
 }) {
   const full = mode === "full-exam";
   const expanded = mode === "previous";
@@ -478,6 +490,7 @@ export function MeasurementScreen({
 
   function submit(event: FormEvent) {
     event.preventDefault();
+    if (pending) return;
     const nextErrors: Partial<Record<MeasurementKey, string>> = {};
     const fields = full ? measurementFields : measurementFields.slice(0, 1);
     for (const field of fields) {
@@ -527,7 +540,7 @@ export function MeasurementScreen({
         }
       />
       <form className="measure-form" onSubmit={submit} noValidate>
-        <div className="measure-content">
+        <div className="measure-content" inert={pending}>
           {full ? (
             <>
               <p className="measure-tip">
@@ -687,13 +700,14 @@ export function MeasurementScreen({
                   ))}
                 </div>
               </section>
-              {!expanded && (
+              {!expanded && !readOnlyHistory && (
                 <Link className="measure-history-link" href={previousHref}>
                   عرض تفاصيل الزيارات السابقة <Icon name="arrow" size={16} />
                 </Link>
               )}
             </>
           )}
+          {externalError}
           {saved && (
             <p className="measure-saved" role="status">
               تم التحقق من القياسات في العرض التجريبي فقط. لم تُرسل للطبيب ولم
@@ -707,11 +721,13 @@ export function MeasurementScreen({
           )}
         </div>
         <footer className="measure-actionbar">
-          <button type="submit" className="measure-primary">
+          <button type="submit" className="measure-primary" disabled={pending}>
             <Icon name="check" size={20} />
-            {onComplete
-              ? "حفظ القياسات وتجهيز للدخول"
-              : "تحقّق من القياسات فقط"}
+            {pending
+              ? "جارٍ الحفظ…"
+              : onComplete
+                ? "حفظ القياسات وتجهيز للدخول"
+                : "تحقّق من القياسات فقط"}
           </button>
         </footer>
       </form>
@@ -719,6 +735,7 @@ export function MeasurementScreen({
         <PreviousSheet
           key={activeVisit.id}
           shared={!!onHistoryChange}
+          readOnly={readOnlyHistory}
           visit={activeVisit}
           onClose={() => setSelected(null)}
           onSave={(measurements) => {

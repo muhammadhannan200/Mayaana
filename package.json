@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
+    "test:persistence": "node scripts/test-persistence.mjs",
     "audit:ui:static": "npm run lint && node scripts/ui-style-inventory.mjs",
     "audit:ui:browser": "playwright test --config=playwright.config.ts",
     "audit:ui": "npm run audit:ui:static && npm run audit:ui:browser",

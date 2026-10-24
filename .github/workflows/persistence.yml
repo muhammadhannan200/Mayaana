@@ -1,0 +1,41 @@
+name: Persistence Integration
+
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master, feature/persistence-slice-1]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  slice-1:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+        env:
+          HUSKY: "0"
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.81.3
+      - run: docker info
+      - run: npx playwright install --with-deps chromium --only-shell
+      - name: Clean replay, RLS, races and independent browser sessions
+        run: npm run test:persistence
+      - name: Repeat from a fresh database
+        run: npm run test:persistence
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: persistence-failures
+          path: artifacts/persistence/
+          if-no-files-found: ignore
+          retention-days: 3
