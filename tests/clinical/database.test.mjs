@@ -150,6 +150,8 @@ test("doctor-only drafts and private notes isolation, including direct writes", 
   const args = { p_queue: queue.id, p_revision: queue.revision, p_notes: "Synthetic private note", p_days: days, p_appointment: null };
   await denied(staff.secretary.rpc("clinical_save_doctor_draft", args));
   queue = await rpc(staff.doctor, "clinical_save_doctor_draft", args);
+  const stale=await denied(staff.doctor.rpc("clinical_save_doctor_draft",{...args,p_notes:"Stale draft"})); assert.equal(stale.code,"PT409");
+  const staleFinish=await denied(staff.doctor.rpc("clinical_finish",{...args,p_request:randomUUID()})); assert.equal(staleFinish.code,"PT409");
   for (const table of ["visit_private_notes", "diet_plans"]) {
     const rows = await staff.secretary.from(table).select("*"); assert.ifError(rows.error); assert.deepEqual(rows.data, []);
     await denied(staff.secretary.from(table).insert({ visit_id: visitId, clinic_id: clinics[0] }));

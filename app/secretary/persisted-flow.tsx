@@ -131,7 +131,14 @@ export function PersistedFlow({ route }: { route: string }) {
     enqueuePatient: (id, kind) => write(() => actions.enqueuePatient(id, kind)),
     saveMeasurements: (id, values, version) =>
       write(() =>
-        actions.saveMeasurements(id, version ?? revision(id), values)
+        actions.saveMeasurements(
+          id,
+          version ?? revision(id),
+          values,
+          requestId(
+            `measure:${id}:${version ?? revision(id)}:${JSON.stringify(values)}`
+          )
+        )
       ),
     handoffToDoctor: (id) =>
       write(() =>

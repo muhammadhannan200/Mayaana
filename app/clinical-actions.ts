@@ -18,9 +18,10 @@ export async function enqueuePatient(patient: string, kind: string) {
 export async function saveMeasurements(
   entry: string,
   revision: number,
-  values: VisitMeasurement
+  values: VisitMeasurement,
+  request: string
 ) {
-  return clinical.saveMeasurements(entry, revision, values);
+  return clinical.saveMeasurements(entry, revision, values, request);
 }
 export async function handoffToDoctor(
   entry: string,

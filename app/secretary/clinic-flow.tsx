@@ -807,7 +807,7 @@ export function ClinicFlowView({
       <>
         <header className="doctor-home-header">
           <div>
-            <h1>صباح الخير دكتور</h1>
+            <h1>{demo ? "صباح الخير دكتور" : "دور العيادة"}</h1>
             <p>دور اليوم</p>
           </div>
           {!demo && (

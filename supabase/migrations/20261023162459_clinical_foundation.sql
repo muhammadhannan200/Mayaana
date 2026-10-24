@@ -210,6 +210,20 @@ do $$ declare r record; p record; begin
   end loop;
 end $$;
 
+-- Visits now has its own revision; qualify the queue token in the historical
+-- UPDATE ... FROM trigger to avoid an ambiguous-column regression on upgrade.
+create or replace function public.clinical_measurement_saved() returns trigger
+language plpgsql security invoker set search_path='' as $$
+begin
+  update public.daily_queue q set revision=q.revision+1,
+    status=case when new.weight_kg is not null and (q.visit_type='follow_up' or
+      (new.body_fat_percent is not null and new.muscle_mass_kg is not null and new.visceral_fat_level is not null
+        and new.basal_metabolic_rate_kcal is not null and new.waist_cm is not null and new.arm_cm is not null
+        and new.thigh_cm is not null and new.hip_cm is not null)) then 'ready' else 'waiting' end
+    from public.visits v where v.id=new.visit_id and q.id=v.queue_id;
+  return new;
+end $$;
+
 do $$
 declare t text; predicate text;
 begin

@@ -385,10 +385,12 @@ export async function enqueuePatient(
 export async function saveMeasurements(
   entry: string,
   revision: number,
-  values: VisitMeasurement
+  values: VisitMeasurement,
+  request: string
 ): Promise<ClinicalResult<null>> {
   if (
     !validId(entry) ||
+    !validId(request) ||
     !Number.isInteger(revision) ||
     !values ||
     typeof values !== "object" ||
@@ -405,9 +407,14 @@ export async function saveMeasurements(
     normalized[key] = Number(normalizeClinicalNumber(value));
   }
   return mutate("clinical_save_measurements", {
-    p_queue: entry,
+    // Retain Slice 1's request/payload identity across a lost response. The
+    // numeric foundation RPC remains available for non-retrying callers.
+    p_entry: entry,
     p_revision: revision,
-    p_values: normalized,
+    p_request: request,
+    p_values: Object.fromEntries(
+      Object.entries(normalized).map(([key, value]) => [key, String(value)])
+    ),
   });
 }
 export async function handoffToDoctor(
