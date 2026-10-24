@@ -15,6 +15,7 @@
 /playwright-report/
 /test-results/
 /artifacts/ui-audit/
+/artifacts/clinical/
 /supabase/.temp/
 
 # next.js

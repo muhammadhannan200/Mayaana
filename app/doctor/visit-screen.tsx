@@ -7,9 +7,14 @@ import { useDemoClinic, type DemoVisit } from "@/lib/demo-clinic";
 import { Icon } from "@/app/secretary/components";
 import { measurementFields } from "@/app/secretary/measurements/mock-visits";
 import "./visit.css";
+import type {
+  ClinicalOperations,
+  ClinicalSnapshot,
+  ClinicEntry,
+} from "@/lib/clinical-types";
 
-function dateAfter(days: number) {
-  const date = new Date();
+function dateAfter(days: number, base?: string) {
+  const date = base ? new Date(`${base}T12:00:00`) : new Date();
   date.setDate(date.getDate() + days);
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
@@ -47,11 +52,50 @@ function FinishReview({
 export function DoctorVisit({
   entryId,
   demo,
+  clinical,
+  operations,
 }: {
   entryId: string;
   demo: boolean;
+  clinical?: ClinicalSnapshot;
+  operations?: ClinicalOperations;
 }) {
-  const { patients, queue, update } = useDemoClinic();
+  return demo ? (
+    <DemoDoctorVisit entryId={entryId} />
+  ) : (
+    <VisitEditor
+      entryId={entryId}
+      demo={false}
+      clinical={clinical}
+      operations={operations}
+    />
+  );
+}
+
+function DemoDoctorVisit({ entryId }: { entryId: string }) {
+  const local = useDemoClinic();
+  return <VisitEditor entryId={entryId} demo local={local} />;
+}
+
+function VisitEditor({
+  entryId,
+  demo,
+  clinical,
+  operations,
+  local,
+}: {
+  entryId: string;
+  demo: boolean;
+  clinical?: ClinicalSnapshot;
+  operations?: ClinicalOperations;
+  local?: ReturnType<typeof useDemoClinic>;
+}) {
+  const { patients, queue } = clinical ?? local!;
+  const update: ReturnType<typeof useDemoClinic>["update"] =
+    local?.update ??
+    (() => {
+      throw new Error("Authenticated visits require clinical operations");
+    });
   const params = useSearchParams();
   const router = useRouter();
   const prefix = demo ? "/demo" : "";
@@ -67,17 +111,58 @@ export function DoctorVisit({
   const [description, setDescription] = useState("");
   const plan = params.get("step") === "plan";
   const completed = entry?.status === "completed";
-  const visit: DemoVisit = entry?.visit ?? {
-    notes: "",
-    days: [],
-    appointment: "",
-  };
+  const [draft, setDraft] = useState<{
+    visit: DemoVisit;
+    revision: number;
+  } | null>(null);
+  const visit: DemoVisit = (!demo && draft?.visit) ||
+    entry?.visit || {
+      notes: "",
+      days: [],
+      appointment: "",
+    };
   const appointment =
-    visit.appointment || dateAfter(Math.max(1, visit.days.length));
+    visit.appointment ||
+    dateAfter(Math.max(1, visit.days.length), clinical?.serviceDate);
   const meals = visit.days.reduce((sum, day) => sum + day.meals.length, 0);
   const visitHref = href(`/visits/${entryId}`);
+  const revision = (entry as ClinicEntry | undefined)?.revision ?? 0;
+  const stale = !!draft && draft.revision !== revision;
+  useEffect(() => {
+    if (demo || !draft) return;
+    const unload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+    };
+    const leave = (event: MouseEvent) => {
+      const link = (event.target as Element).closest?.("a[href]");
+      if (
+        !(link instanceof HTMLAnchorElement) ||
+        link.pathname === window.location.pathname
+      )
+        return;
+      if (!window.confirm("لديك تعديلات غير محفوظة. مغادرة الزيارة؟")) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    };
+    window.addEventListener("beforeunload", unload);
+    document.addEventListener("click", leave, true);
+    return () => {
+      window.removeEventListener("beforeunload", unload);
+      document.removeEventListener("click", leave, true);
+    };
+  }, [demo, draft]);
 
   function save(change: (current: DemoVisit) => DemoVisit) {
+    if (operations) {
+      if (completed || operations.pending) return;
+      setDraft((current) => ({
+        visit: change(current?.visit ?? visit),
+        revision: current?.revision ?? revision,
+      }));
+      setError("");
+      return;
+    }
     update((state) => ({
       ...state,
       queue: state.queue.map((item) =>
@@ -121,7 +206,20 @@ export function DoctorVisit({
     setDescription("");
   }
 
-  function finish() {
+  async function finish() {
+    if (operations) {
+      if (
+        await operations.finishVisit(entryId, draft?.revision ?? revision, {
+          ...visit,
+          appointment,
+        })
+      ) {
+        setDraft(null);
+        setReview(false);
+        router.replace(visitHref);
+      }
+      return;
+    }
     const completedAt = new Date().toISOString();
     update((state) => {
       const active = state.queue.find((item) => item.id === entryId);
@@ -247,6 +345,11 @@ export function DoctorVisit({
                     className="visit-icon"
                     aria-label={`حذف ${meal.type}`}
                     onClick={() => {
+                      if (
+                        !demo &&
+                        !window.confirm("حذف هذه الوجبة من المسودة؟")
+                      )
+                        return;
                       save((current) => ({
                         ...current,
                         days: current.days.map((item) =>
@@ -359,7 +462,8 @@ export function DoctorVisit({
             تاريخ الموعد
             <input
               type="date"
-              min={dateAfter(1)}
+              disabled={operations?.pending}
+              min={dateAfter(1, clinical?.serviceDate)}
               value={appointment}
               onChange={(event) =>
                 save((current) => ({
@@ -409,7 +513,57 @@ export function DoctorVisit({
           </Link>
         </nav>
       )}
-      <div className="visit-content">
+      <fieldset
+        className="visit-content clinical-fieldset"
+        disabled={operations?.pending}
+      >
+        {!demo && !completed && (
+          <section className="clinical-draft">
+            <p role="status">
+              {operations?.pending
+                ? "جارٍ الحفظ…"
+                : draft
+                  ? "تعديلات غير محفوظة · احفظ المسودة قبل مغادرة الزيارة."
+                  : "النسخة المحفوظة في العيادة."}
+            </p>
+            {stale && (
+              <p className="secretary-error" role="alert">
+                تغيّرت الزيارة في جلسة أخرى. لم تُستبدل تعديلاتك. راجع النسخة
+                المحفوظة قبل المتابعة.
+              </p>
+            )}
+            <button
+              type="button"
+              className="secretary-outline"
+              disabled={!draft || operations?.pending || stale || !!editing}
+              onClick={async () => {
+                if (
+                  operations &&
+                  (await operations.saveDoctorDraft(
+                    entryId,
+                    draft?.revision ?? revision,
+                    { ...visit, appointment }
+                  ))
+                )
+                  setDraft(null);
+              }}
+            >
+              حفظ المسودة
+            </button>
+            {stale && (
+              <button
+                type="button"
+                className="secretary-outline"
+                onClick={() => {
+                  if (window.confirm("إلغاء تعديلاتك وتحميل النسخة المحفوظة؟"))
+                    setDraft(null);
+                }}
+              >
+                تحميل النسخة المحفوظة وإلغاء تعديلاتي
+              </button>
+            )}
+          </section>
+        )}
         {completed && (
           <p className="secretary-success" role="status">
             اكتملت الزيارة · خرج المريض من الدور.
@@ -459,6 +613,7 @@ export function DoctorVisit({
                 rows={4}
                 maxLength={4000}
                 readOnly={completed}
+                disabled={operations?.pending}
                 placeholder="اكتب ملاحظات زيارة اليوم…"
                 value={visit.notes}
                 onChange={(event) =>
@@ -482,10 +637,12 @@ export function DoctorVisit({
             {error}
           </p>
         )}
-        <p className="demo-flow-note">
-          عرض تجريبي · حفظ تلقائي في هذا المتصفح فقط. لا تدخل بيانات حقيقية.
-        </p>
-      </div>
+        {demo && (
+          <p className="demo-flow-note">
+            عرض تجريبي · حفظ تلقائي في هذا المتصفح فقط. لا تدخل بيانات حقيقية.
+          </p>
+        )}
+      </fieldset>
       <footer className="visit-actionbar">
         {completed ? (
           <Link className="secretary-primary" href={href("")}>
@@ -498,6 +655,7 @@ export function DoctorVisit({
         ) : (
           <button
             className="secretary-primary"
+            disabled={operations?.pending || stale}
             onClick={() => {
               if (editing) {
                 setError("احفظ الوجبة أو ألغِ تعديلها أولاً.");
@@ -512,7 +670,7 @@ export function DoctorVisit({
                 );
                 return;
               }
-              if (appointment <= dateAfter(0)) {
+              if (appointment <= dateAfter(0, clinical?.serviceDate)) {
                 setError("اختر موعد مراجعة بعد اليوم.");
                 return;
               }
@@ -552,11 +710,16 @@ export function DoctorVisit({
             </div>
           </dl>
           <div className="visit-buttons">
-            <button className="secretary-primary" onClick={finish}>
+            <button
+              className="secretary-primary"
+              onClick={finish}
+              disabled={operations?.pending || stale}
+            >
               حفظ وإنهاء الزيارة
             </button>
             <button
               className="secretary-outline"
+              disabled={operations?.pending}
               onClick={() => setReview(false)}
             >
               رجوع

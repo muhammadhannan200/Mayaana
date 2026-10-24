@@ -119,7 +119,7 @@ create table public.visit_private_notes (
 -- It is NOT a generic clinic-state replacement; it contains only a single diet.
 create function clinical_private.valid_diet(p_days jsonb, p_complete boolean) returns boolean
 language plpgsql immutable security invoker set search_path = '' as $$
-declare d jsonb; m jsonb; ids uuid[] := '{}'; item_id uuid;
+declare d jsonb; m jsonb; ids uuid[] := array[]::uuid[]; item_id uuid;
 begin
   if p_days is null or jsonb_typeof(p_days) <> 'array' then return false; end if;
   if jsonb_array_length(p_days) > 60 or (p_complete and jsonb_array_length(p_days) = 0) then return false; end if;
