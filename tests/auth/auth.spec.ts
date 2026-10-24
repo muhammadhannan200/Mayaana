@@ -65,6 +65,13 @@ test.beforeAll(async () => {
         "http://127.0.0.1:55431/auth/v1/user",
         "http://127.0.0.1:55431/auth/v1/logout",
         "http://127.0.0.1:55431/rest/v1/clinic_staff",
+        "http://127.0.0.1:55431/rest/v1/patients",
+        "http://127.0.0.1:55431/rest/v1/daily_queue",
+        "http://127.0.0.1:55431/rest/v1/visits",
+        "http://127.0.0.1:55431/rest/v1/visit_measurements",
+        "http://127.0.0.1:55431/rest/v1/visit_private_notes",
+        "http://127.0.0.1:55431/rest/v1/diet_plans",
+        "http://127.0.0.1:55431/rest/v1/appointments",
       ];
       const endpoint = endpoints.find(value => new URL(value).pathname === incoming.pathname);
       if (!endpoint) { res.writeHead(404); res.end(); return; }
