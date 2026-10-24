@@ -468,7 +468,7 @@ test("two independent browser sessions see the persisted Secretary to Doctor han
         : route.continue()
     );
     await s.getByRole("button", { name: "حفظ ومتابعة الإضافة للدور" }).click();
-    await expect(s.getByRole("alert")).toContainText(
+    await expect(s.locator("p[role=alert]")).toContainText(
       "تعذّر الاتصال"
     );
     await expect(s.getByLabel("الاسم الكامل *", { exact: true })).toHaveValue(
@@ -508,7 +508,7 @@ test("two independent browser sessions see the persisted Secretary to Doctor han
       ).error
     ).toBeNull();
     await s.getByRole("button", { name: "حفظ القياسات وتجهيز للدخول" }).click();
-    await expect(s.getByRole("alert")).toContainText(
+    await expect(s.locator("p[role=alert]")).toContainText(
       "تغيّرت البيانات"
     );
     await expect(

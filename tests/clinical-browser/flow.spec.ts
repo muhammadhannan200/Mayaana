@@ -320,7 +320,8 @@ test("independent doctor sessions reject stale drafts and never present unsaved 
     { auth: { persistSession: false } }
   );
   const signed = await api.auth.signInWithPassword({
-    email: doctorEmail,
+    // Intake uses the secretary's persisted Slice 1 authorization contract.
+    email: secretaryEmail,
     password,
   });
   if (signed.error) throw signed.error;
@@ -343,12 +344,12 @@ test("independent doctor sessions reject stale drafts and never present unsaved 
   let queue = await rpc("clinical_enqueue", {
     p_clinic: clinicId,
     p_patient: id,
-    p_kind: "follow_up",
+    p_kind: "full_exam",
   });
   queue = await rpc("clinical_save_measurements", {
     p_queue: queue.id,
     p_revision: queue.revision,
-    p_values: { weight: 80 },
+    p_values: { weight: 80, fat: 20, muscle: 30, visceral: 7, bmr: 1600, waist: 85, arm: 30, thigh: 50, hip: 100 },
   });
   queue = await rpc("clinical_handoff", {
     p_queue: queue.id,
