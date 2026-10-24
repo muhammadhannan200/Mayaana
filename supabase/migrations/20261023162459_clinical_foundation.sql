@@ -62,7 +62,7 @@ alter table public.visits
 -- This is existing handoff evidence, not an invented clinical event.
 update public.visits v set started_at=q.handed_off_at, updated_by=v.created_by
   from public.daily_queue q where q.id=v.queue_id;
-create index visits_patient_history_idx on public.visits(clinic_id, patient_id, created_at desc);
+-- Slice 1's visits_clinic_patient_idx already covers this history lookup.
 
 -- Extend, rather than remove, Slice 1's direct-write readiness/revision guard.
 create or replace function public.clinical_queue_guard() returns trigger
