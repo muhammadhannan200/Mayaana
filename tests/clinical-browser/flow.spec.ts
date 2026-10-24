@@ -356,6 +356,10 @@ test("independent doctor sessions reject stale drafts and never present unsaved 
     p_revision: queue.revision,
     p_request: randomUUID(),
   });
+  // Subsequent API completion must be a doctor operation, like both browser
+  // sessions below. Do not reuse the secretary's intake session for finish.
+  const doctorSession = await api.auth.signInWithPassword({email:doctorEmail,password});
+  if (doctorSession.error) throw doctorSession.error;
   const contexts = await Promise.all([
     browser.newContext({
       viewport: info.project.use.viewport,
