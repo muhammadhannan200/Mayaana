@@ -46,7 +46,7 @@ try {
     AUTH_TEST_PASSWORD: randomUUID() + "aA1!",
   };
   await run(process.execPath, ["node_modules/next/dist/bin/next", "build"], testEnv);
-  await run(process.execPath, ["node_modules/@playwright/test/cli.js", "test", "--config=playwright.auth.config.ts"], testEnv);
+  await run(process.execPath, ["node_modules/@playwright/test/cli.js", "test", "--config=playwright.auth.config.ts", ...process.argv.slice(2)], testEnv);
 } catch (error) {
   console.error(error.message);
   process.exitCode = 1;
