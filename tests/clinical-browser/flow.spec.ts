@@ -97,9 +97,32 @@ test("two independent sessions: intake, handoff, private draft, diet, appointmen
   const errors: string[] = [];
   for (const page of [secretary, doctor])
     page.on("pageerror", (error) => errors.push(error.message));
+  for (const page of [secretary, doctor])
+    page.on("console", (message) => {
+      if (
+        message.type() === "error" &&
+        !message.text().includes("net::ERR_FAILED")
+      )
+        errors.push(message.text());
+    });
   try {
+    await secretary.goto("/");
+    await secretary.evaluate(
+      (id) =>
+        localStorage.setItem(
+          `mayanaa-demo-v1:${id}`,
+          "fictional legacy marker"
+        ),
+      clinicId
+    );
     await login(secretary, secretaryEmail, "secretary");
     await expect(secretary.getByText("الدور فارغ الآن")).toBeVisible();
+    expect(
+      await secretary.evaluate(
+        (id) => localStorage.getItem(`mayanaa-demo-v1:${id}`),
+        clinicId
+      )
+    ).toBeNull();
     await surface(secretary);
     await login(doctor, doctorEmail, "doctor");
     await expect(
@@ -216,7 +239,12 @@ test("two independent sessions: intake, handoff, private draft, diet, appointmen
     await surface(doctor);
     await doctor
       .getByRole("button", { name: "إنهاء الزيارة", exact: true })
-      .click();
+      .focus();
+    await doctor.keyboard.press("Enter");
+    await expect(doctor.getByRole("dialog").locator(":focus")).toHaveCount(1);
+    await doctor.keyboard.press("Escape");
+    await expect(doctor.getByRole("dialog")).toHaveCount(0);
+    await doctor.keyboard.press("Enter");
     await expect(doctor.getByRole("dialog")).toContainText(patientName);
     await surface(doctor);
     await doctor
@@ -273,5 +301,138 @@ test("two independent sessions: intake, handoff, private draft, diet, appointmen
   } finally {
     await secretaryContext.close();
     await doctorContext.close();
+  }
+});
+
+test("independent doctor sessions reject stale drafts and never present unsaved data as a completed record", async ({
+  browser,
+}, info) => {
+  const api = createClient(
+    url,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    { auth: { persistSession: false } }
+  );
+  const signed = await api.auth.signInWithPassword({
+    email: doctorEmail,
+    password,
+  });
+  if (signed.error) throw signed.error;
+  async function rpc(name: string, args: Record<string, unknown>) {
+    const result = await api.rpc(name, args);
+    if (result.error) throw result.error;
+    return result.data;
+  }
+  const id = randomUUID();
+  await rpc("clinical_create_patient", {
+    p_id: id,
+    p_clinic: clinicId,
+    p_name: "مريض تعارض الجلسات",
+    p_phone: "+12025550123",
+    p_height: 170,
+    p_gender: "male",
+    p_birth_year: 1990,
+    p_goal: "نقص وزن",
+  });
+  let queue = await rpc("clinical_enqueue", {
+    p_clinic: clinicId,
+    p_patient: id,
+    p_kind: "follow_up",
+  });
+  queue = await rpc("clinical_save_measurements", {
+    p_queue: queue.id,
+    p_revision: queue.revision,
+    p_values: { weight: 80 },
+  });
+  queue = await rpc("clinical_handoff", {
+    p_queue: queue.id,
+    p_revision: queue.revision,
+    p_request: randomUUID(),
+  });
+  const contexts = await Promise.all([
+    browser.newContext({
+      viewport: info.project.use.viewport,
+      baseURL: "http://127.0.0.1:3103",
+    }),
+    browser.newContext({
+      viewport: info.project.use.viewport,
+      baseURL: "http://127.0.0.1:3103",
+    }),
+  ]);
+  try {
+    const first = await contexts[0].newPage();
+    const second = await contexts[1].newPage();
+    for (const page of [first, second]) {
+      await login(page, doctorEmail, "doctor");
+      await page.goto(`/doctor/visits/${queue.id}`);
+      await expect(page.getByLabel("ملاحظاتي")).toBeVisible();
+    }
+    await first.getByLabel("ملاحظاتي").fill("مسودة محلية غير محفوظة");
+    await second.getByLabel("ملاحظاتي").fill("النسخة المحفوظة من الجهاز الآخر");
+    await second
+      .getByRole("button", { name: "حفظ المسودة", exact: true })
+      .click();
+    await expect(second.locator(".clinical-draft")).toContainText(
+      "النسخة المحفوظة"
+    );
+    await first.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await expect(first.locator(".clinical-draft")).toContainText(
+      "تغيّرت الزيارة في جلسة أخرى"
+    );
+    await expect(first.getByLabel("ملاحظاتي")).toHaveValue(
+      "مسودة محلية غير محفوظة"
+    );
+    await expect(
+      first.getByRole("button", { name: "حفظ المسودة", exact: true })
+    ).toBeDisabled();
+    first.once("dialog", (dialog) => dialog.accept());
+    await first
+      .getByRole("button", { name: "تحميل النسخة المحفوظة وإلغاء تعديلاتي" })
+      .click();
+    await expect(first.getByLabel("ملاحظاتي")).toHaveValue(
+      "النسخة المحفوظة من الجهاز الآخر"
+    );
+    await first
+      .getByLabel("ملاحظاتي")
+      .fill("مسودة ثانية يجب ألا تظهر كسجل مكتمل");
+    const current = await api
+      .from("daily_queue")
+      .select("revision")
+      .eq("id", queue.id)
+      .single();
+    if (current.error) throw current.error;
+    await rpc("clinical_finish", {
+      p_queue: queue.id,
+      p_revision: current.data.revision,
+      p_request: randomUUID(),
+      p_notes: "الملاحظات النهائية المعتمدة",
+      p_days: [
+        {
+          id: randomUUID(),
+          meals: [
+            { id: randomUUID(), type: "فطور", description: "وجبة اختبار" },
+          ],
+        },
+      ],
+      p_appointment: null,
+    });
+    await first.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await expect(
+      first.getByRole("heading", { name: "الزيارة المكتملة", exact: true })
+    ).toBeVisible();
+    await expect(first.getByLabel("ملاحظاتي", { exact: true })).toHaveValue(
+      "الملاحظات النهائية المعتمدة"
+    );
+    await expect(
+      first.getByText("أُغلقت الزيارة في جلسة أخرى.", { exact: false })
+    ).toBeVisible();
+    await first
+      .getByText("ملاحظات مسودتي غير المحفوظة", { exact: true })
+      .click();
+    await expect(first.getByLabel("ملاحظات المسودة غير المحفوظة")).toHaveValue(
+      "مسودة ثانية يجب ألا تظهر كسجل مكتمل"
+    );
+  } finally {
+    for (const context of contexts) await context.close();
+    await api.auth.signOut();
   }
 });

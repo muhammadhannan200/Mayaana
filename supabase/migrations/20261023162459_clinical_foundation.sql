@@ -5,8 +5,8 @@
 -- retaining RLS inside RPCs. Authenticated users are NEVER members of this role.
 do $$ begin
   if not exists(select 1 from pg_roles where rolname='mayaana_clinical_api') then
-    create role mayaana_clinical_api nologin nosuperuser nocreatedb nocreaterole noinherit nobypassrls;
-  elsif exists(select 1 from pg_roles where rolname='mayaana_clinical_api' and (rolcanlogin or rolsuper or rolcreatedb or rolcreaterole or rolinherit or rolbypassrls)) then
+    create role mayaana_clinical_api nologin nosuperuser nocreatedb nocreaterole inherit nobypassrls;
+  elsif exists(select 1 from pg_roles where rolname='mayaana_clinical_api' and (rolcanlogin or rolsuper or rolcreatedb or rolcreaterole or not rolinherit or rolbypassrls)) then
     raise exception 'Unsafe existing clinical API role';
   end if;
 end $$;
@@ -14,7 +14,7 @@ grant mayaana_clinical_api to postgres;
 -- Supabase owns auth schema grants. Inherit its existing authenticated identity
 -- helper privileges rather than attempting to re-grant protected auth objects.
 -- Membership is ONE WAY: authenticated can never assume this API role.
-grant authenticated to mayaana_clinical_api with inherit true;
+grant authenticated to mayaana_clinical_api;
 create schema clinical_private;
 revoke all on schema clinical_private from public;
 grant usage on schema clinical_private to authenticated, mayaana_clinical_api;
@@ -216,6 +216,21 @@ end $$;
 do $$ declare t text; begin
   foreach t in array array['daily_queue','visits','visit_measurements','visit_private_notes','diet_plans','appointments'] loop
     execute format('create trigger protect_completed before update or delete on public.%I for each row execute function clinical_private.protect_completed()',t);
+  end loop;
+end $$;
+
+create function clinical_private.protect_completed_insert() returns trigger
+language plpgsql security invoker set search_path = '' as $$
+declare v_id uuid; finished boolean;
+begin
+  if tg_table_name='appointments' then v_id:=new.originating_visit_id; else v_id:=new.visit_id; end if;
+  select completed_at is not null into finished from public.visits where id=v_id for share;
+  if finished then raise exception using errcode='PT409',message='Completed clinical record is immutable'; end if;
+  return new;
+end $$;
+do $$ declare t text; begin
+  foreach t in array array['visit_measurements','visit_private_notes','diet_plans','appointments'] loop
+    execute format('create trigger protect_completed_insert before insert on public.%I for each row execute function clinical_private.protect_completed_insert()',t);
   end loop;
 end $$;
 

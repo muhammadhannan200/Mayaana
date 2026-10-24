@@ -102,6 +102,25 @@ const measurementStrings = (
     Object.entries(values ?? {}).map(([key, value]) => [key, String(value)])
   );
 
+async function readBatches<Row>(
+  ids: string[],
+  query: (
+    batch: string[]
+  ) => PromiseLike<{ data: Row[] | null; error: unknown }>
+): Promise<Row[]> {
+  const responses = await Promise.all(
+    Array.from({ length: Math.ceil(ids.length / 100) }, (_, index) =>
+      query(ids.slice(index * 100, index * 100 + 100))
+    )
+  );
+  const rows: Row[] = [];
+  for (const response of responses) {
+    if (response.error) throw response.error;
+    rows.push(...(response.data ?? []));
+  }
+  return rows;
+}
+
 export async function getClinicScreen(
   input: ScreenRequest
 ): Promise<ClinicalResult<ClinicalSnapshot>> {
@@ -163,47 +182,32 @@ export async function getClinicScreen(
     const missingIds = selectedIds.filter(
       (id) => !patientsResult.data.slice(0, 50).some((row) => row.id === id)
     );
-    const additional = missingIds.length
-      ? await client
-          .from("patients")
-          .select(
-            "id,full_name,phone,height_cm,gender,birth_year,goal,revision"
-          )
-          .eq("clinic_id", clinic)
-          .in("id", missingIds)
-      : { data: [], error: null };
-    if (additional.error) throw additional.error;
+    const additional = await readBatches(missingIds, (batch) =>
+      client
+        .from("patients")
+        .select("id,full_name,phone,height_cm,gender,birth_year,goal,revision")
+        .eq("clinic_id", clinic)
+        .in("id", batch)
+    );
     const hasMore = patientsResult.data.length > 50;
-    const patientRows = [
-      ...patientsResult.data.slice(0, 50),
-      ...additional.data,
-    ];
+    const patientRows = [...patientsResult.data.slice(0, 50), ...additional];
     const entryPatient = queueResult.data.find(
       (row) => row.id === input.entry
     )?.patient_id;
     const detailPatient = input.patient ?? entryPatient;
-    const visits = queueResult.data.length
-      ? await client
-          .from("visits")
-          .select("id,patient_id,queue_entry_id,completed_at,created_at")
-          .eq("clinic_id", clinic)
-          .in(
-            "queue_entry_id",
-            queueResult.data.map((row) => row.id)
-          )
-          .order("created_at", { ascending: false })
-          .limit(501)
-      : {
-          data: [] as {
-            id: string;
-            patient_id: string;
-            queue_entry_id: string;
-            completed_at: string | null;
-            created_at: string;
-          }[],
-          error: null,
-        };
-    if (visits.error) throw visits.error;
+    const visits = {
+      data: await readBatches(
+        queueResult.data.map((row) => row.id as string),
+        (batch) =>
+          client
+            .from("visits")
+            .select("id,patient_id,queue_entry_id,completed_at,created_at")
+            .eq("clinic_id", clinic)
+            .in("queue_entry_id", batch)
+            .order("created_at", { ascending: false })
+            .limit(501)
+      ),
+    };
     if (detailPatient) {
       const history = await client
         .from("visits")
@@ -218,16 +222,15 @@ export async function getClinicScreen(
         if (!visits.data.some((v) => v.id === row.id)) visits.data.push(row);
     }
     const visitIds = visits.data.map((row) => row.id as string);
-    const measured = visitIds.length
-      ? await client
-          .from("visit_measurements")
-          .select("visit_id,measurements")
-          .eq("clinic_id", clinic)
-          .in("visit_id", visitIds)
-      : { data: [], error: null };
-    if (measured.error) throw measured.error;
+    const measured = await readBatches(visitIds, (batch) =>
+      client
+        .from("visit_measurements")
+        .select("visit_id,measurements")
+        .eq("clinic_id", clinic)
+        .in("visit_id", batch)
+    );
     const measurements = new Map(
-      measured.data.map((row) => [
+      measured.map((row) => [
         row.visit_id,
         measurementStrings(row.measurements),
       ])
@@ -297,6 +300,7 @@ export async function getClinicScreen(
       });
     }
     return {
+      clinicId: clinic,
       role: account.role,
       serviceDate: date,
       hasMore,

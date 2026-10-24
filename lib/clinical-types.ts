@@ -5,6 +5,7 @@ import type { VisitMeasurement } from "@/app/secretary/measurements/mock-visits"
 export type ClinicPatient = DemoPatient & { revision: number };
 export type ClinicEntry = DemoEntry & { revision: number; visitId?: string };
 export type ClinicalSnapshot = {
+  clinicId: string;
   patients: ClinicPatient[];
   queue: ClinicEntry[];
   hasMore: boolean;

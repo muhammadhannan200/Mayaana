@@ -115,7 +115,7 @@ function VisitEditor({
     visit: DemoVisit;
     revision: number;
   } | null>(null);
-  const visit: DemoVisit = (!demo && draft?.visit) ||
+  const visit: DemoVisit = (!demo && !completed && draft?.visit) ||
     entry?.visit || {
       notes: "",
       days: [],
@@ -129,7 +129,7 @@ function VisitEditor({
   const revision = (entry as ClinicEntry | undefined)?.revision ?? 0;
   const stale = !!draft && draft.revision !== revision;
   useEffect(() => {
-    if (demo || !draft) return;
+    if (demo || (!draft && !(editing && description.trim()))) return;
     const unload = (event: BeforeUnloadEvent) => {
       event.preventDefault();
     };
@@ -151,7 +151,7 @@ function VisitEditor({
       window.removeEventListener("beforeunload", unload);
       document.removeEventListener("click", leave, true);
     };
-  }, [demo, draft]);
+  }, [demo, draft, editing, description]);
 
   function save(change: (current: DemoVisit) => DemoVisit) {
     if (operations) {
@@ -568,6 +568,22 @@ function VisitEditor({
           <p className="secretary-success" role="status">
             اكتملت الزيارة · خرج المريض من الدور.
           </p>
+        )}
+        {!demo && completed && draft && (
+          <section className="secretary-error" role="alert">
+            <p>
+              أُغلقت الزيارة في جلسة أخرى. المعروض أدناه هو السجل المحفوظ؛ لم
+              تُحفظ تعديلات مسودتك.
+            </p>
+            <details>
+              <summary>ملاحظات مسودتي غير المحفوظة</summary>
+              <textarea
+                aria-label="ملاحظات المسودة غير المحفوظة"
+                readOnly
+                value={draft.visit.notes}
+              />
+            </details>
+          </section>
         )}
         {(!plan || completed) && (
           <>

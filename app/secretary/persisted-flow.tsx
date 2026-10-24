@@ -32,6 +32,17 @@ export function PersistedFlow({ route }: { route: string }) {
   const [error, setError] = useState<ClinicalFailure>();
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState("");
+  const clinicId = snapshot?.clinicId;
+  useEffect(() => {
+    if (!clinicId) return;
+    // Retire only the authenticated V1 demo scope; public /demo is untouched.
+    // Never import browser-local demo records into real clinical tables.
+    try {
+      window.localStorage.removeItem(`mayanaa-demo-v1:${clinicId}`);
+    } catch {
+      /* Storage may be unavailable; clinical operations never depend on it. */
+    }
+  }, [clinicId]);
   const busy = useRef(false);
   const generation = useRef(0);
   const requestIds = useRef(new Map<string, string>());
@@ -63,7 +74,8 @@ export function PersistedFlow({ route }: { route: string }) {
     const controller = new AbortController();
     void refresh(controller.signal);
     const focus = () => {
-      if (!busy.current) void refresh(controller.signal);
+      if (!busy.current && window.location.pathname === `/${route}`)
+        void refresh(controller.signal);
     };
     const visible = () => {
       if (document.visibilityState === "visible") focus();
@@ -79,7 +91,7 @@ export function PersistedFlow({ route }: { route: string }) {
       window.removeEventListener("focus", focus);
       document.removeEventListener("visibilitychange", visible);
     };
-  }, [refresh]);
+  }, [refresh, route]);
   function requestId(key: string) {
     let id = requestIds.current.get(key);
     if (!id) {

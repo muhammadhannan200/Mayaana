@@ -2,6 +2,8 @@ import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
+import { spawnSync } from "node:child_process";
+import { resolve } from "node:path";
 
 if (process.env.CLINICAL_TEST_LOCAL !== "1" || process.env.NEXT_PUBLIC_SUPABASE_URL !== "http://127.0.0.1:55431") throw new Error("Isolated local runner required");
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -22,6 +24,11 @@ const rpc = async (client, name, args) => {
   return result.data;
 };
 const denied = async promise => { const result = await promise; assert.ok(result.error, "Operation must fail"); return result.error; };
+function fault(file) {
+  assert.ok(process.env.CLINICAL_TEST_WORKDIR);
+  const result=spawnSync(process.platform==="win32"?"supabase.exe":"supabase",["db","query","--local","--file",resolve("tests/clinical",file),"--workdir",process.env.CLINICAL_TEST_WORKDIR],{env:process.env,encoding:"utf8"});
+  assert.equal(result.status,0,result.stderr);
+}
 const create = (id = patientId, clinic = clinics[0]) => ({ p_id: id, p_clinic: clinic, p_name: "Synthetic patient", p_phone: "+12025550101", p_height: 170, p_gender: "female", p_birth_year: 1990, p_goal: "نقص وزن" });
 const tableNames = ["patients", "daily_queue", "visits", "visit_measurements", "visit_private_notes", "diet_plans", "appointments"];
 
@@ -70,6 +77,15 @@ test("cross-clinic reads/writes and direct mutation bypasses are denied", async 
   await denied(admin.from("daily_queue").insert({ clinic_id: clinics[1], patient_id: patientId, visit_type: "full_exam" }));
 });
 
+test("patient corrections preserve identity/metadata and reject stale or cross-clinic writes",async()=>{
+  const original=await staff.doctor.from("patients").select("created_at,created_by,revision").eq("id",patientId).single();assert.ifError(original.error);
+  const input={p_id:patientId,p_revision:original.data.revision,p_name:"Corrected synthetic patient",p_phone:"+12025550101",p_height:170,p_gender:"female",p_birth_year:1990,p_goal:"نقص وزن"};
+  const next=await rpc(staff.secretary,"clinical_update_patient",input);assert.equal(next,original.data.revision+1);
+  const stale=await denied(staff.secretary.rpc("clinical_update_patient",input));assert.equal(stale.code,"PT409");
+  await denied(staff.otherDoctor.rpc("clinical_update_patient",{...input,p_revision:next}));
+  const corrected=await staff.doctor.from("patients").select("id,full_name,created_at,created_by,revision").eq("id",patientId).single();assert.ifError(corrected.error);assert.equal(corrected.data.id,patientId);assert.equal(corrected.data.full_name,input.p_name);assert.equal(corrected.data.created_at,original.data.created_at);assert.equal(corrected.data.created_by,original.data.created_by);
+});
+
 test("concurrent duplicate enqueue creates exactly one queue entry and visit", async () => {
   const args = { p_clinic: clinics[0], p_patient: patientId, p_kind: "full_exam" };
   const [first, retry] = await Promise.all([rpc(staff.secretary, "clinical_enqueue", args), rpc(staff.secretary, "clinical_enqueue", args)]);
@@ -77,6 +93,7 @@ test("concurrent duplicate enqueue creates exactly one queue entry and visit", a
   const visits = await staff.doctor.from("visits").select("*").eq("queue_entry_id", queue.id);
   assert.ifError(visits.error); assert.equal(visits.data.length, 1); visitId = visits.data[0].id;
   await denied(admin.from("visits").insert({ clinic_id: clinics[1], patient_id: patientId, queue_entry_id: queue.id, created_by: visits.data[0].created_by, updated_by: visits.data[0].created_by }));
+  const duplicate=await denied(admin.from("visits").insert({clinic_id:clinics[0],patient_id:patientId,queue_entry_id:queue.id,created_by:visits.data[0].created_by,updated_by:visits.data[0].created_by}));assert.equal(duplicate.code,"23505");
   await denied(staff.secretary.rpc("clinical_enqueue", { ...args, p_kind: "follow_up" }));
 });
 
@@ -102,6 +119,12 @@ test("measurement persistence, stale rejection, retry-safe handoff and no post-h
   assert.equal(queue.status, "ready");
   const stale = await denied(staff.secretary.rpc("clinical_save_measurements", { p_queue: queue.id, p_revision: oldRevision, p_values: { ...measurements, weight: 90 } })); assert.equal(stale.code, "PT409");
   const handoff = { p_queue: queue.id, p_revision: queue.revision, p_request: randomUUID() };
+  fault("fault-handoff.sql");
+  try {
+    await denied(staff.secretary.rpc("clinical_handoff",handoff));
+    const unchanged=await staff.doctor.from("visits").select("started_at,revision").eq("id",visitId).single();assert.ifError(unchanged.error);assert.equal(unchanged.data.started_at,null);
+    const waiting=await staff.secretary.from("daily_queue").select("status,revision").eq("id",queue.id).single();assert.ifError(waiting.error);assert.equal(waiting.data.status,"ready");assert.equal(waiting.data.revision,queue.revision);
+  } finally { fault("fault-cleanup.sql"); }
   const [first, retry] = await Promise.all([rpc(staff.secretary, "clinical_handoff", handoff), rpc(staff.secretary, "clinical_handoff", handoff)]);
   assert.deepEqual(first, retry); queue = first; assert.equal(queue.status, "with_doctor");
   await denied(staff.secretary.rpc("clinical_save_measurements", { p_queue: queue.id, p_revision: queue.revision, p_values: measurements }));
@@ -126,7 +149,11 @@ test("failed completion leaves no partial notes, plan, appointment or completed 
   await denied(staff.doctor.rpc("clinical_finish", args));
   await denied(staff.doctor.rpc("clinical_finish", { ...args, p_days: days, p_appointment: "2000-01-01" }));
   await denied(staff.secretary.rpc("clinical_finish", { ...args, p_days: days }));
+  fault("fault-completion.sql");
+  try { await denied(staff.doctor.rpc("clinical_finish",{...args,p_days:[{id:randomUUID(),meals:[{id:randomUUID(),type:"فطور",description:"This partial diet must roll back"}]}]})); }
+  finally { fault("fault-cleanup.sql"); }
   const notes = await staff.doctor.from("visit_private_notes").select("notes").eq("visit_id", visitId).single(); assert.equal(notes.data.notes, "Synthetic private note");
+  const diet=await staff.doctor.from("diet_plans").select("days").eq("visit_id",visitId).single();assert.ifError(diet.error);assert.deepEqual(diet.data.days,days);
   const appointments = await staff.doctor.from("appointments").select("*").eq("originating_visit_id", visitId); assert.deepEqual(appointments.data, []);
   const visit = await staff.doctor.from("visits").select("completed_at").eq("id", visitId).single(); assert.equal(visit.data.completed_at, null);
   const row = await staff.doctor.from("daily_queue").select("*").eq("id", queue.id).single(); assert.equal(row.data.status, "with_doctor"); assert.equal(row.data.revision, queue.revision);
