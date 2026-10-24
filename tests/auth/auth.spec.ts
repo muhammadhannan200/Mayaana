@@ -14,12 +14,15 @@ const roles = [
   "inactive",
   "first-doctor",
   "first-secretary",
+  "first-activation",
 ] as const;
 type Identity = (typeof roles)[number];
 const ids = new Map<Identity, string>();
 let clinic: string;
 let server: Server;
 let fault = false;
+let failLogout = false;
+let failActivation = false;
 let hold: Promise<void> | undefined;
 let release: (() => void) | undefined;
 let passwordRequests = 0;
@@ -43,6 +46,18 @@ test.beforeAll(async () => {
     throw new Error("Isolated runner required");
   server = createServer(async (req, res) => {
     try {
+      if (
+        (failLogout && req.url?.startsWith("/auth/v1/logout")) ||
+        (failActivation &&
+          req.method === "PATCH" &&
+          req.url?.startsWith("/rest/v1/clinic_staff"))
+      ) {
+        res.writeHead(failActivation ? 403 : 503, {
+          "content-type": "application/json",
+        });
+        res.end(JSON.stringify({ message: "Synthetic local auth failure" }));
+        return;
+      }
       if (req.url?.startsWith("/auth/v1/token?grant_type=password")) {
         passwordRequests++;
         if (hold) await hold;
@@ -73,8 +88,14 @@ test.beforeAll(async () => {
         "http://127.0.0.1:55431/rest/v1/diet_plans",
         "http://127.0.0.1:55431/rest/v1/appointments",
       ];
-      const endpoint = endpoints.find(value => new URL(value).pathname === incoming.pathname);
-      if (!endpoint) { res.writeHead(404); res.end(); return; }
+      const endpoint = endpoints.find(
+        (value) => new URL(value).pathname === incoming.pathname
+      );
+      if (!endpoint) {
+        res.writeHead(404);
+        res.end();
+        return;
+      }
       const destination = new URL(endpoint);
       destination.search = incoming.search;
       const response = await fetch(destination, {
@@ -133,17 +154,15 @@ test.beforeAll(async () => {
   for (const role of roles) {
     checked(
       (
-        await admin
-          .from("clinic_staff")
-          .insert({
-            user_id: ids.get(role),
-            clinic_id: role === "first-doctor" ? firstClinic.data!.id : clinic,
-            role: role.includes("doctor") ? "doctor" : "secretary",
-            login_email: `${role}@auth.example.test`,
-            display_name: role,
-            active: role !== "inactive",
-            must_change_password: role.startsWith("first-"),
-          })
+        await admin.from("clinic_staff").insert({
+          user_id: ids.get(role),
+          clinic_id: role === "first-doctor" ? firstClinic.data!.id : clinic,
+          role: role.includes("doctor") ? "doctor" : "secretary",
+          login_email: `${role}@auth.example.test`,
+          display_name: role,
+          active: role !== "inactive",
+          must_change_password: role.startsWith("first-"),
+        })
       ).error
     );
   }
@@ -151,6 +170,8 @@ test.beforeAll(async () => {
 
 test.afterEach(() => {
   fault = false;
+  failLogout = false;
+  failActivation = false;
   release?.();
   release = undefined;
   hold = undefined;
@@ -193,6 +214,8 @@ for (const role of ["doctor", "secretary"] as const) {
     await expect(page).toHaveURL(`/${role}`);
     if (role === "secretary") await page.goto("/secretary/account");
     await page.getByRole("button", { name: "تسجيل الخروج" }).click();
+    await expect(page).toHaveURL("/");
+    await page.goBack();
     await expect(page).toHaveURL("/");
     await page.goto(`/${role}`);
     await expect(page).toHaveURL("/");
@@ -245,6 +268,63 @@ test("pending login prevents duplicate submit", async ({ page }) => {
   hold = undefined;
   await expect(page).toHaveURL("/secretary");
   expect(passwordRequests).toBe(before + 1);
+});
+
+test("failed sign-out is visible, does not claim success, and can be retried", async ({
+  page,
+}) => {
+  await login(page, "doctor");
+  await expect(page).toHaveURL("/doctor");
+  failLogout = true;
+  await page.getByRole("button", { name: "تسجيل الخروج" }).click();
+  await expect(page.locator("p[role=alert]")).toHaveText(
+    "تعذّر تسجيل الخروج. حاول مرة أخرى."
+  );
+  await expect(page).toHaveURL("/doctor");
+  failLogout = false;
+  await page.getByRole("button", { name: "تسجيل الخروج" }).click();
+  await expect(page).toHaveURL("/");
+  await page.goto("/doctor");
+  await expect(page).toHaveURL("/");
+});
+
+test("password update with failed activation stays protected and recovers with the new session", async ({
+  page,
+}) => {
+  await login(page, "first-activation");
+  await expect(page).toHaveURL("/change-password");
+  failActivation = true;
+  await page
+    .getByLabel("كلمة المرور الجديدة", { exact: true })
+    .fill(password + "partial");
+  await page.getByLabel("تأكيد كلمة المرور").fill(password + "partial");
+  await page.getByRole("button", { name: "حفظ كلمة المرور" }).click();
+  await expect(page.locator("p[role=alert]")).toContainText(
+    "تغيّرت كلمة المرور، لكن تعذّر إكمال التفعيل"
+  );
+  const staff = await admin
+    .from("clinic_staff")
+    .select("must_change_password")
+    .eq("user_id", ids.get("first-activation")!)
+    .single();
+  checked(staff.error);
+  expect(staff.data!.must_change_password).toBe(true);
+  await page.goto("/secretary");
+  await expect(page).toHaveURL("/change-password");
+  await page.reload();
+  await expect(page).toHaveURL("/change-password");
+  failActivation = false;
+  await page
+    .getByLabel("كلمة المرور الجديدة", { exact: true })
+    .fill(password + "recovered");
+  await page.getByLabel("تأكيد كلمة المرور").fill(password + "recovered");
+  await page.getByRole("button", { name: "حفظ كلمة المرور" }).click();
+  await expect(page).toHaveURL("/secretary");
+  await page.goto("/secretary/account");
+  await page.getByRole("button", { name: "تسجيل الخروج" }).click();
+  await expect(page).toHaveURL("/");
+  await login(page, "first-activation", password + "recovered");
+  await expect(page).toHaveURL("/secretary");
 });
 
 for (const role of ["first-doctor", "first-secretary"] as const) {

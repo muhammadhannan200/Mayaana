@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import type { AuthError } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/server";
@@ -156,8 +157,15 @@ export async function changePassword(
   redirect(homeForRole(account.role));
 }
 
-export async function signOut() {
-  const supabase = await createClient();
-  await supabase.auth.signOut();
+export async function signOut(): Promise<FormResult> {
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase.auth.signOut();
+    if (error)
+      return { kind: "service", error: "تعذّر تسجيل الخروج. حاول مرة أخرى." };
+  } catch {
+    return { kind: "service", error: "تعذّر تسجيل الخروج. حاول مرة أخرى." };
+  }
+  revalidatePath("/", "layout");
   redirect("/");
 }

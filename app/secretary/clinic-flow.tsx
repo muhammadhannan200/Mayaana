@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState, type FormEvent } from "react";
-import { signOut } from "@/app/actions";
+import { SignOutForm } from "@/app/sign-out-form";
 import {
   useDemoClinic,
   type DemoPatient,
@@ -703,13 +703,7 @@ function Flow({ route, demo = false }: { route: string; demo?: boolean }) {
               إعادة ضبط العرض التجريبي
             </button>
           )}
-          {!demo && (
-            <form action={signOut}>
-              <button className="secretary-primary signout">
-                تسجيل الخروج
-              </button>
-            </form>
-          )}
+          {!demo && <SignOutForm buttonClassName="secretary-primary signout" />}
           <DemoNote demo={demo} href={href("doctor")} />
         </div>
       </>
@@ -723,11 +717,9 @@ function Flow({ route, demo = false }: { route: string; demo?: boolean }) {
             <p>دور اليوم</p>
           </div>
           {!demo && (
-            <form action={signOut}>
-              <button className="doctor-bell" aria-label="تسجيل الخروج">
-                <Icon name="account" />
-              </button>
-            </form>
+            <SignOutForm buttonClassName="doctor-bell">
+              <Icon name="account" />
+            </SignOutForm>
           )}
         </header>
         <div className="doctor-content">
