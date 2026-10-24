@@ -1,0 +1,37 @@
+name: Clinical Browser Flow
+
+on:
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  clinical-browser:
+    name: Clinical cross-session browser flow
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.81.3
+      - run: npm ci
+        env:
+          HUSKY: "0"
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:clinical:browser
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: clinical-browser
+          path: |
+            artifacts/clinical/
+            test-results/
+          retention-days: 7

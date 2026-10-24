@@ -8,6 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
+    "test:clinical": "node scripts/test-clinical.mjs",
+    "test:clinical:browser": "node scripts/test-clinical.mjs --browser",
     "test:auth": "node scripts/test-auth.mjs",
     "test:persistence": "node scripts/test-persistence.mjs",
     "audit:ui:static": "npm run lint && node scripts/ui-style-inventory.mjs",

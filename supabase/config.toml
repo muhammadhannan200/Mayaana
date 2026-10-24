@@ -1,12 +1,9 @@
-# Local integration tests only. No hosted project reference or credentials.
+# Ephemeral test stack only. Never link this configuration to a hosted project.
 project_id = "mayanaa-slice1-tests"
 
 [api]
-enabled = true
 port = 55431
-schemas = ["public", "graphql_public"]
-extra_search_path = ["public", "extensions"]
-max_rows = 10000
+schemas = ["public"]
 
 [db]
 port = 55432
@@ -19,9 +16,6 @@ enabled = false
 [studio]
 enabled = false
 
-[realtime]
-enabled = false
-
 [inbucket]
 enabled = false
 
@@ -29,8 +23,7 @@ enabled = false
 enabled = false
 
 [auth]
-enabled = true
-site_url = "http://127.0.0.1:3101"
+site_url = "http://127.0.0.1:3102"
 enable_signup = false
 
 [auth.rate_limit]

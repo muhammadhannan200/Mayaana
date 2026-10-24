@@ -1,0 +1,13 @@
+import { createClient } from "@supabase/supabase-js";
+import { randomUUID } from "node:crypto";
+if (process.env.CLINICAL_TEST_LOCAL !== "1" || process.env.NEXT_PUBLIC_SUPABASE_URL !== "http://127.0.0.1:55431") throw new Error("Local stack required");
+const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SECRET_KEY, { auth: { persistSession: false } });
+const user = await admin.auth.admin.createUser({ email: "historical@upgrade.example.test", password: randomUUID(), email_confirm: true });
+if (user.error) throw user.error;
+const clinic = await admin.from("clinics").insert({ name: "Synthetic historical schema", doctor_user_id: user.data.user.id }).select("id").single();
+if (clinic.error) throw clinic.error;
+const patient = await admin.from("patients").insert({ clinic_id: clinic.data.id, full_name: "Synthetic historical patient", phone: "+12025550199" }).select("id").single();
+if (patient.error) throw patient.error;
+const queue = await admin.from("daily_queue").insert({ clinic_id: clinic.data.id, patient_id: patient.data.id, visit_type: "follow_up" });
+if (queue.error) throw queue.error;
+console.log("Seeded isolated pre-upgrade rows; no hosted data accessed.");

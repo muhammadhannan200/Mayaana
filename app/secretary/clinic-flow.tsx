@@ -14,22 +14,49 @@ import { MeasurementScreen } from "./measurements/measurement-screen";
 import { DoctorVisit } from "@/app/doctor/visit-screen";
 import { measurementFields } from "./measurements/mock-visits";
 import "./secretary.css";
-import { PersistedClinicFlow } from "./persisted-flow";
+import { PersistedFlow } from "./persisted-flow";
+import type {
+  ClinicalOperations,
+  ClinicalSnapshot,
+} from "@/lib/clinical-types";
 
 export function ClinicFlow(props: { route: string; demo?: boolean }) {
   return (
     <Suspense fallback={<p className="secretary-muted">جارٍ تحميل العرض…</p>}>
       {props.demo ? (
-        <Flow {...props} />
+        <DemoFlow route={props.route} />
       ) : (
-        <PersistedClinicFlow route={props.route} />
+        <PersistedFlow route={props.route} />
       )}
     </Suspense>
   );
 }
 
-function Flow({ route, demo = false }: { route: string; demo?: boolean }) {
-  const { patients, queue, update, reset } = useDemoClinic();
+function DemoFlow({ route }: { route: string }) {
+  const local = useDemoClinic();
+  return <ClinicFlowView route={route} demo local={local} />;
+}
+
+export function ClinicFlowView({
+  route,
+  demo = false,
+  local,
+  clinical,
+  operations,
+}: {
+  route: string;
+  demo?: boolean;
+  local?: ReturnType<typeof useDemoClinic>;
+  clinical?: ClinicalSnapshot;
+  operations?: ClinicalOperations;
+}) {
+  const { patients, queue } = clinical ?? local!;
+  const update: ReturnType<typeof useDemoClinic>["update"] =
+    local?.update ??
+    (() => {
+      throw new Error("Authenticated data requires a clinical operation");
+    });
+  const reset = local?.reset ?? (() => {});
   const router = useRouter();
   const params = useSearchParams();
   const href = (path: string) => `${demo ? "/demo" : ""}/${path}`;
@@ -38,6 +65,7 @@ function Flow({ route, demo = false }: { route: string; demo?: boolean }) {
   const [name, setName] = useState("");
   const [goal, setGoal] = useState("نقص وزن");
   const [error, setError] = useState("");
+  const [patientRequestId, setPatientRequestId] = useState<string | null>(null);
   const selected = patients.find((p) => p.id === params.get("patient"));
   const visitKind = selected?.visits.length === 0 ? "full_exam" : kind;
   const entry = queue.find((e) => e.id === params.get("entry"));
@@ -59,7 +87,12 @@ function Flow({ route, demo = false }: { route: string; demo?: boolean }) {
   const findPatient = (e: DemoEntry) =>
     patients.find((p) => p.id === e.patientId)!;
 
-  function enqueue(id: string, visitKind: DemoEntry["kind"]) {
+  async function enqueue(id: string, visitKind: DemoEntry["kind"]) {
+    if (operations) {
+      if (await operations.enqueuePatient(id, visitKind))
+        go("secretary?added=1");
+      return;
+    }
     update((state) =>
       state.queue.some((e) => e.patientId === id)
         ? state
@@ -83,7 +116,7 @@ function Flow({ route, demo = false }: { route: string; demo?: boolean }) {
     );
     go("secretary?added=1");
   }
-  function createPatient(event: FormEvent<HTMLFormElement>) {
+  async function createPatient(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
     const phone = normalize(String(data.get("phone") ?? "")).replace(
@@ -106,11 +139,12 @@ function Flow({ route, demo = false }: { route: string; demo?: boolean }) {
       setError("تحقق من الاسم والهاتف والطول (50–250 سم) وسنة الميلاد.");
       return;
     }
-    if (patients.some((p) => p.phone === phone)) {
+    if (demo && patients.some((p) => p.phone === phone)) {
       setError("يوجد ملف بهذا الهاتف. اختر الملف الموجود من البحث.");
       return;
     }
-    const id = crypto.randomUUID();
+    const id = patientRequestId ?? crypto.randomUUID();
+    if (operations) setPatientRequestId(id);
     const record: DemoPatient = {
       id,
       name: name.trim(),
@@ -121,6 +155,13 @@ function Flow({ route, demo = false }: { route: string; demo?: boolean }) {
       goal,
       visits: [],
     };
+    if (operations) {
+      if (await operations.createPatient(record)) {
+        setPatientRequestId(null);
+        go(`secretary/confirm?patient=${id}`);
+      }
+      return;
+    }
     update((state) => ({ ...state, patients: [...state.patients, record] }));
     go(`secretary/confirm?patient=${id}`);
   }
@@ -154,23 +195,45 @@ function Flow({ route, demo = false }: { route: string; demo?: boolean }) {
         draft={entry.measurements}
         closeHref={href("secretary")}
         historyHref={href(`secretary/measurements/previous?entry=${entry.id}`)}
-        onDraftChange={(measurements) =>
-          update((state) => ({
-            ...state,
-            queue: state.queue.map((e) =>
-              e.id === entry.id ? { ...e, measurements, status: "waiting" } : e
-            ),
-          }))
+        pending={operations?.pending}
+        revision={clinical?.queue.find((row) => row.id === entry.id)?.revision}
+        readOnlyHistory={!!operations}
+        onDraftChange={
+          operations
+            ? undefined
+            : (measurements) =>
+                update((state) => ({
+                  ...state,
+                  queue: state.queue.map((e) =>
+                    e.id === entry.id
+                      ? { ...e, measurements, status: "waiting" }
+                      : e
+                  ),
+                }))
         }
-        onHistoryChange={(visits) =>
-          update((state) => ({
-            ...state,
-            patients: state.patients.map((p) =>
-              p.id === patient.id ? { ...p, visits } : p
-            ),
-          }))
+        onHistoryChange={
+          operations
+            ? undefined
+            : (visits) =>
+                update((state) => ({
+                  ...state,
+                  patients: state.patients.map((p) =>
+                    p.id === patient.id ? { ...p, visits } : p
+                  ),
+                }))
         }
-        onComplete={(measurements) => {
+        onComplete={async (measurements, revision) => {
+          if (operations) {
+            if (
+              await operations.saveMeasurements(
+                entry.id,
+                measurements,
+                revision
+              )
+            )
+              go("secretary?measured=1");
+            return;
+          }
           update((state) => ({
             ...state,
             queue: state.queue.map((e) =>
@@ -184,7 +247,14 @@ function Flow({ route, demo = false }: { route: string; demo?: boolean }) {
   }
 
   if (route.startsWith("doctor/visits/"))
-    return <DoctorVisit entryId={route.split("/")[2]} demo={demo} />;
+    return (
+      <DoctorVisit
+        entryId={route.split("/")[2]}
+        demo={demo}
+        clinical={clinical}
+        operations={operations}
+      />
+    );
 
   const doctor = route.startsWith("doctor");
   const active = doctor
@@ -290,7 +360,9 @@ function Flow({ route, demo = false }: { route: string; demo?: boolean }) {
                             : Object.keys(e.measurements).length
                               ? "القياسات غير مكتملة"
                               : "بانتظار القياس"}{" "}
-                          · الزيارة {findPatient(e).visits.length + 1}
+                          {demo && (
+                            <> · الزيارة {findPatient(e).visits.length + 1}</>
+                          )}
                           {e.arrivalTime && (
                             <>
                               {" "}
@@ -306,7 +378,13 @@ function Flow({ route, demo = false }: { route: string; demo?: boolean }) {
                         <>
                           <button
                             className="secretary-primary"
-                            onClick={() => {
+                            disabled={operations?.pending}
+                            onClick={async () => {
+                              if (operations) {
+                                if (await operations.handoffToDoctor(e.id))
+                                  go("secretary?sent=1");
+                                return;
+                              }
                               update((state) => ({
                                 ...state,
                                 queue: state.queue.map((item) =>
@@ -406,7 +484,10 @@ function Flow({ route, demo = false }: { route: string; demo?: boolean }) {
             <input
               aria-label="اسم المريض أو رقم هاتفه"
               value={term}
-              onChange={(e) => setTerm(e.target.value)}
+              onChange={(e) => {
+                setTerm(e.target.value);
+                operations?.search(e.target.value);
+              }}
               placeholder="ابحث بالاسم أو رقم الهاتف"
               maxLength={80}
             />
@@ -544,6 +625,7 @@ function Flow({ route, demo = false }: { route: string; demo?: boolean }) {
                 ) : (
                   <button
                     className="secretary-primary"
+                    disabled={operations?.pending}
                     onClick={() =>
                       enqueue(
                         selected.id,
@@ -667,7 +749,11 @@ function Flow({ route, demo = false }: { route: string; demo?: boolean }) {
             </p>
           )}
           <div className="intake-actionbar">
-            <button className="secretary-primary" type="submit">
+            <button
+              className="secretary-primary"
+              type="submit"
+              disabled={operations?.pending}
+            >
               <Icon name="check" size={20} />
               حفظ ومتابعة الإضافة للدور
             </button>
@@ -683,10 +769,11 @@ function Flow({ route, demo = false }: { route: string; demo?: boolean }) {
       <>
         {subheader("الحساب")}
         <div className="secretary-content">
-          <h2>العرض التجريبي V1</h2>
+          <h2>{demo ? "العرض التجريبي V1" : "حساب العيادة"}</h2>
           <p className="secretary-muted">
-            بيانات خيالية محفوظة في هذا المتصفح فقط. لا تدخل بيانات مرضى حقيقية.
-            قد لا تبقى البيانات بعد إعادة التحميل إذا كان تخزين المتصفح محظوراً.
+            {demo
+              ? "بيانات خيالية محفوظة في هذا المتصفح فقط. لا تدخل بيانات مرضى حقيقية. قد لا تبقى البيانات بعد إعادة التحميل إذا كان تخزين المتصفح محظوراً."
+              : "بيانات العيادة محفوظة في الخدمة. تغييرات النماذج غير المحفوظة لا تنتقل إلى الأجهزة الأخرى."}
           </p>
           <Link className="secretary-outline" href={href("secretary")}>
             العودة للدور
@@ -708,7 +795,9 @@ function Flow({ route, demo = false }: { route: string; demo?: boolean }) {
               إعادة ضبط العرض التجريبي
             </button>
           )}
-          {!demo && <SignOutForm buttonClassName="secretary-primary signout" />}
+          {!demo && (
+            <SignOutForm buttonClassName="secretary-primary signout" />
+          )}
           <DemoNote demo={demo} href={href("doctor")} />
         </div>
       </>
@@ -718,7 +807,7 @@ function Flow({ route, demo = false }: { route: string; demo?: boolean }) {
       <>
         <header className="doctor-home-header">
           <div>
-            <h1>صباح الخير دكتور</h1>
+            <h1>{demo ? "صباح الخير دكتور" : "دور العيادة"}</h1>
             <p>دور اليوم</p>
           </div>
           {!demo && (
@@ -741,8 +830,8 @@ function Flow({ route, demo = false }: { route: string; demo?: boolean }) {
           <div className="doctor-stats">
             <div>
               <strong>{patients.length}</strong>
-              <span>إجمالي المرضى</span>
-              <small>ملفات تجريبية</small>
+              <span>{demo ? "إجمالي المرضى" : "الملفات المعروضة"}</span>
+              <small>{demo ? "ملفات تجريبية" : "ملفات العيادة"}</small>
             </div>
             <div>
               <strong>{queue.length}</strong>
@@ -817,7 +906,10 @@ function Flow({ route, demo = false }: { route: string; demo?: boolean }) {
               aria-label="اسم المريض أو رقم هاتفه"
               placeholder="ابحث بالاسم أو رقم الهاتف"
               value={term}
-              onChange={(event) => setTerm(event.target.value)}
+              onChange={(event) => {
+                setTerm(event.target.value);
+                operations?.search(event.target.value);
+              }}
               maxLength={80}
             />
           </label>
@@ -957,12 +1049,20 @@ function Flow({ route, demo = false }: { route: string; demo?: boolean }) {
               ) : (
                 <p>لم تُستكمل قياسات اليوم بعد.</p>
               )}
-              <h2>الزيارات السابقة ({record.visits.length})</h2>
+              <h2>
+                {demo ? "الزيارات السابقة" : "آخر الزيارات (حتى 100)"} (
+                {record.visits.length})
+              </h2>
               <ul className="demo-visit-history">
                 {record.visits.map((v) => (
                   <li key={v.id}>
                     <span>
                       {v.date}
+                      {!demo && (
+                        <Link href={href(`doctor/visits/${v.id}`)}>
+                          فتح الزيارة
+                        </Link>
+                      )}
                       <small>
                         {v.kind === "full_exam" ? "كشفية" : "مراجعة"} · الزيارة{" "}
                         {v.number}
@@ -988,17 +1088,18 @@ function Flow({ route, demo = false }: { route: string; demo?: boolean }) {
     doctor;
   return (
     <main className={doctor ? "doctor-shell" : "secretary-shell"} dir="rtl">
-      <div
+      <fieldset
+        disabled={operations?.pending}
         className={
           showNav
             ? doctor
-              ? "doctor-scroll"
-              : "secretary-scroll"
-            : "intake-scroll"
+              ? "doctor-scroll clinical-fieldset"
+              : "secretary-scroll clinical-fieldset"
+            : "intake-scroll clinical-fieldset"
         }
       >
         {content}
-      </div>
+      </fieldset>
       {showNav && (
         <nav className="secretary-nav" aria-label="التنقل الرئيسي">
           {nav.map((item) => (
@@ -1031,6 +1132,7 @@ function DemoNote({
   href: string;
   secretary?: boolean;
 }) {
+  if (!demo) return null;
   return (
     <p className="demo-flow-note">
       عرض تجريبي · بيانات خيالية في هذا المتصفح فقط.
