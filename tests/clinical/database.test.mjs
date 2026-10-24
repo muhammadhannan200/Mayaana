@@ -100,6 +100,8 @@ test("patient corrections preserve identity/metadata and reject stale or cross-c
 });
 
 test("concurrent duplicate enqueue creates exactly one queue entry and visit", async () => {
+  const firstFollowUp=await denied(staff.secretary.rpc("clinical_enqueue",{p_clinic:clinics[0],p_patient:patientId,p_kind:"follow_up"}));
+  assert.equal(firstFollowUp.code,"23514", "A new patient must begin with a full exam");
   const args = { p_clinic: clinics[0], p_patient: patientId, p_kind: "full_exam" };
   const [first, retry] = await Promise.all([rpc(staff.secretary, "clinical_enqueue", args), rpc(staff.secretary, "clinical_enqueue", args)]);
   assert.equal(first.id, retry.id); queue = first;
