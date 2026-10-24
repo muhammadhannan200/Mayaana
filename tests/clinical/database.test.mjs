@@ -32,6 +32,19 @@ function fault(file) {
 const create = (id = patientId, clinic = clinics[0]) => ({ p_id: id, p_clinic: clinic, p_name: "Synthetic patient", p_phone: "+12025550101", p_height: 170, p_gender: "female", p_birth_year: 1990, p_goal: "نقص وزن" });
 const tableNames = ["patients", "daily_queue", "visits", "visit_measurements", "visit_private_notes", "diet_plans", "appointments"];
 
+// Each doctor scenario establishes its own legal transition sequence. A failed
+// handoff-injection test must not masquerade as a doctor/finish RPC failure.
+async function doctorVisit() {
+  const patient = await rpc(staff.secretary,"clinical_create_patient",create(randomUUID()));
+  let queue = await rpc(staff.secretary,"clinical_enqueue",{p_clinic:clinics[0],p_patient:patient,p_kind:"full_exam"});
+  queue = await rpc(staff.secretary,"clinical_save_measurements",{p_queue:queue.id,p_revision:queue.revision,p_values:measurements});
+  queue = await rpc(staff.secretary,"clinical_handoff",{p_queue:queue.id,p_revision:queue.revision,p_request:randomUUID()});
+  assert.equal(queue.status,"with_doctor");
+  const visit = await staff.doctor.from("visits").select("id,started_at").eq("queue_id",queue.id).single();
+  assert.ifError(visit.error); assert.ok(visit.data.started_at);
+  return {queue,visitId:visit.data.id};
+}
+
 before(async () => {
   for (const name of ["doctor", "otherDoctor", "secretary", "inactive", "firstUse"]) {
     const email = `${randomUUID()}@clinical.example.test`;
@@ -92,8 +105,8 @@ test("concurrent duplicate enqueue creates exactly one queue entry and visit", a
   assert.equal(first.id, retry.id); queue = first;
   const visits = await staff.doctor.from("visits").select("*").eq("queue_entry_id", queue.id);
   assert.ifError(visits.error); assert.equal(visits.data.length, 1); visitId = visits.data[0].id;
-  await denied(admin.from("visits").insert({ clinic_id: clinics[1], patient_id: patientId, queue_entry_id: queue.id, created_by: visits.data[0].created_by, updated_by: visits.data[0].created_by }));
-  const duplicate=await denied(admin.from("visits").insert({clinic_id:clinics[0],patient_id:patientId,queue_entry_id:queue.id,created_by:visits.data[0].created_by,updated_by:visits.data[0].created_by}));assert.equal(duplicate.code,"23505");
+  await denied(admin.from("visits").insert({ clinic_id: clinics[1], patient_id: patientId, queue_id: queue.id, created_by: visits.data[0].created_by, updated_by: visits.data[0].created_by }));
+  const duplicate=await denied(admin.from("visits").insert({clinic_id:clinics[0],patient_id:patientId,queue_id:queue.id,created_by:visits.data[0].created_by,updated_by:visits.data[0].created_by}));assert.equal(duplicate.code,"23505");
   await denied(staff.secretary.rpc("clinical_enqueue", { ...args, p_kind: "follow_up" }));
 });
 
@@ -121,7 +134,8 @@ test("measurement persistence, stale rejection, retry-safe handoff and no post-h
   const handoff = { p_queue: queue.id, p_revision: queue.revision, p_request: randomUUID() };
   fault("fault-handoff.sql");
   try {
-    await denied(staff.secretary.rpc("clinical_handoff",handoff));
+    const injected = await denied(staff.secretary.rpc("clinical_handoff",handoff));
+    assert.equal(injected.code,"22023"); assert.equal(injected.message,"Synthetic handoff write failure");
     const unchanged=await staff.doctor.from("visits").select("started_at,revision").eq("id",visitId).single();assert.ifError(unchanged.error);assert.equal(unchanged.data.started_at,null);
     const waiting=await staff.secretary.from("daily_queue").select("status,revision").eq("id",queue.id).single();assert.ifError(waiting.error);assert.equal(waiting.data.status,"ready");assert.equal(waiting.data.revision,queue.revision);
   } finally { fault("fault-cleanup.sql"); }
@@ -132,6 +146,7 @@ test("measurement persistence, stale rejection, retry-safe handoff and no post-h
 });
 
 test("doctor-only drafts and private notes isolation, including direct writes", async () => {
+  let {queue,visitId} = await doctorVisit();
   const args = { p_queue: queue.id, p_revision: queue.revision, p_notes: "Synthetic private note", p_days: days, p_appointment: null };
   await denied(staff.secretary.rpc("clinical_save_doctor_draft", args));
   queue = await rpc(staff.doctor, "clinical_save_doctor_draft", args);
@@ -144,13 +159,18 @@ test("doctor-only drafts and private notes isolation, including direct writes", 
 });
 
 test("failed completion leaves no partial notes, plan, appointment or completed state", async () => {
+  let {queue,visitId} = await doctorVisit();
+  queue=await rpc(staff.doctor,"clinical_save_doctor_draft",{p_queue:queue.id,p_revision:queue.revision,p_notes:"Synthetic private note",p_days:days,p_appointment:null});
   const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0,10);
   const args = { p_queue: queue.id, p_revision: queue.revision, p_request: randomUUID(), p_notes: "Must roll back", p_days: [], p_appointment: tomorrow };
   await denied(staff.doctor.rpc("clinical_finish", args));
   await denied(staff.doctor.rpc("clinical_finish", { ...args, p_days: days, p_appointment: "2000-01-01" }));
   await denied(staff.secretary.rpc("clinical_finish", { ...args, p_days: days }));
   fault("fault-completion.sql");
-  try { await denied(staff.doctor.rpc("clinical_finish",{...args,p_days:[{id:randomUUID(),meals:[{id:randomUUID(),type:"فطور",description:"This partial diet must roll back"}]}]})); }
+  try {
+    const injected=await denied(staff.doctor.rpc("clinical_finish",{...args,p_days:[{id:randomUUID(),meals:[{id:randomUUID(),type:"فطور",description:"This partial diet must roll back"}]}]}));
+    assert.equal(injected.code,"22023"); assert.equal(injected.message,"Synthetic appointment write failure");
+  }
   finally { fault("fault-cleanup.sql"); }
   const notes = await staff.doctor.from("visit_private_notes").select("notes").eq("visit_id", visitId).single(); assert.equal(notes.data.notes, "Synthetic private note");
   const diet=await staff.doctor.from("diet_plans").select("days").eq("visit_id",visitId).single();assert.ifError(diet.error);assert.deepEqual(diet.data.days,days);
@@ -160,6 +180,7 @@ test("failed completion leaves no partial notes, plan, appointment or completed 
 });
 
 test("finish is atomic, retry-safe, visible across sessions and immutable", async () => {
+  let {queue,visitId} = await doctorVisit();
   const args = { p_queue: queue.id, p_revision: queue.revision, p_request: randomUUID(), p_notes: "Final private note", p_days: days, p_appointment: new Date(Date.now()+86400000).toISOString().slice(0,10) };
   const [first, retry] = await Promise.all([rpc(staff.doctor, "clinical_finish", args), rpc(staff.doctor, "clinical_finish", args)]);
   assert.deepEqual(first,retry); queue = first; assert.equal(queue.status, "completed");

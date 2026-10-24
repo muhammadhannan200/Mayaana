@@ -1,5 +1,6 @@
 -- Additive clinical foundation. Apply only through a reviewed deployment.
--- Existing historical migrations remain untouched.
+-- Existing historical migrations (including Slice 1) remain untouched.
+-- Extend their tables in place: never replace persisted patient/queue/visit IDs.
 
 -- A narrow NOLOGIN/NOBYPASSRLS function owner prevents direct table writes while
 -- retaining RLS inside RPCs. Authenticated users are NEVER members of this role.
@@ -34,10 +35,6 @@ grant execute on function clinical_private.staff_role(uuid) to authenticated, ma
 drop index public.patients_clinic_phone_idx;
 create index patients_clinic_phone_search_idx on public.patients(clinic_id, phone);
 alter table public.patients
-  add column height_cm numeric check (height_cm between 50 and 250),
-  add column gender text check (gender in ('female', 'male')),
-  add column birth_year integer check (birth_year between 1900 and 2200),
-  add column goal text check (goal in ('نقص وزن', 'زيادة وزن', 'تثبيت وزن')),
   add column revision integer not null default 0 check (revision >= 0),
   add column updated_at timestamptz not null default now(),
   add column created_by uuid references auth.users(id),
@@ -46,7 +43,6 @@ alter table public.patients
 alter table public.daily_queue drop constraint daily_queue_status_check;
 alter table public.daily_queue
   add constraint daily_queue_status_check check (status in ('waiting', 'ready', 'with_doctor', 'completed')),
-  add column revision integer not null default 0 check (revision >= 0),
   add column updated_at timestamptz not null default now(),
   add column created_by uuid references auth.users(id),
   add column updated_by uuid references auth.users(id),
@@ -54,24 +50,52 @@ alter table public.daily_queue
   add column finish_request uuid,
   add unique (clinic_id, patient_id, id);
 
-create table public.visits (
-  id uuid primary key default gen_random_uuid(),
-  clinic_id uuid not null references public.clinics(id),
-  patient_id uuid not null,
-  queue_entry_id uuid not null unique,
-  started_at timestamptz,
-  completed_at timestamptz,
-  revision integer not null default 0 check (revision >= 0),
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  created_by uuid not null references auth.users(id),
-  updated_by uuid not null references auth.users(id),
-  unique (clinic_id, patient_id, id),
-  unique (clinic_id, id),
-  foreign key (clinic_id, patient_id, queue_entry_id) references public.daily_queue(clinic_id, patient_id, id),
-  check (completed_at is null or (started_at is not null and completed_at >= started_at))
-);
+alter table public.visits
+  add column queue_entry_id uuid generated always as (queue_id) stored unique,
+  add column started_at timestamptz,
+  add column completed_at timestamptz,
+  add column revision integer not null default 0 check (revision >= 0),
+  add column updated_at timestamptz not null default now(),
+  add column updated_by uuid references auth.users(id),
+  add unique (clinic_id, patient_id, id),
+  add check (completed_at is null or (started_at is not null and completed_at >= started_at));
+-- This is existing handoff evidence, not an invented clinical event.
+update public.visits v set started_at=q.handed_off_at, updated_by=v.created_by
+  from public.daily_queue q where q.id=v.queue_id;
 create index visits_patient_history_idx on public.visits(clinic_id, patient_id, created_at desc);
+
+-- Extend, rather than remove, Slice 1's direct-write readiness/revision guard.
+create or replace function public.clinical_queue_guard() returns trigger
+language plpgsql security invoker set search_path='' as $$
+declare complete boolean;
+begin
+  if old.status='completed' or old.queue_date<>(now() at time zone 'Asia/Damascus')::date then
+    raise exception 'Queue entry is no longer editable' using errcode='22023';
+  end if;
+  if new.revision<>old.revision+1 then raise exception 'Revision conflict' using errcode='PT409'; end if;
+  if old.status='with_doctor' then
+    if public.clinical_role(old.clinic_id) is distinct from 'doctor' or new.status not in ('with_doctor','completed') then
+      raise exception 'Invalid clinical transition' using errcode='PT409';
+    end if;
+    return new;
+  end if;
+  select (m.weight_kg is not null and (old.visit_type='follow_up' or
+    (m.body_fat_percent is not null and m.muscle_mass_kg is not null and m.visceral_fat_level is not null
+      and m.basal_metabolic_rate_kcal is not null and m.waist_cm is not null and m.arm_cm is not null
+      and m.thigh_cm is not null and m.hip_cm is not null))) into complete
+    from public.visits v join public.visit_measurements m on m.visit_id=v.id
+    where v.queue_id=old.id and v.clinic_id=old.clinic_id;
+  if new.status in ('ready','with_doctor') and not coalesce(complete,false) then
+    raise exception 'Complete measurements are required' using errcode='23514';
+  end if;
+  if new.status='with_doctor' then
+    if old.status<>'ready' then raise exception 'Patient is not ready' using errcode='22023'; end if;
+    new.handed_off_at:=now(); new.handed_off_by:=auth.uid();
+  else new.handed_off_at:=null; new.handed_off_by:=null;
+  end if;
+  new.updated_at:=now(); new.updated_by:=auth.uid();
+  return new;
+end $$;
 
 create function clinical_private.valid_measurements(p_values jsonb, p_full boolean) returns boolean
 language plpgsql immutable security invoker set search_path = '' as $$
@@ -91,17 +115,18 @@ begin
   return true;
 end $$;
 
-create table public.visit_measurements (
-  visit_id uuid primary key,
-  clinic_id uuid not null,
-  measurements jsonb not null check (clinical_private.valid_measurements(measurements, false)),
-  revision integer not null default 0 check (revision >= 0),
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  recorded_by uuid not null references auth.users(id),
-  updated_by uuid not null references auth.users(id),
-  foreign key (clinic_id, visit_id) references public.visits(clinic_id, id)
-);
+-- Keep Slice 1's typed measurements and request identity authoritative. A
+-- generated projection serves the new editor without a second mutable copy.
+create function clinical_private.measurement_document(w numeric, f numeric, m numeric, v numeric, b numeric, wa numeric, a numeric, t numeric, h numeric)
+returns jsonb language sql immutable security invoker set search_path='' as $$
+  select jsonb_strip_nulls(jsonb_build_object('weight',w,'fat',f,'muscle',m,'visceral',v,'bmr',b,'waist',wa,'arm',a,'thigh',t,'hip',h))
+$$;
+alter table public.visit_measurements
+  add column measurements jsonb generated always as (clinical_private.measurement_document(weight_kg,body_fat_percent,muscle_mass_kg,visceral_fat_level,basal_metabolic_rate_kcal,waist_cm,arm_cm,thigh_cm,hip_cm)) stored,
+  add column revision integer not null default 0 check (revision >= 0),
+  add column created_at timestamptz not null default now(),
+  add column updated_at timestamptz not null default now(),
+  add column updated_by uuid references auth.users(id);
 
 create table public.visit_private_notes (
   visit_id uuid primary key,
@@ -172,14 +197,18 @@ create index appointments_clinic_date_idx on public.appointments(clinic_id, appo
 
 -- Revoke all historical direct-write column grants as well as table grants.
 revoke all on public.patients, public.daily_queue from anon, authenticated;
-revoke insert (clinic_id,full_name,phone) on public.patients from authenticated;
-revoke insert (clinic_id,patient_id,queue_date,visit_type) on public.daily_queue from authenticated;
-revoke update (status) on public.daily_queue from authenticated;
-drop policy "Active clinic staff read patients" on public.patients;
-drop policy "Active clinic staff create patients" on public.patients;
-drop policy "Active clinic staff read queue" on public.daily_queue;
-drop policy "Active clinic staff add waiting patient" on public.daily_queue;
-drop policy "Active clinic staff hand off patient" on public.daily_queue;
+-- Table REVOKE does not remove column grants from the historical migrations.
+do $$ declare r record; p record; begin
+  for r in select table_name,column_name,privilege_type from information_schema.column_privileges
+    where table_schema='public' and grantee='authenticated' and privilege_type in ('INSERT','UPDATE')
+      and table_name in ('patients','daily_queue','visits','visit_measurements') loop
+    execute format('revoke %s (%I) on public.%I from authenticated',r.privilege_type,r.column_name,r.table_name);
+  end loop;
+  for p in select tablename,policyname from pg_policies where schemaname='public'
+    and tablename in ('patients','daily_queue','visits','visit_measurements') loop
+    execute format('drop policy %I on public.%I',p.policyname,p.tablename);
+  end loop;
+end $$;
 
 do $$
 declare t text; predicate text;
@@ -271,12 +300,15 @@ returns public.daily_queue language plpgsql security definer set search_path = '
 declare q public.daily_queue;
 begin
   if clinical_private.staff_role(p_clinic) is null then raise exception using errcode = '42501', message = 'Clinical access denied'; end if;
+  if p_kind='follow_up' and not exists(select 1 from public.visits where patient_id=p_patient and clinic_id=p_clinic) then
+    raise exception 'First visit must be a full exam' using errcode='23514';
+  end if;
   insert into public.daily_queue(clinic_id,patient_id,visit_type,created_by,updated_by)
     values(p_clinic,p_patient,p_kind,auth.uid(),auth.uid()) on conflict(clinic_id,patient_id,queue_date) do nothing;
   select * into q from public.daily_queue where clinic_id=p_clinic and patient_id=p_patient and queue_date=(now() at time zone 'Asia/Damascus')::date for update;
   if not found or q.visit_type is distinct from p_kind then raise exception using errcode='PT409',message='Queue request conflict'; end if;
-  insert into public.visits(clinic_id,patient_id,queue_entry_id,created_by,updated_by)
-    values(q.clinic_id,q.patient_id,q.id,auth.uid(),auth.uid()) on conflict(queue_entry_id) do nothing;
+  insert into public.visits(clinic_id,patient_id,queue_id,created_by,updated_by)
+    values(q.clinic_id,q.patient_id,q.id,auth.uid(),auth.uid()) on conflict(queue_id) do nothing;
   return q;
 end $$;
 
@@ -296,19 +328,17 @@ end $$;
 
 create function public.clinical_save_measurements(p_queue uuid, p_revision integer, p_values jsonb)
 returns public.daily_queue language plpgsql security definer set search_path = '' as $$
-declare q public.daily_queue; v public.visits;
+declare q public.daily_queue; values_text jsonb;
 begin
   q := clinical_private.lock_queue(p_queue,p_revision,false,array['waiting','ready']);
   if not clinical_private.valid_measurements(p_values,q.visit_type='full_exam') then raise exception using errcode='22023',message='Invalid or incomplete measurements'; end if;
   -- Historical waiting entries predate visits; create their exact visit on first intake save.
-  insert into public.visits(clinic_id,patient_id,queue_entry_id,created_by,updated_by)
-    values(q.clinic_id,q.patient_id,q.id,auth.uid(),auth.uid()) on conflict(queue_entry_id) do nothing;
-  select * into strict v from public.visits where queue_entry_id=q.id;
-  insert into public.visit_measurements(visit_id,clinic_id,measurements,recorded_by,updated_by)
-    values(v.id,q.clinic_id,p_values,auth.uid(),auth.uid()) on conflict(visit_id) do update
-    set measurements=excluded.measurements,revision=public.visit_measurements.revision+1,updated_at=now(),updated_by=auth.uid();
-  update public.visits set revision=revision+1,updated_at=now(),updated_by=auth.uid() where id=v.id;
-  update public.daily_queue set status='ready',revision=revision+1,updated_at=now(),updated_by=auth.uid() where id=q.id returning * into q;
+  insert into public.visits(clinic_id,patient_id,queue_id,created_by,updated_by)
+    values(q.clinic_id,q.patient_id,q.id,auth.uid(),auth.uid()) on conflict(queue_id) do nothing;
+  select jsonb_object_agg(key,value #>> '{}') into values_text from jsonb_each(p_values);
+  perform public.clinical_save_measurements(q.id,p_revision,gen_random_uuid(),values_text);
+  update public.visits set revision=revision+1,updated_at=now(),updated_by=auth.uid() where queue_id=q.id;
+  select * into strict q from public.daily_queue where id=p_queue;
   return q;
 end $$;
 
@@ -386,15 +416,32 @@ begin
   return q;
 end $$;
 
+-- Preserve the Slice 1 RPC signature and retry behavior, but share the new
+-- atomic handoff so visits always retain their actual start timestamp.
+create or replace function public.clinical_handoff(p_entry uuid,p_revision integer) returns uuid
+language plpgsql security invoker set search_path='' as $$
+declare q public.daily_queue;
+begin
+  select * into q from public.daily_queue where id=p_entry for update;
+  if q.id is null or public.clinical_role(q.clinic_id) is distinct from 'secretary' then
+    raise exception 'Not authorized' using errcode='42501';
+  end if;
+  if q.status in ('with_doctor','completed') then return q.id; end if;
+  perform public.clinical_handoff(p_entry,p_revision,gen_random_uuid());
+  return q.id;
+end $$;
+
 -- Lock down ALL new functions, then selectively expose only clinical mutations.
 revoke all on all functions in schema clinical_private from public, anon, authenticated;
 grant execute on function clinical_private.staff_role(uuid) to authenticated;
 grant execute on all functions in schema clinical_private to mayaana_clinical_api;
 grant create on schema public to mayaana_clinical_api;
 do $$ declare f record; begin
-  for f in select p.oid::regprocedure as signature from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname like 'clinical_%' loop
+  for f in select p.oid::regprocedure as signature from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname like 'clinical_%'
+    and p.proname not in ('clinical_role','clinical_snapshot','clinical_queue_guard','clinical_measurement_guard','clinical_measurement_saved') loop
     execute format('revoke all on function %s from public, anon, authenticated',f.signature);
     execute format('alter function %s owner to mayaana_clinical_api',f.signature);
+    execute format('alter function %s security definer',f.signature);
     execute format('grant execute on function %s to authenticated',f.signature);
   end loop;
 end $$;

@@ -51,6 +51,13 @@ try {
     await run(process.execPath,["tests/clinical/upgrade-verify.mjs"],testEnv);
     await supabase(["db","query","--local","--file",join(root,"tests/clinical/security-contract.sql")]);
     await run(process.execPath, ["--test", "tests/clinical/database.test.mjs"], testEnv);
+    // PR #36's deployed Slice 1 is a second upgrade baseline, not a schema to
+    // omit or rewrite. Seed through its original RPCs and verify exact IDs,
+    // typed measurements, request identities and retry behavior after upgrade.
+    await supabase(["db", "reset", "--local", "--version", "20261023160531"]);
+    await run(process.execPath,["tests/clinical/slice1-upgrade.mjs","seed"],testEnv);
+    await supabase(["migration","up","--local"]);
+    await run(process.execPath,["tests/clinical/slice1-upgrade.mjs","verify"],testEnv);
     await supabase(["db", "lint", "--local", "--level", "warning", "--fail-on", "warning"]);
     await supabase(["db", "advisors", "--local", "--fail-on", "warn"]);
   }

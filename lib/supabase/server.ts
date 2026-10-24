@@ -10,9 +10,10 @@ export function isSupabaseConfigured() {
   );
 }
 
-export async function createClient() {
-  // SDK session initialization reads the clock. Never initialize it during a
-  // speculative prerender; auth must be tied to the real incoming request.
+export async function createClient(options?: {
+  deferCookieWrite: (commit: () => void) => void;
+}) {
+  // Supabase initializes session timers eagerly. Keep that work out of PPR.
   await connection();
   const cookieStore = await cookies();
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -26,10 +27,17 @@ export async function createClient() {
         return cookieStore.getAll();
       },
       setAll(cookiesToSet) {
-        try {
+        const commit = () => {
           cookiesToSet.forEach(({ name, value, options }) =>
             cookieStore.set(name, value, options)
           );
+        };
+        if (options?.deferCookieWrite) {
+          options.deferCookieWrite(commit);
+          return;
+        }
+        try {
+          commit();
         } catch {
           // A Server Component cannot write cookies; the proxy refreshes them.
         }

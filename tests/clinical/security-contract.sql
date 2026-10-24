@@ -15,6 +15,14 @@ begin
     if exists(select 1 from pg_policy where polrelid=relation and polcmd='w' and (polqual is null or polwithcheck is null)) then raise exception 'UPDATE policy lacks USING/WITH CHECK: %',t; end if;
   end loop;
   for f in select p.* from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname like 'clinical_%' loop
+    -- Historical read/trigger helpers remain SECURITY INVOKER; never elevate
+    -- the caller's snapshot or RLS membership lookup to the writer role.
+    if f.proname in ('clinical_role','clinical_snapshot','clinical_queue_guard','clinical_measurement_guard','clinical_measurement_saved') then
+      if f.prosecdef or f.proowner=api or f.proconfig is null or has_function_privilege('anon',f.oid,'EXECUTE') then
+        raise exception 'Unsafe historical helper: %',f.proname;
+      end if;
+      continue;
+    end if;
     if not f.prosecdef or f.proowner<>api or f.proconfig is null then raise exception 'Unsafe RPC owner/config: %',f.proname; end if;
     if has_function_privilege('anon',f.oid,'EXECUTE') then raise exception 'Anonymous RPC access: %',f.proname; end if;
   end loop;
