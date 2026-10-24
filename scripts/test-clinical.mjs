@@ -24,7 +24,7 @@ const supabase = (args, capture = false) => run(cli, [...args, "--workdir", work
 async function waitForClinicalSchema(testEnv) {
   // migration up commits before PostgREST processes its asynchronous schema
   // notification. Wait on actual column visibility, not a guessed fixed sleep.
-  await supabase(["db","query","--local","select pg_notify('pgrst','reload schema')"]);
+  await supabase(["db","query","--local","notify pgrst, 'reload schema'"]);
   const client=createClient(testEnv.NEXT_PUBLIC_SUPABASE_URL,testEnv.SUPABASE_SECRET_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
   const deadline=Date.now()+30000;
   while (true) {
