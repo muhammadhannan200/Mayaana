@@ -90,6 +90,7 @@ test.beforeAll(async () => {
         "http://127.0.0.1:55431/rest/v1/visit_private_notes",
         "http://127.0.0.1:55431/rest/v1/diet_plans",
         "http://127.0.0.1:55431/rest/v1/appointments",
+        "http://127.0.0.1:55431/rest/v1/rpc/clinical_snapshot",
       ];
       const endpoint = endpoints.find(
         (value) => new URL(value).pathname === incoming.pathname
@@ -211,6 +212,12 @@ for (const role of ["doctor", "secretary"] as const) {
   }) => {
     await login(page, role);
     await expect(page).toHaveURL(`/${role}`);
+    await expect(
+      page.getByRole("heading", {
+        name: role === "doctor" ? "دور العيادة" : "دور اليوم",
+        exact: true,
+      })
+    ).toBeVisible();
     await page.reload();
     await expect(page).toHaveURL(`/${role}`);
     await page.goto(role === "doctor" ? "/secretary" : "/doctor");
@@ -278,6 +285,9 @@ test("failed sign-out is visible, does not claim success, and can be retried", a
 }) => {
   await login(page, "doctor");
   await expect(page).toHaveURL("/doctor");
+  await expect(
+    page.getByRole("heading", { name: "دور العيادة", exact: true })
+  ).toBeVisible();
   const failuresBefore = logoutFailures;
   failLogout = true;
   await page.getByRole("button", { name: "تسجيل الخروج" }).click();
