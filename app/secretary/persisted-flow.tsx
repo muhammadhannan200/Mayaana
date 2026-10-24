@@ -9,7 +9,7 @@ import {
   useState,
   type FormEvent,
 } from "react";
-import { signOut } from "@/app/actions";
+import { SignOutForm } from "@/app/sign-out-form";
 import { mutateClinic, readClinic } from "@/app/clinical-actions";
 import type {
   ClinicalEntry,
@@ -344,9 +344,7 @@ export function PersistedClinicFlow({ route }: { route: string }) {
         <div className="secretary-content">
           <h2>حساب العيادة</h2>
           <p>تُحفظ البيانات في قاعدة بيانات العيادة.</p>
-          <form action={signOut}>
-            <button className="secretary-primary">تسجيل الخروج</button>
-          </form>
+          <SignOutForm buttonClassName="secretary-primary" />
           {issue}
         </div>
       </>
