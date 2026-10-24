@@ -4,10 +4,10 @@
 
 Mayaana is currently under active development. Security fixes are applied to the latest version of the `master` branch.
 
-| Version                            | Supported |
-| ---------------------------------- | --------- |
-| Latest `master`                    | ✅        |
-| Older commits / abandoned branches | ❌        |
+| Version | Supported |
+| --- | --- |
+| Latest `master` | ✅ |
+| Older commits / abandoned branches | ❌ |
 
 ## Reporting a Vulnerability
 
