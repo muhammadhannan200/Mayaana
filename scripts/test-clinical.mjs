@@ -4,6 +4,8 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
 import { createServer } from "node:net";
+import { setTimeout as delay } from "node:timers/promises";
+import { createClient } from "@supabase/supabase-js";
 
 const root = resolve(import.meta.dirname, "..");
 const workdir = mkdtempSync(join(tmpdir(), "mayaana-clinical-"));
@@ -19,6 +21,23 @@ async function run(command, args, childEnv = env, capture = false) {
   });
 }
 const supabase = (args, capture = false) => run(cli, [...args, "--workdir", workdir], env, capture);
+async function waitForClinicalSchema(testEnv) {
+  // migration up commits before PostgREST processes its asynchronous schema
+  // notification. Wait on actual column visibility, not a guessed fixed sleep.
+  await supabase(["db","query","--local","select pg_notify('pgrst','reload schema')"]);
+  const client=createClient(testEnv.NEXT_PUBLIC_SUPABASE_URL,testEnv.SUPABASE_SECRET_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
+  const deadline=Date.now()+30000;
+  while (true) {
+    const results=await Promise.all([
+      client.from("visits").select("id,queue_entry_id,completed_at").limit(0),
+      client.from("visit_measurements").select("measurements").limit(0),
+    ]);
+    const error=results.find(result=>result.error)?.error;
+    if (!error) return;
+    if (!['PGRST200','PGRST202','PGRST204','PGRST205'].includes(error.code) || Date.now()>=deadline) throw error;
+    await delay(200);
+  }
+}
 let started = false;
 try {
   cpSync(join(root, "supabase"), join(workdir, "supabase"), { recursive: true, filter: source => !source.includes(`${process.platform === "win32" ? "\\" : "/"}.temp`) });
@@ -48,6 +67,7 @@ try {
     await supabase(["db", "reset", "--local", "--version", "20261019092326"]);
     await run(process.execPath, ["tests/clinical/upgrade-seed.mjs"], testEnv);
     await supabase(["migration", "up", "--local"]);
+    await waitForClinicalSchema(testEnv);
     await run(process.execPath,["tests/clinical/upgrade-verify.mjs"],testEnv);
     await supabase(["db","query","--local","--file",join(root,"tests/clinical/security-contract.sql")]);
     await run(process.execPath, ["--test", "tests/clinical/database.test.mjs"], testEnv);
@@ -57,6 +77,7 @@ try {
     await supabase(["db", "reset", "--local", "--version", "20261023160531"]);
     await run(process.execPath,["tests/clinical/slice1-upgrade.mjs","seed"],testEnv);
     await supabase(["migration","up","--local"]);
+    await waitForClinicalSchema(testEnv);
     await run(process.execPath,["tests/clinical/slice1-upgrade.mjs","verify"],testEnv);
     await supabase(["db","query","--local","--file",join(root,"tests/clinical/security-contract.sql")]);
     await run(process.execPath,["--test","tests/clinical/database.test.mjs"],testEnv);
