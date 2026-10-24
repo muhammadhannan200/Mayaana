@@ -1,5 +1,5 @@
 # Ephemeral test stack only. Never link this configuration to a hosted project.
-project_id = "mayaana-auth-tests"
+project_id = "mayanaa-slice1-tests"
 
 [api]
 port = 55431

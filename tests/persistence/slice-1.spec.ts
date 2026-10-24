@@ -468,8 +468,8 @@ test("two independent browser sessions see the persisted Secretary to Doctor han
         : route.continue()
     );
     await s.getByRole("button", { name: "حفظ ومتابعة الإضافة للدور" }).click();
-    await expect(s.getByRole("main").getByRole("alert")).toContainText(
-      "تعذّر الحفظ"
+    await expect(s.getByRole("alert")).toContainText(
+      "تعذّر الاتصال"
     );
     await expect(s.getByLabel("الاسم الكامل *", { exact: true })).toHaveValue(
       name
@@ -508,13 +508,14 @@ test("two independent browser sessions see the persisted Secretary to Doctor han
       ).error
     ).toBeNull();
     await s.getByRole("button", { name: "حفظ القياسات وتجهيز للدخول" }).click();
-    await expect(s.getByRole("main").getByRole("alert")).toContainText(
+    await expect(s.getByRole("alert")).toContainText(
       "تغيّرت البيانات"
     );
     await expect(
       s.getByRole("textbox", { name: "الوزن", exact: true })
     ).toHaveValue("74.8");
-    await s.getByRole("button", { name: "إعادة التحميل", exact: true }).click();
+    s.once("dialog", (dialog) => dialog.accept());
+    await s.getByRole("button", { name: "تحميل النسخة المحفوظة وإلغاء التعديلات", exact: true }).click();
     await expect(
       s.getByRole("textbox", { name: "الوزن", exact: true })
     ).toHaveValue("74.8");
@@ -527,11 +528,11 @@ test("two independent browser sessions see the persisted Secretary to Doctor han
       .click();
     await expect(s).toHaveURL(/sent=1/);
     // No shared storage state, context or localStorage synchronization.
-    await expect(
-      d.locator(".queue-card").filter({ hasText: name })
-    ).toBeVisible({ timeout: 15000 });
-    const doctorCard = d.locator(".queue-card").filter({ hasText: name });
-    await doctorCard.getByRole("link", { name: "فتح الملف والقياسات" }).click();
+    // The clinical foundation retains the persisted handoff but presents it in
+    // the doctor's queue, then opens the read-only patient/measurement profile.
+    const doctorPatient = d.locator(".doctor-queue").getByRole("link", { name: new RegExp(name) });
+    await expect(doctorPatient).toBeVisible({ timeout: 15000 });
+    await doctorPatient.click();
     const storedPatient = await secretary.db
       .from("patients")
       .select("id")
@@ -539,12 +540,14 @@ test("two independent browser sessions see the persisted Secretary to Doctor han
       .single();
     const storedVisit = await secretary.db
       .from("visits")
-      .select("id")
+      .select("id,queue_id")
       .eq("patient_id", storedPatient.data!.id)
       .single();
+    expect(storedVisit.error).toBeNull();
     await expect(d).toHaveURL(
-      new RegExp(`/doctor/visits/${storedVisit.data!.id}$`)
+      new RegExp(`/doctor/patients/${storedPatient.data!.id}$`)
     );
+    await expect(d.getByRole("link", { name: "زيارة اليوم", exact: true })).toHaveAttribute("href", `/doctor/visits/${storedVisit.data!.queue_id}`);
     await expect(d.getByRole("heading", { name })).toBeVisible();
     await expect(d.locator(".demo-measurements")).toContainText("74.8");
     expect((await new AxeBuilder({ page: d }).analyze()).violations).toEqual(

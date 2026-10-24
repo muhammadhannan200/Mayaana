@@ -168,10 +168,13 @@ test("two independent sessions: intake, handoff, private draft, diet, appointmen
       await secretary
         .getByRole("textbox", { name: label, exact: true })
         .fill(value);
-    // Abort only this browser's server-action request. No application test mode.
-    await secretary.route("**/secretary/measurements/full-exam*", (route) =>
-      route.request().method() === "POST" ? route.abort() : route.continue()
-    );
+    // Lose the response AFTER the real transaction commits. Retrying must use
+    // the original request identity, not fail stale or write measurements twice.
+    await secretary.route("**/secretary/measurements/full-exam*", async (route) => {
+      if (route.request().method() !== "POST") return route.continue();
+      await route.fetch();
+      await route.abort();
+    });
     await secretary.getByRole("button", { name: /حفظ القياسات/ }).click();
     await expect(secretary.locator("p[role=alert]")).toContainText(
       "تعذّر الاتصال"
@@ -179,9 +182,13 @@ test("two independent sessions: intake, handoff, private draft, diet, appointmen
     await expect(
       secretary.getByRole("textbox", { name: "الوزن", exact: true })
     ).toHaveValue("٨٠");
+    const committed = await admin.from("daily_queue").select("revision,status").eq("patient_id",patientId).single();
+    expect(committed.error).toBeNull(); expect(committed.data).toMatchObject({revision:1,status:"ready"});
     await secretary.unrouteAll();
     await secretary.getByRole("button", { name: /حفظ القياسات/ }).click();
     await expect(secretary).toHaveURL(/measured=1/);
+    const retried = await admin.from("daily_queue").select("revision,status").eq("patient_id",patientId).single();
+    expect(retried.error).toBeNull(); expect(retried.data).toEqual(committed.data);
     await secretary.reload();
     await expect(
       secretary.getByRole("button", { name: "إدخال عند الطبيب" })
