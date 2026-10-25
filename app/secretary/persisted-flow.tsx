@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   useCallback,
@@ -9,7 +10,6 @@ import {
   useState,
   type FormEvent,
 } from "react";
-import { signOut } from "@/app/actions";
 import { mutateClinic, readClinic } from "@/app/clinical-actions";
 import type {
   ClinicalEntry,
@@ -19,6 +19,9 @@ import type {
 import { measurementFields } from "./measurements/mock-visits";
 import { MeasurementScreen } from "./measurements/measurement-screen";
 import { Icon } from "./components";
+import { DoctorNav, SecretaryNav, VisitOptions, VisitType } from "./clinic-ui";
+import { patientFieldErrors } from "@/lib/patient-validation";
+import "./persisted.css";
 
 const normalize = (value: string) =>
   value
@@ -35,6 +38,14 @@ export function PersistedClinicFlow({ route }: { route: string }) {
   const busy = useRef(false);
   const [term, setTerm] = useState(params.get("q") ?? "");
   const [kind, setKind] = useState<ClinicalEntry["kind"]>("full_exam");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [goalFilter, setGoalFilter] = useState("");
+  const [sentEntry, setSentEntry] = useState<string | null>(null);
+  useEffect(() => {
+    if (!sentEntry) return;
+    const timer = window.setTimeout(() => setSentEntry(null), 60_000);
+    return () => window.clearTimeout(timer);
+  }, [sentEntry]);
   // Stable across failed requests, including a lost successful response.
   const patientId = useRef<string | null>(null);
   const generation = useRef(0);
@@ -109,20 +120,18 @@ export function PersistedClinicFlow({ route }: { route: string }) {
   const queue = snapshot?.entries ?? [];
   const selected = patients.find((p) => p.id === params.get("patient"));
   const entry = queue.find((q) => q.id === params.get("entry"));
-  const matches = patients.filter((p) =>
-    `${p.name} ${p.phone}`.includes(normalize(term))
+  const matches = patients.filter(
+    (p) =>
+      `${p.name} ${p.phone}`.includes(normalize(term)) &&
+      (!goalFilter || p.goal === goalFilter)
   );
   const patientFor = (q: ClinicalEntry) =>
     patients.find((p) => p.id === q.patientId);
-  const badge = (q: ClinicalEntry) => (
-    <span className={`visit-badge${q.kind === "full_exam" ? " full" : ""}`}>
-      {q.kind === "full_exam" ? "كشفية" : "مراجعة"}
-    </span>
-  );
-  const back = (title: string) => (
+  const badge = (q: ClinicalEntry) => <VisitType kind={q.kind} />;
+  const back = (title: string, href = base) => (
     <header className="secretary-subheader">
       <h1>{title}</h1>
-      <Link href={base} aria-label="العودة">
+      <Link href={href} aria-label="العودة">
         <Icon name="arrow" />
       </Link>
     </header>
@@ -147,6 +156,14 @@ export function PersistedClinicFlow({ route }: { route: string }) {
   async function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
+    const errors = patientFieldErrors(data);
+    setFieldErrors(errors);
+    if (Object.keys(errors).length) {
+      event.currentTarget
+        .querySelector<HTMLInputElement>(`[name="${Object.keys(errors)[0]}"]`)
+        ?.focus();
+      return;
+    }
     patientId.current ??= crypto.randomUUID();
     const patient: ClinicalPatient = {
       id: patientId.current,
@@ -208,38 +225,73 @@ export function PersistedClinicFlow({ route }: { route: string }) {
         <form
           className="secretary-content new-patient-form"
           onSubmit={create}
+          noValidate
+          onBlur={(event) => {
+            const field = event.target;
+            if (!(field instanceof HTMLInputElement)) return;
+            const errors = patientFieldErrors(
+              new FormData(event.currentTarget)
+            );
+            setFieldErrors((previous) => ({
+              ...previous,
+              [field.name]: errors[field.name] ?? "",
+            }));
+          }}
           inert={pending}
         >
           <label className="secretary-field">
             الاسم الكامل *
             <input
               name="name"
+              aria-invalid={!!fieldErrors.name}
+              aria-describedby={fieldErrors.name ? "name-error" : undefined}
               required
               minLength={2}
               maxLength={160}
               autoComplete="off"
             />
+            {fieldErrors.name && (
+              <span className="field-error" id="name-error">
+                {fieldErrors.name}
+              </span>
+            )}
           </label>
           <label className="secretary-field">
             رقم الهاتف *
             <input
               name="phone"
+              aria-invalid={!!fieldErrors.phone}
+              aria-describedby={fieldErrors.phone ? "phone-error" : undefined}
               type="tel"
               required
               maxLength={20}
               dir="ltr"
               placeholder="09XX XXX XXX"
             />
+            {fieldErrors.phone && (
+              <span className="field-error" id="phone-error">
+                {fieldErrors.phone}
+              </span>
+            )}
           </label>
           <div className="intake-two-columns">
             <label className="secretary-field">
               الطول *
               <input
                 name="height"
+                aria-invalid={!!fieldErrors.height}
+                aria-describedby={
+                  fieldErrors.height ? "height-error" : undefined
+                }
                 inputMode="decimal"
                 required
                 placeholder="مثال: 165"
               />
+              {fieldErrors.height && (
+                <span className="field-error" id="height-error">
+                  {fieldErrors.height}
+                </span>
+              )}
             </label>
             <label className="secretary-field">
               الجنس
@@ -251,7 +303,20 @@ export function PersistedClinicFlow({ route }: { route: string }) {
           </div>
           <label className="secretary-field">
             سنة الميلاد
-            <input name="birthYear" inputMode="numeric" maxLength={4} />
+            <input
+              name="birthYear"
+              inputMode="numeric"
+              maxLength={4}
+              aria-invalid={!!fieldErrors.birthYear}
+              aria-describedby={
+                fieldErrors.birthYear ? "birth-year-error" : undefined
+              }
+            />
+            {fieldErrors.birthYear && (
+              <span className="field-error" id="birth-year-error">
+                {fieldErrors.birthYear}
+              </span>
+            )}
           </label>
           <fieldset className="goal-options">
             <legend>هدف المتابعة</legend>
@@ -282,51 +347,45 @@ export function PersistedClinicFlow({ route }: { route: string }) {
   else if (route === "secretary/confirm")
     content = (
       <>
-        {back("إضافة للدور")}
-        <div className="secretary-content">
+        {back("إضافة للدور", "/secretary/search")}
+        <div className="secretary-content confirm-content">
           {issue}
           {selected ? (
             <>
               <section className="confirm-patient">
-                <h2>{selected.name}</h2>
-                <p>
-                  <bdi>{selected.phone}</bdi>
-                </p>
+                <div className="confirm-person">
+                  <span className="patient-avatar" aria-hidden="true">
+                    {selected.name[0]}
+                  </span>
+                  <div>
+                    <h2>{selected.name}</h2>
+                    <p>
+                      <bdi>{selected.phone}</bdi> · الهدف:{" "}
+                      {selected.goal || "غير مسجّل"}
+                    </p>
+                  </div>
+                </div>
               </section>
-              <fieldset className="visit-options">
-                <legend>نوع الزيارة</legend>
-                {(["full_exam", "follow_up"] as const).map((value) => (
-                  <label key={value}>
-                    <input
-                      type="radio"
-                      name="kind"
-                      checked={kind === value}
-                      onChange={() => setKind(value)}
-                    />
-                    {value === "full_exam" ? "كشفية" : "مراجعة"}
-                  </label>
-                ))}
-              </fieldset>
+              <VisitOptions kind={kind} onChange={setKind} />
               <p className="intake-info">أول زيارة تتطلب كشفية كاملة.</p>
-              {queue.some((q) => q.patientId === selected.id) ? (
-                <p role="status">المريض موجود في دور اليوم بالفعل.</p>
-              ) : (
-                <button
-                  className="secretary-primary"
-                  disabled={pending}
-                  onClick={() =>
-                    void run(
-                      { type: "enqueue", patientId: selected.id, kind },
-                      "/secretary?added=1"
-                    )
-                  }
-                >
-                  {pending ? "جارٍ الإضافة…" : "إضافة للدور"}
-                </button>
-              )}
-              <Link className="secretary-outline" href="/secretary">
-                العودة للدور
-              </Link>
+              <div className="intake-actionbar">
+                {queue.some((q) => q.patientId === selected.id) ? (
+                  <p role="status">المريض موجود في دور اليوم بالفعل.</p>
+                ) : (
+                  <button
+                    className="secretary-primary"
+                    disabled={pending}
+                    onClick={() =>
+                      void run(
+                        { type: "enqueue", patientId: selected.id, kind },
+                        "/secretary?added=1"
+                      )
+                    }
+                  >
+                    {pending ? "جارٍ الإضافة…" : "إضافة للدور"}
+                  </button>
+                )}
+              </div>
             </>
           ) : (
             <>
@@ -334,20 +393,6 @@ export function PersistedClinicFlow({ route }: { route: string }) {
               <Link href="/secretary/search">البحث عن مريض</Link>
             </>
           )}
-        </div>
-      </>
-    );
-  else if (route === "secretary/account")
-    content = (
-      <>
-        {back("الحساب")}
-        <div className="secretary-content">
-          <h2>حساب العيادة</h2>
-          <p>تُحفظ البيانات في قاعدة بيانات العيادة.</p>
-          <form action={signOut}>
-            <button className="secretary-primary">تسجيل الخروج</button>
-          </form>
-          {issue}
         </div>
       </>
     );
@@ -381,6 +426,26 @@ export function PersistedClinicFlow({ route }: { route: string }) {
                   <dt>الطول</dt>
                   <dd>{patient.height || "—"} سم</dd>
                 </div>
+                <div>
+                  <dt>الجنس</dt>
+                  <dd>
+                    {patient.gender === "female"
+                      ? "أنثى"
+                      : patient.gender === "male"
+                        ? "ذكر"
+                        : "غير مسجّل"}
+                  </dd>
+                </div>
+                <div>
+                  <dt>سنة الميلاد</dt>
+                  <dd>
+                    <bdi>{patient.birthYear || "غير مسجّل"}</bdi>
+                  </dd>
+                </div>
+                <div>
+                  <dt>هدف المتابعة</dt>
+                  <dd>{patient.goal || "غير مسجّل"}</dd>
+                </div>
               </dl>
               <h2>قياسات الزيارة</h2>
               {visit ? (
@@ -411,6 +476,14 @@ export function PersistedClinicFlow({ route }: { route: string }) {
               ) : (
                 <p>لا توجد زيارة في دور اليوم.</p>
               )}
+              {!doctor && (
+                <Link
+                  className="secretary-primary"
+                  href={`/secretary/confirm?patient=${patient.id}`}
+                >
+                  إضافة للدور
+                </Link>
+              )}
             </>
           )}
         </div>
@@ -419,8 +492,17 @@ export function PersistedClinicFlow({ route }: { route: string }) {
   } else if (route.endsWith("patients") || route.endsWith("search"))
     content = (
       <>
-        {back(doctor ? "المرضى" : "إضافة للدور")}
-        <div className="secretary-content search-content">
+        {route.endsWith("patients") ? (
+          <header className="directory-heading">
+            <h1>المرضى</h1>
+            <p>{patients.length} مريضاً</p>
+          </header>
+        ) : (
+          back(doctor ? "البحث" : "إضافة للدور")
+        )}
+        <div
+          className={`secretary-content search-content${route.endsWith("patients") ? " patient-directory" : ""}`}
+        >
           {issue}
           <label className="patient-search-input">
             <Icon name="search" />
@@ -432,16 +514,37 @@ export function PersistedClinicFlow({ route }: { route: string }) {
               maxLength={80}
             />
           </label>
+          {route.endsWith("patients") && (
+            <div
+              className="patient-filters"
+              role="group"
+              aria-label="تصفية حسب هدف المتابعة"
+            >
+              {["", "نقص وزن", "زيادة وزن"].map((goal) => (
+                <button
+                  key={goal}
+                  type="button"
+                  aria-pressed={goalFilter === goal}
+                  onClick={() => setGoalFilter(goal)}
+                >
+                  {goal || "الكل"} (
+                  {patients.filter((p) => !goal || p.goal === goal).length})
+                </button>
+              ))}
+            </div>
+          )}
           <section aria-live="polite">
-            <h2>نتائج البحث ({matches.length})</h2>
+            <h2 className={route.endsWith("patients") ? "sr-only" : undefined}>
+              نتائج البحث ({matches.length})
+            </h2>
             <ul className="patient-result-list">
               {matches.map((p) => (
                 <li key={p.id}>
                   <Link
                     className="patient-result patient-result-link"
                     href={
-                      doctor
-                        ? `/doctor/patients/${p.id}`
+                      doctor || route.endsWith("patients")
+                        ? `${base}/patients/${p.id}`
                         : `/secretary/confirm?patient=${p.id}`
                     }
                   >
@@ -478,11 +581,6 @@ export function PersistedClinicFlow({ route }: { route: string }) {
         </header>
         <div className="secretary-content">
           {issue}
-          {params.has("sent") && (
-            <p className="secretary-success" role="status">
-              تم إدخال المريض عند الطبيب.
-            </p>
-          )}
           {params.has("measured") && (
             <p className="secretary-success" role="status">
               تم حفظ القياسات. المريض جاهز للدخول.
@@ -502,76 +600,138 @@ export function PersistedClinicFlow({ route }: { route: string }) {
               <span>عند الطبيب</span>
             </div>
           </div>
-          {(["waiting", "ready", "with_doctor"] as const).map((status) => (
-            <section className="queue-section" key={status}>
-              <h2>
-                {status === "waiting"
-                  ? "بانتظار القياس"
-                  : status === "ready"
-                    ? "جاهز للدخول"
-                    : "عند الطبيب"}
-              </h2>
-              <ol className="queue-list">
-                {queue
-                  .filter((q) => q.status === status)
-                  .map((q, i) => (
-                    <li className="queue-card" key={q.id}>
-                      <div className="queue-card-top">
-                        <span className="queue-number">{i + 1}</span>
-                        <div className="queue-person">
-                          <strong>{patientFor(q)?.name ?? "—"}</strong>
-                          <span>
-                            <bdi>{q.arrivalTime}</bdi>
-                          </span>
+          {doctor &&
+            queue
+              .filter((q) => q.status === "with_doctor")
+              .map((q) => (
+                <section className="doctor-current" key={q.id}>
+                  <p className="doctor-current-label">
+                    <Image
+                      src="/rashaqa/doctor-door.svg"
+                      width={18}
+                      height={18}
+                      alt=""
+                      unoptimized
+                    />
+                    عندك الآن
+                  </p>
+                  <h2>{patientFor(q)?.name ?? "—"}</h2>
+                  <p>
+                    {q.kind === "full_exam" ? "كشفية" : "مراجعة"} · الوزن{" "}
+                    {q.measurements.weight
+                      ? `${q.measurements.weight} كغ`
+                      : "غير مسجّل"}
+                  </p>
+                  <Link
+                    className="secretary-outline"
+                    href={`/doctor/visits/${q.visitId ?? q.id}`}
+                  >
+                    فتح الزيارة
+                  </Link>
+                </section>
+              ))}
+          {doctor && (
+            <div className="doctor-statistics">
+              <section className="doctor-stat">
+                <strong>{patients.length}</strong>
+                <h2>إجمالي المرضى</h2>
+                <p>كل الملفات</p>
+              </section>
+            </div>
+          )}
+          {(["waiting", "ready", "with_doctor"] as const).map((status) =>
+            doctor && status === "with_doctor" ? null : (
+              <section className="queue-section" key={status}>
+                <h2>
+                  {status === "waiting"
+                    ? "بانتظار القياس"
+                    : status === "ready"
+                      ? "جاهز للدخول"
+                      : "عند الطبيب"}
+                </h2>
+                <ol className="queue-list">
+                  {queue
+                    .filter((q) => q.status === status)
+                    .map((q, i) => (
+                      <li
+                        className={`queue-card${sentEntry === q.id ? " recent-handoff" : ""}`}
+                        key={q.id}
+                      >
+                        <div className="queue-card-top">
+                          <span className="queue-number">{i + 1}</span>
+                          <div className="queue-person">
+                            <strong>{patientFor(q)?.name ?? "—"}</strong>
+                            <span>
+                              <bdi>{q.arrivalTime}</bdi>
+                            </span>
+                          </div>
+                          {badge(q)}
                         </div>
-                        {badge(q)}
-                      </div>
-                      <div className="queue-card-actions">
-                        {doctor ? (
-                          <Link
-                            className="secretary-outline"
-                            href={`/doctor/visits/${q.visitId ?? q.id}`}
-                          >
-                            فتح الملف والقياسات
-                          </Link>
-                        ) : status === "with_doctor" ? (
-                          <span>عند الطبيب</span>
-                        ) : (
-                          <>
+                        <div className="queue-card-actions">
+                          {doctor ? (
                             <Link
                               className="secretary-outline"
-                              href={`/secretary/measurements/${q.kind === "full_exam" ? "full-exam" : "follow-up"}?entry=${q.id}`}
+                              href={`/doctor/visits/${q.visitId ?? q.id}`}
                             >
-                              {status === "ready"
-                                ? "تعديل القياسات"
-                                : "أخذ القياس"}
+                              فتح الملف والقياسات
                             </Link>
-                            {status === "ready" && (
-                              <button
-                                className="secretary-primary"
-                                disabled={pending}
-                                onClick={() =>
-                                  void run(
-                                    {
+                          ) : status === "with_doctor" ? (
+                            <span
+                              role={sentEntry === q.id ? "status" : undefined}
+                            >
+                              {sentEntry === q.id
+                                ? "دخل عند الطبيب · يختفي التنبيه خلال 1 د"
+                                : "عند الطبيب"}
+                            </span>
+                          ) : (
+                            <>
+                              <Link
+                                className="secretary-outline"
+                                href={`/secretary/measurements/${q.kind === "full_exam" ? "full-exam" : "follow-up"}?entry=${q.id}`}
+                              >
+                                {status === "ready"
+                                  ? "تعديل القياسات"
+                                  : "أخذ القياس"}
+                              </Link>
+                              {status === "ready" && (
+                                <button
+                                  className="secretary-primary"
+                                  disabled={
+                                    pending ||
+                                    queue.some(
+                                      (entry) => entry.status === "with_doctor"
+                                    )
+                                  }
+                                  title={
+                                    queue.some(
+                                      (entry) => entry.status === "with_doctor"
+                                    )
+                                      ? "يوجد مريض عند الطبيب بالفعل"
+                                      : undefined
+                                  }
+                                  onClick={async () => {
+                                    const saved = await run({
                                       type: "handoff",
                                       entryId: q.id,
                                       revision: q.revision,
-                                    },
-                                    "/secretary?sent=1"
-                                  )
-                                }
-                              >
-                                {pending ? "جارٍ الإرسال…" : "إدخال عند الطبيب"}
-                              </button>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    </li>
-                  ))}
-              </ol>
-            </section>
-          ))}
+                                    });
+                                    if (saved) setSentEntry(q.id);
+                                  }}
+                                >
+                                  {pending
+                                    ? "جارٍ الإرسال…"
+                                    : "إدخال عند الطبيب"}
+                                </button>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                </ol>
+              </section>
+            )
+          )}
           {!queue.length && (
             <div className="queue-empty">
               <h2>الدور فارغ الآن</h2>
@@ -587,22 +747,17 @@ export function PersistedClinicFlow({ route }: { route: string }) {
       </>
     );
   return (
-    <main className={doctor ? "doctor-shell" : "secretary-shell"} dir="rtl">
+    <main
+      className={`${doctor ? "doctor-shell" : "secretary-shell"} persisted-clinic`}
+      dir="rtl"
+    >
       <div className="secretary-scroll">{content}</div>
-      <nav className="secretary-nav" aria-label="التنقل الرئيسي">
-        <Link className="secretary-nav-item" href={base}>
-          الدور
-        </Link>
-        <Link className="secretary-nav-item" href={`${base}/patients`}>
-          المرضى
-        </Link>
-        <Link
-          className="secretary-nav-item"
-          href={doctor ? "/doctor/staff" : "/secretary/account"}
-        >
-          الحساب
-        </Link>
-      </nav>
+      {doctor ? (
+        <DoctorNav route={route} />
+      ) : route === "secretary/confirm" ||
+        route === "secretary/patients/new" ? null : (
+        <SecretaryNav route={route} />
+      )}
     </main>
   );
 }
