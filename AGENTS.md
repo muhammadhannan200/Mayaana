@@ -8,17 +8,111 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 <!-- END:nextjs-agent-rules -->
 
-## Git workflow
+# Mayaana agent instructions
+
+Rules and index, not an encyclopedia. Read the linked documents for detail.
+
+## Project context
+
+- Mayaana is an Arabic RTL clinic-management application.
+- Stack: Next.js 16 App Router, React 19, TypeScript, Supabase Auth + Postgres, Vercel.
+- Roles: Doctor and Secretary.
+- `/demo` uses fictional browser-local data only.
+- Authenticated Doctor/Secretary flows use Supabase-backed clinical data.
+
+## Critical commands
+
+```bash
+npm ci
+npm run typecheck
+npm run lint
+npm run build
+```
+
+Focused validation:
+
+```bash
+npm run test:auth
+npm run test:persistence
+npm run test:clinical
+npm run test:clinical:browser
+npm run audit:ui
+```
+
+There is no `npm test` script. Do not document or run it as if one existed.
+
+## Scope-aware validation
+
+- Run the narrowest relevant validation first.
+- Do not run every expensive integration suite after every tiny change.
+- Expand validation before a PR is considered complete.
+- Match validation to the changed surface:
+  - Queue or clinical UI → relevant clinical browser tests plus typecheck/lint.
+  - Auth → Auth E2E (`npm run test:auth`).
+  - Database or RLS → clinical DB/RLS suite (`npm run test:clinical`).
+  - Broad or full-stack → broader relevant CI coverage.
+- Never weaken tests or change expectations just to make validation pass.
+
+## Worktree safety
+
+- Never modify a worktree another agent may be using.
+- Never stash, reset, clean, overwrite, or commit another agent's uncommitted work.
+- Concurrent work must use dedicated branches/worktrees created from the latest `master`.
+- Inspect `git status` and the current branch before changing files.
+- Preserve unrelated and pre-existing user changes.
+
+See [docs/agents/worktrees.md](docs/agents/worktrees.md) for the detailed rules.
+
+## Known project conventions
+
+- This project uses `proxy.ts`; do not recreate `middleware.ts`.
+- Historical Supabase migrations are immutable.
+- `/demo` must remain browser-local and fictional.
+- Authenticated clinical flows use Supabase.
+- Doctor-private notes and diet must remain Doctor-only.
+- Architecture/refactoring work must preserve observable behavior unless a separate feature or bug ticket explicitly authorizes behavior change.
+- Do not touch Issue #41's uncommitted worktree without explicit owner approval.
+- Pull requests remain unmerged until owner approval.
+- Preferred final merge strategy is Squash and Merge.
+
+## Skills
+
+- `improve codebase architecture` — architecture analysis and identifying structural problems.
+- `to tickets` — split architecture/refactor work into small, reviewable tasks.
+- `code-refactorer` — behavior-preserving structural refactoring only.
+
+`code-refactorer` is not for feature work, bug fixing, or product redesign.
+Behavior must be frozen during refactoring. Load only the relevant reference
+files for the scope being changed.
+
+## Git workflow / Land the work
 
 For every meaningful feature, bug fix, chore, or documentation task:
 
 1. Work on a dedicated branch named `feature/<name>`, `fix/<name>`, `chore/<name>`, or `docs/<name>`. Never work directly on `master`.
-2. Before changing files, verify the current branch and inspect `git status`.
-3. When the task is complete, run relevant validation checks and review `git diff`.
-4. Commit only the intended changes with a clear conventional commit message; exclude secrets and local environment files.
-5. Push the branch to GitHub and open a Pull Request targeting `master`. Leave the PR unmerged for the user's final approval.
+2. Validate the affected scope.
+3. Review the diff.
+4. Commit only task-related changes with a clear conventional commit message; exclude secrets and local environment files.
+5. Push the branch.
+6. Open or update a Pull Request targeting `master`.
+7. Stop before merge.
 
-Never force-push or rewrite Git history unless the user explicitly requests it.
+Do not auto-merge, force-push, rewrite history, or include unrelated changes
+unless explicitly authorized.
+
+## Detailed references
+
+- Architecture ownership: [docs/architecture/module-ownership.md](docs/architecture/module-ownership.md)
+- Architecture dependency baseline: [docs/architecture/dependency-baseline.md](docs/architecture/dependency-baseline.md)
+- Architecture foundation validation: [docs/architecture/foundation-validation.md](docs/architecture/foundation-validation.md)
+- Product overview: [docs/product-overview.md](docs/product-overview.md)
+- Figma structure: [docs/figma-structure.md](docs/figma-structure.md)
+- Design system: [docs/design-system.md](docs/design-system.md)
+- Login flow: [docs/login-flow.md](docs/login-flow.md)
+- Database: [docs/database.md](docs/database.md)
+- UI patterns: [docs/ui-patterns.md](docs/ui-patterns.md)
+- UI audit: [docs/ui-audit.md](docs/ui-audit.md)
+- Worktree safety: [docs/agents/worktrees.md](docs/agents/worktrees.md)
 
 <!-- BEGIN:nextjs-agent-feedback -->
 

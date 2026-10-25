@@ -55,6 +55,16 @@ Start with:
 - [UI audit](docs/ui-audit.md)
 - [Architecture ownership and foundation tickets](docs/architecture/module-ownership.md)
 
+Working in the repository:
+
+- [Commands](docs/commands.md)
+- [Conventions](docs/conventions.md)
+- [Security](docs/security.md)
+- [Supabase usage](docs/supabase.md)
+- [Vercel usage](docs/vercel-usage.md)
+- [AI skills](docs/skills.md)
+- [Parallel worktrees](docs/agents/worktrees.md)
+
 ## Git workflow
 
 Meaningful work is done on a dedicated branch and submitted to `master` through a pull request. Validation and review happen before merge; merging remains a human action.
