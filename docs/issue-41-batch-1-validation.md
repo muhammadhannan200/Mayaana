@@ -193,3 +193,60 @@ available. Real account identity/role isolation, session revocation/cookies,
 database/RLS, transactional handoff and upgrade behavior remain unverified here.
 Keep the four known audit failures visible; no assertion was changed or weakened.
 No push or PR is authorized yet. Preserve the checkpoint and backup branch.
+
+## Resume verification, 2026-10-26
+
+The supplied resume brief described a pending merge, but inspection found the
+already-completed merge `b1a68f5a8a6ff56cca6490bc8347e43e13e3098b`, with
+checkpoint `356d7a6` first parent and incoming master `4d0695b` second parent.
+The worktree was clean, and the backup still pointed to the checkpoint. No merge
+was repeated, reset, squashed or amended.
+
+Read the approved Issue #41 plan/comments, AGENTS.md and all accepted ADRs.
+Re-read the complete Batch 1 delta and focused tests. Auth/SignOutForm, clinical
+contracts, Supabase configuration and migrations still match the incoming parent.
+The lockfile adds esbuild and its optional platform packages without modifying
+any pre-existing package entry; the manifest and lock both pin 0.25.12.
+Tracked-diff scanning found no conflict markers, environment files, obvious
+embedded credentials or real clinical fixtures; test records are synthetic.
+This scan is not an exhaustive secret-detection/security certification.
+
+Fetched the five exact Figma nodes again: `199:299`, `117:263`, `118:312`,
+`117:249`, `117:132`. Compared their geometry, colors and typography with the
+existing components/styles and reviewed fresh mobile/desktop fixture screenshots.
+No new application code or later-batch behavior was added.
+
+### New execution results (supersede earlier run counts for this resume)
+
+| Check | Result |
+| --- | --- |
+| `npm run typecheck` | PASS, exit 0 |
+| `npm run lint` | PASS, exit 0 |
+| `npm run build` with blank backend variables | PASS, exit 0; 25 static pages generated |
+| Production focused Issue #41 suite, `--workers=2` | PASS: 64 passed, 0 failed, 0 skipped, 52.1 seconds |
+| `npm run audit:ui:static` | PASS, exit 0 |
+| `node --test scripts/architecture-inventory.test.mjs` | PASS: 6 passed, 0 failed |
+| Full production audit, `--workers=2` | INCOMPLETE: 480-second command timeout; additional demo/architecture timeouts occurred; not a passing run |
+| Full production audit, `--workers=1` | FAILED: 131 passed, 5 failed, 0 skipped; 6.3 minutes |
+| 1280px complete-V1 journey rerun alone | PASS: 1 passed, 35.3 seconds; does not erase the full-run failure |
+| Persistence / Auth / Clinical Browser / Clinical DB | **NOT RUN / BLOCKED**: Docker and local Supabase CLI unavailable; setup deferred |
+
+The four known `measurements.spec.ts:149` failures are still listed separately
+above and remain unchanged at 320/390/768/1280px. The fifth failure is
+`tests/ui-audit/secretary-flow.spec.ts:236`, project `chromium-1280`, test
+`complete V1: secretary intake → measurements → handoff → doctor notes → diet
+and meal → completed visit`: the zero-browser-errors assertion received React
+hydration error #418. It passed alone without code/assertion changes. Its cause
+and whether it predates Batch 1 are not established. Do not call it fixed or
+classify it as one of the four pre-existing status failures.
+
+Full-run JSON/traces remain under `artifacts/ui-audit/results.json` and
+`test-results/`; the one-case rerun used `--reporter=list
+--output=artifacts/ui-audit/recheck-secretary` so it did not replace full-run
+evidence. No assertion, retry configuration or timeout was relaxed.
+
+Batch 1's three Global UI items have focused/Figma evidence; all later-batch,
+account-design and full-stack acceptance items remain incomplete. Manual review
+of the Batch 1 visuals is appropriate; a fully green regression/merge approval
+is not claimed. See [review handoff](issue-41-review-handoff.md) for preview,
+provisioning gates and the prepared PR summary. No push or PR was performed.
