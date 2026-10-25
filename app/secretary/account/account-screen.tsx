@@ -1,4 +1,4 @@
-import { signOut } from "@/app/actions";
+import { SignOutForm } from "@/app/sign-out-form";
 import Image from "next/image";
 import Link from "next/link";
 import { Icon } from "../components";
@@ -62,18 +62,16 @@ export function SecretaryAccountScreen({
                 : "نسيتِ كلمة المرور؟ اطلبي من الطبيب إعادة تعيينها. إلى أن تتوفر أداة إعادة التعيين، يتواصل الطبيب مع مسؤول النظام."}
             </span>
           </p>
-          <form action={signOut}>
-            <button className="account-signout" type="submit">
-              <Image
-                src="/rashaqa/account-logout.svg"
-                width={18}
-                height={18}
-                alt=""
-                unoptimized
-              />
-              تسجيل الخروج
-            </button>
-          </form>
+          <SignOutForm buttonClassName="account-signout">
+            <Image
+              src="/rashaqa/account-logout.svg"
+              width={18}
+              height={18}
+              alt=""
+              unoptimized
+            />
+            تسجيل الخروج
+          </SignOutForm>
         </div>
       </div>
       {doctor ? (

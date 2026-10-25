@@ -366,14 +366,14 @@ function PreviousSheet({
               )
             );
           })}
-          {!readOnly && (
-            <p className="measure-info">
-              <Icon name="info" size={16} />
-              {shared
+          <p className="measure-info">
+            <Icon name="info" size={16} />
+            {readOnly
+              ? "قياسات زيارة مكتملة · للقراءة فقط."
+              : shared
                 ? "يُحفظ التعديل في هذا المتصفح ويظهر في ملف الطبيب التجريبي."
                 : "التعديل تجريبي هنا فقط ولا يظهر للطبيب."}
-            </p>
-          )}
+          </p>
           <div className="measure-sheet-actions">
             {editing ? (
               <>
@@ -436,9 +436,9 @@ export function MeasurementScreen({
   onDraftChange,
   onHistoryChange,
   onComplete,
-  readOnlyHistory = false,
   pending = false,
-  externalError,
+  revision,
+  readOnlyHistory = false,
 }: {
   mode: Mode;
   preview?: boolean;
@@ -449,12 +449,13 @@ export function MeasurementScreen({
   historyHref?: string;
   onDraftChange?: (measurements: VisitMeasurement) => void;
   onHistoryChange?: (visits: MockVisit[]) => void;
-  onComplete?: (measurements: VisitMeasurement) => void | Promise<void>;
-  readOnlyHistory?: boolean;
+  onComplete?: (measurements: VisitMeasurement, revision?: number) => void;
   pending?: boolean;
-  externalError?: React.ReactNode;
+  revision?: number;
+  readOnlyHistory?: boolean;
 }) {
   const full = mode === "full-exam";
+  const [expectedRevision] = useState(revision);
   const expanded = mode === "previous";
   const [visits, setVisits] = useState<MockVisit[]>(
     history ?? followUpFixture.visits
@@ -490,7 +491,6 @@ export function MeasurementScreen({
 
   function submit(event: FormEvent) {
     event.preventDefault();
-    if (pending) return;
     const nextErrors: Partial<Record<MeasurementKey, string>> = {};
     const fields = full ? measurementFields : measurementFields.slice(0, 1);
     for (const field of fields) {
@@ -516,7 +516,8 @@ export function MeasurementScreen({
               key,
               normalize(value),
             ])
-          )
+          ),
+          expectedRevision
         );
       } else setSaved(true);
     }
@@ -540,7 +541,10 @@ export function MeasurementScreen({
         }
       />
       <form className="measure-form" onSubmit={submit} noValidate>
-        <div className="measure-content" inert={pending}>
+        <fieldset
+          className="measure-content clinical-fieldset"
+          disabled={pending}
+        >
           {full ? (
             <>
               <p className="measure-tip">
@@ -687,7 +691,13 @@ export function MeasurementScreen({
               )}
               <section className="measure-history">
                 <h2>الزيارات السابقة ({visits.length})</h2>
-                {expanded && <p>اضغط على أي زيارة لعرض قياساتها أو تعديلها</p>}
+                {expanded && (
+                  <p>
+                    {readOnlyHistory
+                      ? "اضغط على أي زيارة لعرض قياساتها"
+                      : "اضغط على أي زيارة لعرض قياساتها أو تعديلها"}
+                  </p>
+                )}
                 <div className="measure-visit-list">
                   {visits.map((visit, index) => (
                     <PreviousVisitCard
@@ -700,14 +710,13 @@ export function MeasurementScreen({
                   ))}
                 </div>
               </section>
-              {!expanded && !readOnlyHistory && (
+              {!expanded && (
                 <Link className="measure-history-link" href={previousHref}>
                   عرض تفاصيل الزيارات السابقة <Icon name="arrow" size={16} />
                 </Link>
               )}
             </>
           )}
-          {externalError}
           {saved && (
             <p className="measure-saved" role="status">
               تم التحقق من القياسات في العرض التجريبي فقط. لم تُرسل للطبيب ولم
@@ -719,15 +728,13 @@ export function MeasurementScreen({
               بيانات خيالية للمعاينة فقط — لا حفظ أو إرسال فعلي.
             </p>
           )}
-        </div>
+        </fieldset>
         <footer className="measure-actionbar">
           <button type="submit" className="measure-primary" disabled={pending}>
             <Icon name="check" size={20} />
-            {pending
-              ? "جارٍ الحفظ…"
-              : onComplete
-                ? "حفظ القياسات وتجهيز للدخول"
-                : "تحقّق من القياسات فقط"}
+            {onComplete
+              ? "حفظ القياسات وتجهيز للدخول"
+              : "تحقّق من القياسات فقط"}
           </button>
         </footer>
       </form>

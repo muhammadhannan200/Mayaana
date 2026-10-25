@@ -1,18 +1,28 @@
-/* Issue #41: scoped to live screens so the fictional demo remains unchanged. */
+/* Live-only Batch 1 parity. The public fictional demo keeps its current UI. */
 .persisted-clinic .secretary-outline {
-  min-height: 48px;
-  padding: 11px 19px;
+  min-height: 50px;
+  padding: 12px 20px;
   gap: 8px;
   color: #0f172a;
   border-color: #e2e8f0;
   font-size: 16px;
   line-height: 24px;
-  font-weight: 600;
+  font-weight: 700;
   white-space: normal;
   text-align: center;
 }
 .persisted-clinic .secretary-outline:hover {
   background: #f1f5f9;
+}
+.persisted-clinic .secretary-outline:focus-visible,
+.persisted-clinic .secretary-nav-item:focus-visible,
+.persisted-clinic .visit-options input:focus-visible {
+  outline: 2px solid #0f766e;
+  outline-offset: 3px;
+}
+.persisted-clinic .secretary-outline:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 .persisted-clinic .visit-badge {
   display: inline-flex;
@@ -21,6 +31,14 @@
   padding: 4px 12px;
   font-size: 12px;
   line-height: 16px;
+  font-weight: 600;
+  border-radius: 9999px;
+  color: #475569;
+  background: #f1f5f9;
+}
+.persisted-clinic .visit-badge.full {
+  color: #0369a1;
+  background: #f0f9ff;
 }
 .persisted-clinic .secretary-nav {
   align-items: center;
@@ -47,6 +65,14 @@
   line-height: 28px;
   margin-bottom: 12px;
 }
+.persisted-clinic .visit-options label {
+  min-height: 74px;
+  padding: 16px;
+}
+.persisted-clinic .visit-options label.selected {
+  border-color: #14b8a6;
+  background: #f0fdfa;
+}
 .persisted-clinic .visit-options input {
   width: 22px;
   height: 22px;
@@ -60,191 +86,17 @@
   border-color: #14b8a6;
   background: #14b8a6;
 }
-.persisted-clinic .secretary-subheader {
-  flex-direction: row-reverse;
-  min-height: 60px;
-  padding: 8px 12px;
+.persisted-clinic .visit-options label:has(input:disabled) {
+  cursor: not-allowed;
 }
-.persisted-clinic .secretary-subheader h1 {
-  text-align: right;
-  font-weight: 500;
-}
-.persisted-clinic .secretary-subheader a {
-  width: 44px;
-  height: 44px;
-}
-.persisted-clinic .secretary-subheader a svg {
-  transform: rotate(180deg);
-}
-.persisted-clinic .directory-heading {
-  padding: 20px 16px 12px;
-}
-.persisted-clinic .directory-heading h1 {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 500;
-  line-height: 28px;
-}
-.persisted-clinic .directory-heading p {
-  margin: 0;
-  font-size: 12px;
-  color: #64748b;
-  line-height: 16px;
-}
-.persisted-clinic .visit-options label {
-  min-height: 74px;
-}
-.persisted-clinic .visit-options label.selected {
-  padding: 15px;
+.persisted-clinic .visit-options strong {
+  line-height: 24px;
 }
 .persisted-clinic .visit-options small {
   margin: 0;
   line-height: 16px;
 }
-.persisted-clinic .confirm-content {
-  display: grid;
-  gap: 20px;
-  padding-top: 16px;
-}
-.persisted-clinic .confirm-person {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.persisted-clinic .confirm-person .patient-avatar {
-  width: 48px;
-  height: 48px;
-}
-.persisted-clinic .confirm-patient h2 {
-  font-weight: 500;
-  line-height: 28px;
-}
-.persisted-clinic .confirm-content .intake-info {
-  margin: 0;
-}
-.persisted-clinic .field-error {
-  color: #b91c1c;
-  font-size: 12px;
-  line-height: 20px;
-}
-.persisted-clinic input[aria-invalid="true"] {
-  border-color: #b91c1c;
-}
-.persisted-clinic .patient-directory {
-  padding: 16px;
-  gap: 16px;
-}
-.persisted-clinic .patient-directory .patient-search-input input {
-  background: #f1f5f9;
-  border-color: transparent;
-  font-size: 14px;
-}
-.persisted-clinic .patient-directory .patient-result-list {
-  gap: 12px;
-}
-.persisted-clinic .patient-directory .patient-result {
-  padding: 12px;
-  border-radius: 12px;
-  gap: 8px;
-}
-.persisted-clinic .patient-filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-.persisted-clinic .patient-filters button {
-  border: 1px solid #e2e8f0;
-  border-radius: 9999px;
-  padding: 12px;
-  font: inherit;
-  font-size: 14px;
-  color: #475569;
-  background: white;
-  cursor: pointer;
-}
-.persisted-clinic .patient-filters button[aria-pressed="true"] {
-  background: #0f766e;
-  color: #f0fdfa;
-  border-color: #0f766e;
-}
-.persisted-clinic .queue-card-actions {
-  display: grid;
-  gap: 8px;
-}
-.persisted-clinic .queue-totals {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-.persisted-clinic .queue-person strong {
-  overflow-wrap: anywhere;
-}
-.persisted-clinic .recent-handoff {
-  border: 2px solid #14b8a6;
-  background: #f0fdfa;
-}
-.persisted-clinic .recent-handoff .queue-card-actions {
-  color: #115e59;
-  font-size: 12px;
-  text-align: center;
-}
-.persisted-clinic .doctor-current {
-  display: grid;
-  gap: 12px;
-  padding: 16px;
-  border-radius: 16px;
-  background: #0f766e;
-  color: #f0fdfa;
-}
-.persisted-clinic .doctor-current h2 {
-  font-size: 30px;
-  font-weight: 500;
-  line-height: 38px;
-  margin: 0;
-  overflow-wrap: anywhere;
-}
-.persisted-clinic .doctor-current p {
-  margin: 0;
-  font-size: 14px;
-  line-height: 20px;
-}
-.persisted-clinic .doctor-current .secretary-outline {
-  color: #0f766e;
-  font-weight: 700;
-}
-.persisted-clinic .doctor-current-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.persisted-clinic .doctor-statistics {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  margin-top: 20px;
-}
-.persisted-clinic .doctor-stat {
-  display: grid;
-  gap: 4px;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  padding: 20px 16px;
-}
-.persisted-clinic .doctor-stat strong {
-  font-size: 36px;
-  font-weight: 400;
-  line-height: 44px;
-}
-.persisted-clinic .doctor-stat h2 {
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 16px;
-  margin: 0;
-}
-.persisted-clinic .doctor-stat p {
-  font-size: 12px;
-  line-height: 16px;
-  color: #64748b;
-  margin: 0;
-}
+/* Retained checkpoint account presentation; logout uses master's SignOutForm. */
 .persisted-clinic .account-heading {
   padding: 20px 16px 12px;
 }

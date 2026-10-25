@@ -15,5 +15,6 @@ export default async function DoctorLayout({
   if (!account) redirect("/");
   if (account.mustChangePassword) redirect("/change-password");
   if (account.role !== "doctor") redirect(homeForRole(account.role));
+  // The clinical header renders the shared, error-aware SignOutForm.
   return children;
 }

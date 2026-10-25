@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import type { ClinicalEntry } from "@/lib/clinical-types";
+import type { ClinicEntry } from "@/lib/clinical-types";
 
 const secretaryTabs = [
   { key: "queue", title: "الدور", href: "/secretary" },
@@ -80,7 +80,7 @@ export function DoctorNav({ route }: { route: string }) {
   );
 }
 
-export function VisitType({ kind }: { kind: ClinicalEntry["kind"] }) {
+export function VisitType({ kind }: { kind: ClinicEntry["kind"] }) {
   return (
     <span className={`visit-badge${kind === "full_exam" ? " full" : ""}`}>
       <Image
@@ -98,9 +98,11 @@ export function VisitType({ kind }: { kind: ClinicalEntry["kind"] }) {
 export function VisitOptions({
   kind,
   onChange,
+  firstVisit = false,
 }: {
-  kind: ClinicalEntry["kind"];
-  onChange: (kind: ClinicalEntry["kind"]) => void;
+  kind: ClinicEntry["kind"];
+  onChange: (kind: ClinicEntry["kind"]) => void;
+  firstVisit?: boolean;
 }) {
   return (
     <fieldset className="visit-options">
@@ -109,8 +111,9 @@ export function VisitOptions({
         <label key={value} className={kind === value ? "selected" : undefined}>
           <input
             type="radio"
-            name="kind"
+            name="visitType"
             checked={kind === value}
+            disabled={firstVisit && value === "follow_up"}
             onChange={() => onChange(value)}
           />
           <span>

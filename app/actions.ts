@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import type { AuthError } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/server";
@@ -156,8 +157,22 @@ export async function changePassword(
   redirect(homeForRole(account.role));
 }
 
-export async function signOut() {
-  const supabase = await createClient();
-  await supabase.auth.signOut();
+export async function signOut(): Promise<FormResult> {
+  try {
+    // auth-js clears local storage even on a logout service failure. Do not
+    // expire the browser session until remote revocation actually succeeds:
+    // otherwise the protected-page rerender redirects before showing the error.
+    const cookieWrites: Array<() => void> = [];
+    const supabase = await createClient({
+      deferCookieWrite: (commit) => cookieWrites.push(commit),
+    });
+    const { error } = await supabase.auth.signOut();
+    if (error)
+      return { kind: "service", error: "تعذّر تسجيل الخروج. حاول مرة أخرى." };
+    cookieWrites.forEach((commit) => commit());
+  } catch {
+    return { kind: "service", error: "تعذّر تسجيل الخروج. حاول مرة أخرى." };
+  }
+  revalidatePath("/", "layout");
   redirect("/");
 }

@@ -1,53 +1,53 @@
+import type { DemoEntry, DemoPatient, DemoVisit } from "./demo-clinic";
 import type { VisitMeasurement } from "@/app/secretary/measurements/mock-visits";
 
-export type ClinicalPatient = {
-  id: string;
-  name: string;
-  phone: string;
-  height: string;
-  gender: string;
-  birthYear: string;
-  goal: string;
-};
-export type ClinicalEntry = {
-  id: string;
-  patientId: string;
-  visitId: string | null;
-  kind: "follow_up" | "full_exam";
-  status: "waiting" | "ready" | "with_doctor";
-  serviceDate: string;
-  revision: number;
-  arrivalTime: string;
-  measurements: VisitMeasurement;
-};
+// Presentation shapes are shared with the retained UI, not its fictional store.
+export type ClinicPatient = DemoPatient & { revision: number };
+export type ClinicEntry = DemoEntry & { revision: number; visitId?: string };
 export type ClinicalSnapshot = {
-  patients: ClinicalPatient[];
-  entries: ClinicalEntry[];
+  clinicId: string;
+  patients: ClinicPatient[];
+  queue: ClinicEntry[];
+  hasMore: boolean;
+  role: "doctor" | "secretary";
+  serviceDate: string;
 };
-export type ClinicalCommand =
-  | { type: "patient"; patient: ClinicalPatient }
-  | { type: "enqueue"; patientId: string; kind: ClinicalEntry["kind"] }
-  | {
-      type: "measure";
-      entryId: string;
-      revision: number;
-      requestId: string;
-      measurements: VisitMeasurement;
-    }
-  | { type: "handoff"; entryId: string; revision: number };
-
-export type ClinicalResult<T> =
-  { data: T; error?: never } | { error: string; data?: never };
-
-// Matches the nine existing UI fields; no fixtures, notes or unsupported vitals.
-export const measurementColumns = {
-  weight: "weight_kg",
-  fat: "body_fat_percent",
-  muscle: "muscle_mass_kg",
-  visceral: "visceral_fat_level",
-  bmr: "basal_metabolic_rate_kcal",
-  waist: "waist_cm",
-  arm: "arm_cm",
-  thigh: "thigh_cm",
-  hip: "hip_cm",
-} as const;
+export type ClinicalFailure = {
+  ok: false;
+  kind: "auth" | "conflict" | "validation" | "network";
+  message: string;
+};
+export type ClinicalResult<T> = { ok: true; data: T } | ClinicalFailure;
+export type PatientInput = Omit<DemoPatient, "visits">;
+export type ScreenRequest = {
+  term: string;
+  page: number;
+  patient?: string;
+  entry?: string;
+};
+export type ClinicalOperations = {
+  pending: boolean;
+  createPatient: (patient: PatientInput) => Promise<boolean>;
+  enqueuePatient: (
+    patient: string,
+    kind: DemoEntry["kind"]
+  ) => Promise<boolean>;
+  saveMeasurements: (
+    entry: string,
+    values: VisitMeasurement,
+    revision?: number
+  ) => Promise<boolean>;
+  handoffToDoctor: (entry: string) => Promise<boolean>;
+  saveDoctorDraft: (
+    entry: string,
+    revision: number,
+    draft: DemoVisit
+  ) => Promise<boolean>;
+  finishVisit: (
+    entry: string,
+    revision: number,
+    draft: DemoVisit
+  ) => Promise<boolean>;
+  search: (term: string) => void;
+  nextPage: () => void;
+};
