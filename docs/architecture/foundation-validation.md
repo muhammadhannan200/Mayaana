@@ -15,6 +15,7 @@ workflow, Supabase configuration or SQL file is changed.
 | `node scripts/architecture-inventory.mjs`             | Passed; report contains the retained runtime cycle and production/demo coupling. Findings do not fail the command.                                               |
 | Focused public browser tests, production server       | 20 passed: five cases at 320/390/768/1280px.                                                                                                                     |
 | Full public browser audit, production server          | 68 passed, four existing status-code assertion failures (one at each width); see below. All 20 new cases passed.                                                 |
+| Full public browser audit, development server         | 70 passed, two document-title accessibility failures in the unchanged Secretary journey at 390/1280px. All 20 new cases passed.                                  |
 | `npm run audit:ui:static`                             | Passed; existing CSS inventory remains report-only.                                                                                                              |
 | Authenticated spec discovery                          | Eight cases discovered: Doctor/Secretary at four widths. Discovery uses dummy keys and performs no database/network operations. This is not an integration pass. |
 | Authenticated execution                               | Not run locally: Docker and Supabase CLI are unavailable. Existing Clinical Browser Flow CI discovers the new spec automatically.                                |
@@ -33,6 +34,13 @@ has the same missing-tool prerequisites.
 
 ## Existing diagnostics, not fixed here
 
+- The normal development-server run reports axe `document-title` violations
+  in the unchanged `tests/ui-audit/secretary-flow.spec.ts:89` journey at 390px
+  and 1280px: the document title is empty when axe inspects after navigation.
+  That journey passed at those widths in production mode. The cause is not
+  established by these foundation tickets; no title assertion, accessibility
+  rule or application metadata is changed. An earlier development run exceeded
+  the command's two-minute limit; the complete rerun used a longer limit.
 - The unchanged `tests/ui-audit/measurements.spec.ts:149` requires HTTP 404
   for `/measurement-preview/not-a-screen`. Production streaming returns 200
   with the not-found UI and `noindex`; the assertion fails at all four widths.
