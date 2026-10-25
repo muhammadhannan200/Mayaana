@@ -53,6 +53,7 @@ Start with:
 - [Database](docs/database.md)
 - [UI patterns](docs/ui-patterns.md)
 - [UI audit](docs/ui-audit.md)
+- [Architecture ownership and foundation tickets](docs/architecture/module-ownership.md)
 
 ## Git workflow
 
