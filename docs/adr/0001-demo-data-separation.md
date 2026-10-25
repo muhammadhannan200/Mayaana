@@ -12,6 +12,9 @@ behavior close to the real screens is useful, but mixing demo data with
 authenticated clinical storage would create safety, privacy and determinism
 risks.
 
+Keeping the two stores separate protects patient and staff privacy, avoids
+unsafe demo-to-clinical writes, keeps the demo deterministic across browsers,
+and prevents accidental coupling between demo state and production workflows.
 Existing architecture documentation records known demo/production source-code
 coupling as debt. That debt does not authorize sharing runtime data between the
 two contexts.
