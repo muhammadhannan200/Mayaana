@@ -68,6 +68,21 @@ Rules of thumb:
   for known status-code, title and development-dependency findings.
 - A pre-commit hook runs `lint-staged` (ESLint/Prettier) and `npm run typecheck`.
 
+
+### Fresh worktree type generation
+
+A clean Next.js worktree can lack generated route types. If `npm run typecheck`
+fails specifically because Next.js-generated types are absent, generate them
+before repeating the same check:
+
+```bash
+npx next typegen
+npm run typecheck
+```
+
+Do not weaken TypeScript checks or commit generated build artifacts to bypass
+this prerequisite.
+
 ## Where each suite is explained
 
 - [UI audit](ui-audit.md) — public browser audit, fixtures and artifacts.
