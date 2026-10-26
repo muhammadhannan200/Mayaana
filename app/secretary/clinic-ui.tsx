@@ -48,13 +48,14 @@ export function DoctorNav({ route }: { route: string }) {
     { key: "home", title: "الرئيسية", href: "/doctor" },
     { key: "patients", title: "المرضى", href: "/doctor/patients" },
     { key: "search", title: "البحث", href: "/doctor/search" },
-    { key: "account", title: "الحساب", href: "/doctor/account" },
+    // Keep master's existing destination until Account/Profile is implemented.
+    { key: "account", title: "الحساب", href: "/doctor/staff" },
   ];
   const active = route.startsWith("doctor/patients")
     ? "patients"
     : route === "doctor/search"
       ? "search"
-      : route === "doctor/account"
+      : route === "doctor/staff"
         ? "account"
         : "home";
   return (

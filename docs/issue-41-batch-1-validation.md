@@ -1,252 +1,182 @@
-# Issue #41: Batch 1 reconciliation and validation
+# Issue #41: Batch 1 scope separation and validation
 
-Date: 2026-10-25. Branch: `fix/41-figma-parity`.
+Date: 2026-10-26. Branch: `fix/41-figma-parity`. Review only; no push or PR authorized by this separation task.
 
-## Preservation and merge status
+## Scope and preservation
 
-- Checkpoint: `356d7a6df752218f218b15c0ef29146e420ff4d3`.
-- Backup: `chore/41-preservation-backup-20261025`, still pointing to the checkpoint.
-- Incoming master: `4d0695b074a30d6113a10843cfe0b1e900b84e09`.
-- The owner authorized completing the pending local, two-parent merge after
-  runnable Batch 1 checks, with Docker and Supabase CLI setup explicitly deferred.
-  Backend suites remain **NOT RUN**, not passed. The merge preserves both parents
-  rather than squashing the checkpoint; identify its SHA with
-  `git log -1 --format='%H %P' fix/41-figma-parity`.
-- No push, PR, merge to master, migration deployment or issue-checklist update.
+The owner authorized separating unfinished Account/Profile implementation from
+the review diff, without rewriting the preservation checkpoint or existing history.
 
-## Resolution
+- Latest fetched `origin/master`: `4d0695b074a30d6113a10843cfe0b1e900b84e09`.
+- Original checkpoint/backup: `356d7a6df752218f218b15c0ef29146e420ff4d3`,
+  `chore/41-preservation-backup-20261025`; unchanged.
+- Additional backup: `chore/41-account-profile-backup-20261026`, pointing to
+  `ff1f481b168c572c642485390830015bb1634bb1`, the clean pre-separation tip.
+- Verified the backup's relevant blobs equal the pre-separation HEAD and are
+  readable with `git cat-file` before removing any implementation.
 
-Each controller conflict was reviewed against master's current interfaces.
-The old combined persistence/presentation implementation is not retained as a
-second live flow. Master owns `PersistedFlow`, `getClinicScreen`, explicit
-operations, `snapshot.queue`, revisions, retry identities, mutation locking,
-polling, pagination and error/discard handling. The controller's only changes
-relative to master are presentation wrapper classes/markup for live UI styling.
+The additional backup preserves the exact reconciled versions of:
 
-Compatible presentation from the checkpoint is integrated in `ClinicFlowView`,
-`clinic-ui.tsx` and live-scoped `persisted.css`. Public demo rendering remains
-separate. First-visit full-exam restrictions remain intact. The Doctor search
-navigation uses the current Doctor patient-search view and server operation.
-
-Retained account screens now use master's unchanged `SignOutForm`; its actual
-pending, disabled and failure behavior is exercised by the isolated UI tests.
-Account role-boundary persistence coverage remains added to the existing suite.
-The account redesign itself is not marked Figma-complete by this batch.
-
-`package.json` retains all master scripts and the checkpoint's pinned development
-dependency `esbuild@0.25.12`, used only by the isolated test bundle; its lockfile
-is retained. The auto-merged persistence spec retains master's existing assertions
-and adds only the checkpoint's account-role test.
-
-There are no changes relative to incoming master in auth actions, SignOutForm,
-clinical server actions, clinical server implementation/types, Supabase clients,
-configuration, RLS or migrations.
-
-## Figma evidence
-
-File: `dZPtsNiHOfyhqRgHb6H0yx`. Exact nodes inspected before implementation:
-
-| Surface | Nodes | Applied values |
-| --- | --- | --- |
-| Secondary button | `199:299` | White, slate border/text, 12px radius, 12px/20px padding, 16px/24px bold label, 8px gap; 50px browser border-box height |
-| VisitType badges | `117:263`, `117:250`, `117:256` | 14px icons, 4px/12px padding, 4px gap, 12px/16px semibold, sky/slate variants |
-| Visit choice controls | `118:276`, especially `118:312`, `118:313`, `118:318` | 22px radios, 16px padding, 12px gap/radius, teal selected surface and 2px border |
-| Secretary bottom navigation | `117:249`, all four active variants | 54px/30px icon pills, 80px/56px targets, 4px gap, active/inactive slate text and teal pill |
-| Doctor bottom navigation | `117:132`, all four active variants | Same geometry/colors, with Home icon |
-
-Rendered screenshots were reviewed at mobile and desktop widths against Figma
-exports. Tests assert measured styles, RTL ordering, keyboard selection/focus,
-image loading, horizontal overflow and axe accessibility. The existing 390px
-app shell is preserved on desktop; Figma does not specify a new desktop layout.
-The fixture loads the actual compiled Noto Sans Arabic fonts, resolving font
-URLs relative to their stylesheet before embedding them.
-
-## Inactive checkpoint work and superseded tests
-
-The checkpoint's 48 UI cases were 12 scenarios repeated at four widths. They
-targeted removed controller exports, server actions and snapshot shapes; that
-old bundle is not used to validate the new implementation.
-
-| Checkpoint scenario | Current disposition |
-| --- | --- |
-| Required fields and linked errors | Later-batch field-level UI remains checkpoint-only; master intake behavior retained |
-| Navigation SVG/current-page state | Adapted and expanded to eight role/route combinations |
-| Patient-directory routing and goal filters | Checkpoint-only; no new Secretary detail route activated |
-| Visit choices | Adapted to current operations with both returning-patient selection and first-visit restriction tests |
-| Temporary handoff success | Checkpoint-only; master success/recovery behavior retained |
-| Block second handoff | Inactive; replaced by a master-contract regression test proving a second handoff remains possible |
-| Failed handoff | Adapted to structured errors, explicit revision/request identity and retained queue state |
-| Standalone patient validator | Checkpoint-only; no new validation feature activated |
-| Secretary account | Navigation/axe and real SignOutForm states covered; real identity/role test retained but backend execution blocked |
-| Doctor current card and total statistic | Checkpoint-only; master current-patient list and displayed-file statistics retained |
-| Doctor account/search | Navigation adapted; existing patient-search operation reused; role tests retained |
-| Extended Secretary demographics/details | Checkpoint-only |
-
-The replacement suite has **64 cases** (16 scenarios at four widths), not a
-claim that all 48 old cases passed unchanged. Additional checks measure secondary
-buttons and badges, cover Doctor-visit disabled writes, and verify first-visit
-behavior and pending/failed logout. No test is skipped within the new suite.
-
-## Current continuation validation results (without Docker)
-
-All commands below were rerun against the reconciled tree on 2026-10-25, except
-the four explicitly NOT RUN suites. Build and browser servers used blank
-Supabase configuration. No production/shared database was used. Neither Docker
-nor Supabase CLI resolves on PATH; no installation or stack startup was attempted.
-
-| Command/check | Result |
-| --- | --- |
-| `npm run typecheck` | PASS, exit 0 |
-| `npm run lint` | PASS, exit 0 |
-| `npm run build` | PASS, exit 0; 25 static pages generated |
-| `UI_AUDIT_PRODUCTION=1 npm run audit:ui:browser -- tests/ui-audit/issue-41.spec.ts --workers=2` | PASS: 64 passed, 0 failed, 0 skipped; 2.3 minutes |
-| `npm run audit:ui:static` | PASS: lint and report-only style inventory, exit 0 |
-| `UI_AUDIT_PRODUCTION=1 npm run audit:ui:browser -- --workers=2` | NOT GREEN: 132 passed, 4 existing failures, 0 skipped; 4.7 minutes. All 64 Batch 1 cases passed |
-| `node --test scripts/architecture-inventory.test.mjs` | PASS: 6 passed, 0 failed |
-| Persistence: `npm run test:persistence` | **NOT RUN**: Docker/Supabase CLI unavailable; setup deferred by owner |
-| Auth: `npm run test:auth` | **NOT RUN**: Docker/Supabase CLI unavailable; setup deferred by owner |
-| Clinical Browser: `npm run test:clinical:browser` | **NOT RUN**: Docker/Supabase CLI unavailable; setup deferred by owner |
-| Clinical DB: `npm run test:clinical` | **NOT RUN**: Docker/Supabase CLI unavailable; setup deferred by owner |
-| Diff whitespace, unmerged index and conflict-marker checks | PASS: no whitespace errors, unmerged entries or tracked conflict markers |
-
-Previous attempts stopped before backend test execution with missing CLI/startup
-errors (and cleanup diagnostics); those attempts are not integration passes and
-were not repeated during this continuation.
-
-### Four existing full UI audit failures (separate from Batch 1)
-
-| Project | Assertion | Actual |
-| --- | --- | --- |
-| `chromium-320` | `tests/ui-audit/measurements.spec.ts:149`: HTTP 404 | HTTP 200 |
-| `chromium-390` | `tests/ui-audit/measurements.spec.ts:149`: HTTP 404 | HTTP 200 |
-| `chromium-768` | `tests/ui-audit/measurements.spec.ts:149`: HTTP 404 | HTTP 200 |
-| `chromium-1280` | `tests/ui-audit/measurements.spec.ts:149`: HTTP 404 | HTTP 200 |
-
-Test: `preview navigation rejects unknown modes and protects staff routes`.
-Current local evidence: `artifacts/ui-audit/results.json` and the four
-`test-results/measurements-preview-navig-*/` screenshot/trace directories
-(generated, intentionally not committed).
-
-All four full-audit failures are the unchanged assertion in
-`tests/ui-audit/measurements.spec.ts:149`: expected HTTP 404 but received 200 for
-an invalid measurement-preview route in production streaming. This exact
-pre-existing failure and the associated blank-backend diagnostic are documented
-in `docs/architecture/foundation-validation.md`. Neither that assertion nor its
-application route was changed or skipped.
-
-Initial validation also exposed stale generated development route validators
-for the checkpoint-only Secretary detail route after its removal. `next typegen`
-regenerated production types but did not retire those development validators;
-the first build failed on them. Removing only the two obsolete generated
-development route-type files allowed typecheck and build to pass. No application
-types or TypeScript checks were suppressed. The initial isolated-bundle failure
-was fixed by mocking SignOutForm's relative server-action import at the test
-boundary, rather than bundling server-only modules into a browser fixture.
-
-## Reconciliation review and changed-file scope
-
-The merge delta from the checkpoint contains 70 files, including incoming
-master's clinical/auth implementation, migration and architecture documentation.
-Those incoming changes are not new Batch 1 features. Relative to incoming master,
-the reconciled tree has these 27 changed files:
-
-- `app/doctor/account/page.tsx`, `app/doctor/search/page.tsx`
-- `app/secretary/account/account-screen.tsx`, `app/secretary/account/page.tsx`
-- `app/secretary/clinic-flow.tsx`, `app/secretary/clinic-ui.tsx`
-- `app/secretary/persisted-flow.tsx`, `app/secretary/persisted.css`
-- `docs/issue-41-batch-1-validation.md`, `package.json`, `package-lock.json`
+- `app/doctor/account/page.tsx`
+- `app/secretary/account/page.tsx`
+- `app/secretary/account/account-screen.tsx`
+- `app/secretary/persisted.css` (including profile-only styles)
+- `app/secretary/clinic-ui.tsx` (including the former Doctor account destination)
 - `public/rashaqa/account-logout.svg`
-- `public/rashaqa/nav-account-active.svg`, `public/rashaqa/nav-account.svg`
-- `public/rashaqa/nav-home-active.svg`, `public/rashaqa/nav-home.svg`
-- `public/rashaqa/nav-patients-active.svg`, `public/rashaqa/nav-patients.svg`
-- `public/rashaqa/nav-queue-active.svg`, `public/rashaqa/nav-queue.svg`
-- `public/rashaqa/nav-search-active.svg`, `public/rashaqa/nav-search.svg`
-- `public/rashaqa/visit-follow-up.svg`, `public/rashaqa/visit-full-exam.svg`
-- `tests/fixtures/issue-41-clinic.tsx`, `tests/persistence/slice-1.spec.ts`
+- `tests/fixtures/issue-41-clinic.tsx`
 - `tests/ui-audit/issue-41.spec.ts`
+- `tests/persistence/slice-1.spec.ts`
+- Both Issue #41 validation/handoff documents, including the previous historical
+  results and operator handoff. The entire pre-separation tree is preserved too.
 
-Reviewed the staged delta against both parents. Persistence controller differences
-from master are CSS wrapper markup only. Auth actions, SignOutForm, server-side
-clinical operations/types, Supabase clients/configuration and migrations are
-identical to master. Queue behavior preserves multiple patients with the Doctor,
-revision/request identities and failure recovery. SignOutForm pending/disabled
-and service-error behavior passes at all four widths using a mocked action;
-actual remote revocation and cookie handling are not verified by that fixture.
+Recover an individual file for inspection with
+`git show chore/41-account-profile-backup-20261026:<path>`.
+Do not restore the entire backup over Batch 1: it deliberately contains unfinished
+work. No existing backup was moved, reset, amended or force-pushed.
 
-No unintended later-batch behavior is activated: no Secretary detail route,
-standalone patient validator, new field-level validation, goal filters, extended
-demographics, temporary handoff success, second-handoff blocking, or Doctor
-current-card/statistics rewrite. Account presentation is retained checkpoint work,
-not a claim of account Figma completion. Doctor search reuses the existing search
-operation. No Batch 2 work or issue-checklist completion was performed.
+## Final live scope
 
-## Manual-review readiness and remaining gates
+Only the three approved Global UI items and required compatibility/testing remain:
 
-**Ready for manual review of Batch 1 UI, with explicit validation limitations.**
-The owner permits the local merge despite deferred integration suites and the
-four separately recorded pre-existing full-audit failures. This is not full-stack
-acceptance or production readiness, and the full audit is not green.
+1. Secondary-button geometry, typography, color and keyboard focus.
+2. VisitType badges and visit-choice controls, preserving existing commands and
+   first-visit full-exam restrictions.
+3. Secretary/Doctor bottom-navigation icons and active/inactive colors.
 
-Persistence, Auth, Clinical Browser and Clinical DB must still run against the
-repository's disposable local stack when Docker and the pinned Supabase CLI are
-available. Real account identity/role isolation, session revocation/cookies,
-database/RLS, transactional handoff and upgrade behavior remain unverified here.
-Keep the four known audit failures visible; no assertion was changed or weakened.
-No push or PR is authorized yet. Preserve the checkpoint and backup branch.
+The live controller changes are presentation wrappers only. Doctor Search reuses
+the existing patient-search view/operation as the new Search tab's destination.
+The Doctor account tab retains master's existing `/doctor/staff` destination;
+there is no new `/doctor/account` route. The existing staff page is unchanged.
+The Secretary account route is restored exactly to master and renders its original
+content/SignOutForm with shared Global UI navigation.
 
-## Resume verification, 2026-10-26
+Removed from the final diff: the new profile route/component, signed-in-profile
+queries, profile-specific CSS/logout asset, and account-profile persistence test.
+Shared nav account icons remain: they are required by Global UI, not a profile
+redesign. No queue snackbar/Undo, single-active-patient restriction, patient-detail
+route, intake validation feature, demographics, filters, home statistics or other
+later-batch work is activated. No Issue #50 implementation is included.
 
-The supplied resume brief described a pending merge, but inspection found the
-already-completed merge `b1a68f5a8a6ff56cca6490bc8347e43e13e3098b`, with
-checkpoint `356d7a6` first parent and incoming master `4d0695b` second parent.
-The worktree was clean, and the backup still pointed to the checkpoint. No merge
-was repeated, reset, squashed or amended.
+Auth actions, SignOutForm, server clinical implementation/contracts, Supabase
+clients/configuration, RLS and migrations remain identical to master. Existing
+persistence tests are restored exactly to master. The public fictional demo is
+unchanged. No real patient data or hosted backend is used by the focused fixture.
 
-Read the approved Issue #41 plan/comments, AGENTS.md and all accepted ADRs.
-Re-read the complete Batch 1 delta and focused tests. Auth/SignOutForm, clinical
-contracts, Supabase configuration and migrations still match the incoming parent.
-The lockfile adds esbuild and its optional platform packages without modifying
-any pre-existing package entry; the manifest and lock both pin 0.25.12.
-Tracked-diff scanning found no conflict markers, environment files, obvious
-embedded credentials or real clinical fixtures; test records are synthetic.
-This scan is not an exhaustive secret-detection/security certification.
+The only dependency addition is development-only `esbuild@0.25.12`, pinned for the
+in-memory isolated browser-test bundle. The lockfile adds its platform packages;
+no pre-existing package entry changes. All 27 added package entries are pinned
+esbuild/platform packages from the npm registry and marked development-only.
+This is not a dependency-security certification.
 
-Fetched the five exact Figma nodes again: `199:299`, `117:263`, `118:312`,
-`117:249`, `117:132`. Compared their geometry, colors and typography with the
-existing components/styles and reviewed fresh mobile/desktop fixture screenshots.
-No new application code or later-batch behavior was added.
+Reviewed the full net diff against fetched master, including source, tests,
+documentation, SVG assets and package metadata. Added-line scanning found no
+private keys, recognized secret-key/JWT patterns or conflict markers. No
+environment, screenshot, trace, generated-build or node_modules path is in the
+review diff. Focused fixture records are explicitly synthetic; no real patient
+data was identified. These checks are not an exhaustive privacy/security audit.
+The old checkpoint commits remain in history for preservation, but their
+unfinished features do not remain in the final net diff.
 
-### New execution results (supersede earlier run counts for this resume)
+## Figma evidence retained
 
-| Check | Result |
-| --- | --- |
-| `npm run typecheck` | PASS, exit 0 |
-| `npm run lint` | PASS, exit 0 |
-| `npm run build` with blank backend variables | PASS, exit 0; 25 static pages generated |
-| Production focused Issue #41 suite, `--workers=2` | PASS: 64 passed, 0 failed, 0 skipped, 52.1 seconds |
-| `npm run audit:ui:static` | PASS, exit 0 |
-| `node --test scripts/architecture-inventory.test.mjs` | PASS: 6 passed, 0 failed |
-| Full production audit, `--workers=2` | INCOMPLETE: 480-second command timeout; additional demo/architecture timeouts occurred; not a passing run |
-| Full production audit, `--workers=1` | FAILED: 131 passed, 5 failed, 0 skipped; 6.3 minutes |
-| 1280px complete-V1 journey rerun alone | PASS: 1 passed, 35.3 seconds; does not erase the full-run failure |
-| Persistence / Auth / Clinical Browser / Clinical DB | **NOT RUN / BLOCKED**: Docker and local Supabase CLI unavailable; setup deferred |
+File: `dZPtsNiHOfyhqRgHb6H0yx`. Previously fetched/rechecked exact nodes:
 
-The four known `measurements.spec.ts:149` failures are still listed separately
-above and remain unchanged at 320/390/768/1280px. The fifth failure is
-`tests/ui-audit/secretary-flow.spec.ts:236`, project `chromium-1280`, test
-`complete V1: secretary intake → measurements → handoff → doctor notes → diet
-and meal → completed visit`: the zero-browser-errors assertion received React
-hydration error #418. It passed alone without code/assertion changes. Its cause
-and whether it predates Batch 1 are not established. Do not call it fixed or
-classify it as one of the four pre-existing status failures.
+| Surface              | Nodes                                      |
+| -------------------- | ------------------------------------------ |
+| Secondary button     | `199:299`                                  |
+| VisitType badges     | `117:263`, `117:250`, `117:256`            |
+| Visit choices        | `118:276`, `118:312`, `118:313`, `118:318` |
+| Secretary navigation | `117:249`                                  |
+| Doctor navigation    | `117:132`                                  |
 
-Full-run JSON/traces remain under `artifacts/ui-audit/results.json` and
-`test-results/`; the one-case rerun used `--reporter=list
---output=artifacts/ui-audit/recheck-secretary` so it did not replace full-run
-evidence. No assertion, retry configuration or timeout was relaxed.
+The separation does not redesign these primitives. Tests retain their measured
+geometry/color checks, RTL ordering, image loading, keyboard behavior, overflow
+and axe assertions at 320/390/768/1280px. The 390px application shell remains.
 
-Batch 1's three Global UI items have focused/Figma evidence; all later-batch,
-account-design and full-stack acceptance items remain incomplete. Manual review
-of the Batch 1 visuals is appropriate; a fully green regression/merge approval
-is not claimed. See [review handoff](issue-41-review-handoff.md) for preview,
-provisioning gates and the prepared PR summary. No push or PR was performed.
+## Focused coverage after separation
+
+The suite still has 16 scenarios at four widths (64 cases), but is not a claim
+that the removed Account/Profile flow remains tested or shipped:
+
+- Seven existing live-screen navigation variants plus an isolated DoctorNav
+  account-active state fixture, asserting the existing `/doctor/staff` href.
+  That fixture is not a replacement staff page and does not verify its backend.
+- Secondary buttons, both VisitType badges and visit choices.
+- First-visit restrictions, multi-patient handoff/revision identity, conflict
+  recovery and disabled Doctor writes.
+- Existing Secretary SignOutForm pending/failure states with a mocked action,
+  not remote session revocation or profile loading.
+
+Only profile-specific coverage was removed/adapted with the authorized scope
+separation. No existing full-audit failing assertion, console-error listener,
+retry or timeout setting was changed.
+
+## Validation rerun
+
+All new browser artifacts are isolated under the approved temporary directory
+`issue41-scope-20261026`, not committed and not overwriting historical full-run
+evidence in `artifacts/ui-audit/results.json` or `test-results/`.
+
+| Check                                                 | Result                                                               |
+| ----------------------------------------------------- | -------------------------------------------------------------------- |
+| `npm run typecheck`                                   | PASS, exit 0 after generated-type cleanup described below            |
+| `npm run audit:ui:static`                             | PASS, exit 0: lint plus report-only style inventory                  |
+| `npm run build` with blank backend variables          | PASS, exit 0; 24 static pages generated                              |
+| Production focused `issue-41.spec.ts`, `--workers=2`  | PASS: 64 passed, 0 failed, 0 skipped; 129.6 seconds                  |
+| `node --test scripts/architecture-inventory.test.mjs` | PASS: 6 passed, 0 failed                                             |
+| Post-separation full production audit, `--workers=1`  | FAILED: 132 passed, 4 failed, 0 skipped; 530.3 seconds               |
+| Persistence / Auth / Clinical Browser / Clinical DB   | NOT RUN: Docker/local Supabase CLI unavailable; no hosted substitute |
+
+The new complete full run began `2026-10-26T08:02:48.260Z`, with no retries or
+flaky outcomes. Its only failures are the four unchanged streamed HTTP status
+assertions at `measurements.spec.ts:149`. All 64 focused cases also passed within
+this full run. All four complete-V1 journeys passed, including 1280px. Hydration
+#418 did not recur in this daytime run; its date-sensitive cause is not fixed.
+The old **131 passed / 5 failed** report remains intact and is distinguished
+below, not replaced or relabeled as green. The blank-backend server still emits
+the known missing-public-configuration diagnostic during signed-out guard tests;
+those guard assertions pass, and the diagnostic was not suppressed.
+
+Initial typecheck and the first build failed because generated development route
+validators still imported the deleted Doctor account route. Production build
+regenerated production types but did not retire stale development types. Moved
+only `.next/dev/types/validator.ts` and `.next/dev/types/routes.d.ts` into temporary
+storage. Build and typecheck then passed. No source declaration, compiler setting
+or assertion was weakened. No broad generated-directory deletion was used.
+
+### Historical full audit and investigation
+
+The pre-separation complete run began `2026-10-25T20:55:30.861Z`, used one worker
+and took 376.494 seconds: **131 passed, 5 failed, 0 skipped**. An older 132/4 run
+is not the latest pre-separation result; a two-worker run timed out at 480 seconds
+and is not a pass. A later isolated 1280px journey passed (35.3 seconds) without
+fixing or erasing the five-failure evidence.
+
+Four failures are `measurements.spec.ts:149` at all four widths: unconditional
+HTTP 404 expectation versus streamed HTTP 200. Captured responses contain the
+not-found marker and `noindex`; browser snapshots show 404 UI. Installed Next.js
+documentation explicitly permits HTTP 200 after streaming begins. The route/test
+are unchanged from remote master, whose foundation validation also records this
+failure. This is a pre-existing transport-contract mismatch, not a demonstrated
+Batch 1 route regression. The assertion remains unchanged.
+
+The fifth is `secretary-flow.spec.ts:236` at 1280px, React hydration #418. The
+trace locates the error during `/demo/doctor/patients` hydration, not at the
+eventual zero-browser-errors assertion. Captured HTML has fixture dates
+`2026-10-11`/`2026-10-25`; browser snapshots switch to
+`2026-10-12`/`2026-10-26`. Module-level `demoDate()` initialization in
+`lib/demo-clinic.tsx` independently seeds server and browser `initial` snapshots.
+The failing journey ran after midnight in the local timezone; the three passing
+widths ran before midnight. An in-memory clock probe produces this same split
+from both branch and master source. Fixture/test blobs match remote master.
+No separate master browser run establishes historical occurrence of this exact
+error, and the precise server initialization moment is not retained. No hydration
+suppression or fixture fix is included in Batch 1.
+
+## Review gate
+
+Batch 1 is for Draft PR review only after explicit publication authorization.
+The non-green full audit and unrun backend suites remain merge gates; focused
+synthetic tests are not full-stack or production acceptance. Account/Profile and
+all later batches remain incomplete. Do not close Issue #41, start Batch 2, push
+or open a PR as part of this local separation task.

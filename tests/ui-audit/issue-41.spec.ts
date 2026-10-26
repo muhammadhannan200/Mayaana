@@ -215,7 +215,8 @@ for (const [route, active] of [
   ["doctor", "الرئيسية"],
   ["doctor/patients", "المرضى"],
   ["doctor/search", "البحث"],
-  ["doctor/account", "الحساب"],
+  // Isolated navigation state only; the existing staff page is unchanged.
+  ["doctor/staff", "الحساب"],
 ]) {
   test(`Figma navigation: ${route}`, async ({ page }) => {
     await mount(page, route, {
@@ -226,6 +227,12 @@ for (const [route, active] of [
     await expect(nav.getByRole("link")).toHaveCount(4);
     await expect(nav.locator('[aria-current="page"]')).toHaveCount(1);
     await expect(nav.locator('[aria-current="page"]')).toHaveText(active);
+    await expect(
+      nav.getByRole("link", { name: "الحساب", exact: true })
+    ).toHaveAttribute(
+      "href",
+      route.startsWith("doctor") ? "/doctor/staff" : "/secretary/account"
+    );
     await expect(nav.locator("img")).toHaveCount(4);
     for (const img of await nav.locator("img").all()) {
       expect(
@@ -410,7 +417,7 @@ test("global secondary styling reaches Doctor visits without enabling disabled w
   expect(await page.evaluate("window.__commands")).toEqual([]);
 });
 
-test("account logout retains SignOutForm pending and failure states", async ({
+test("existing Secretary logout retains SignOutForm pending and failure states", async ({
   page,
 }) => {
   await mount(page, "secretary/account");
@@ -423,7 +430,8 @@ test("account logout retains SignOutForm pending and failure states", async ({
   await page.evaluate("window.__resolveLogout()");
   await expect(page.getByRole("alert")).toContainText("تعذّر تسجيل الخروج");
   await expect(logout).toBeEnabled();
-  await expect(page.locator(".account-details")).toContainText(
-    "synthetic@example.invalid"
-  );
+  await expect(
+    page.getByRole("heading", { name: "حساب العيادة" })
+  ).toBeVisible();
+  expect(await page.evaluate("window.__commands")).toEqual([]);
 });

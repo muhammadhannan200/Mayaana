@@ -164,47 +164,6 @@ test.afterAll(async () => {
   }
 });
 
-test("Issue 41 account screens read the signed-in profile and preserve role boundaries", async ({
-  browser,
-}) => {
-  const secretaryContext = await browser.newContext();
-  const doctorContext = await browser.newContext();
-  try {
-    const secretaryPage = await secretaryContext.newPage();
-    await login(secretaryPage, secretary, "/secretary");
-    await secretaryPage.goto("/secretary/account");
-    await expect(
-      secretaryPage.getByRole("heading", { name: "secretary-a" })
-    ).toBeVisible();
-    await expect(secretaryPage.locator(".account-details")).toContainText(
-      secretary.email
-    );
-    await expect(
-      secretaryPage.getByRole("link", { name: "تغيير كلمة المرور" })
-    ).toHaveCount(0);
-    await secretaryPage.goto("/doctor/account");
-    await expect(secretaryPage).toHaveURL(/\/secretary$/);
-
-    const doctorPage = await doctorContext.newPage();
-    await login(doctorPage, doctor, "/doctor");
-    await doctorPage.goto("/doctor/account");
-    await expect(
-      doctorPage.getByRole("heading", { name: "doctor-a" })
-    ).toBeVisible();
-    await expect(doctorPage.locator(".account-details")).toContainText(
-      doctor.email
-    );
-    await expect(
-      doctorPage.getByRole("link", { name: "تغيير كلمة المرور" })
-    ).toHaveAttribute("href", "/change-password");
-    await doctorPage.goto("/secretary/account");
-    await expect(doctorPage).toHaveURL(/\/doctor$/);
-  } finally {
-    await secretaryContext.close();
-    await doctorContext.close();
-  }
-});
-
 test("patient and enqueue retries retain one patient, dated queue entry and visit", async () => {
   const p = await patient(secretary.db);
   expect((await secretary.db.rpc("clinical_create_patient", p.args)).data).toBe(
