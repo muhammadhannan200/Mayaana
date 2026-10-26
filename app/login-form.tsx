@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useActionState, useState } from "react";
 import { signIn } from "./actions";
+import { PasswordInput } from "./password-input";
 
 function EmailIcon() {
   return (
@@ -117,23 +118,22 @@ export function LoginForm({ configured }: { configured: boolean }) {
 
               <div className="field">
                 <label htmlFor="password">كلمة المرور</label>
-                <div className="input-wrap">
+                <PasswordInput
+                  visibilityLabel="كلمة المرور"
+                  id="password"
+                  name="password"
+                  autoComplete="current-password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  required
+                  aria-invalid={
+                    state?.kind === "validation" &&
+                    state.error.includes("المرور")
+                  }
+                >
                   <LockIcon />
-                  <input
-                    id="password"
-                    name="password"
-                    type="password"
-                    autoComplete="current-password"
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    required
-                    aria-invalid={
-                      state?.kind === "validation" &&
-                      state.error.includes("المرور")
-                    }
-                  />
-                </div>
+                </PasswordInput>
               </div>
             </div>
 

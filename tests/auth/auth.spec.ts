@@ -1,6 +1,10 @@
 import { test, expect, type Page } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 import { createServer, type Server } from "node:http";
+import {
+  exercisePasswordVisibility,
+  expectPasswordToggleLayout,
+} from "../password-visibility";
 
 // Fault injection belongs to this test-only HTTP proxy, never to application code.
 const upstream = "http://127.0.0.1:55431";
@@ -239,6 +243,42 @@ test("unauthenticated protected routes redirect", async ({ page }) => {
   }
 });
 
+for (const role of ["doctor", "first-doctor", "first-secretary"] as const) {
+  test(`${role}: independent password visibility, keyboard and unchanged form submission`, async ({
+    page,
+  }) => {
+    await login(page, role);
+    await expect(page).toHaveURL(
+      role === "doctor" ? "/doctor" : "/change-password"
+    );
+    await page.goto("/change-password");
+    const labels =
+      role === "doctor"
+        ? ["كلمة المرور الحالية", "كلمة المرور الجديدة", "تأكيد كلمة المرور"]
+        : ["كلمة المرور الجديدة", "تأكيد كلمة المرور"];
+    await expect(page.locator(".password-visibility-toggle")).toHaveCount(
+      labels.length
+    );
+    const before = passwordRequests;
+    await exercisePasswordVisibility(page, labels);
+    await expectPasswordToggleLayout(page);
+    expect(passwordRequests).toBe(before);
+    await page.getByLabel("تأكيد كلمة المرور", { exact: true }).press("Enter");
+    await expect(page.locator("form.auth-form")).toHaveAttribute(
+      "data-test-submits",
+      "1"
+    );
+    await expect(page).toHaveURL("/change-password");
+    await page.reload();
+    for (const label of labels) {
+      await expect(page.getByLabel(label, { exact: true })).toHaveAttribute(
+        "type",
+        "password"
+      );
+    }
+  });
+}
+
 test("invalid credentials and inactive staff use generic denial", async ({
   page,
 }) => {
@@ -314,7 +354,9 @@ test("password update with failed activation stays protected and recovers with t
   await page
     .getByLabel("كلمة المرور الجديدة", { exact: true })
     .fill(password + "partial");
-  await page.getByLabel("تأكيد كلمة المرور").fill(password + "partial");
+  await page
+    .getByLabel("تأكيد كلمة المرور", { exact: true })
+    .fill(password + "partial");
   await page.getByRole("button", { name: "حفظ كلمة المرور" }).click();
   await expect(page.locator("p[role=alert]")).toContainText(
     "تغيّرت كلمة المرور، لكن تعذّر إكمال التفعيل"
@@ -334,7 +376,9 @@ test("password update with failed activation stays protected and recovers with t
   await page
     .getByLabel("كلمة المرور الجديدة", { exact: true })
     .fill(password + "recovered");
-  await page.getByLabel("تأكيد كلمة المرور").fill(password + "recovered");
+  await page
+    .getByLabel("تأكيد كلمة المرور", { exact: true })
+    .fill(password + "recovered");
   await page.getByRole("button", { name: "حفظ كلمة المرور" }).click();
   await expect(page).toHaveURL("/secretary");
   await page.goto("/secretary/account");
@@ -361,19 +405,23 @@ for (const role of ["first-doctor", "first-secretary"] as const) {
         inputs.forEach((input) => input.removeAttribute("minlength"))
       );
     await page.getByLabel("كلمة المرور الجديدة", { exact: true }).fill("short");
-    await page.getByLabel("تأكيد كلمة المرور").fill("short");
+    await page.getByLabel("تأكيد كلمة المرور", { exact: true }).fill("short");
     await page.getByRole("button", { name: "حفظ كلمة المرور" }).click();
     await expect(page.locator("p[role=alert]")).toContainText("8 أحرف");
     await page
       .getByLabel("كلمة المرور الجديدة", { exact: true })
       .fill(password + "new");
-    await page.getByLabel("تأكيد كلمة المرور").fill(password + "different");
+    await page
+      .getByLabel("تأكيد كلمة المرور", { exact: true })
+      .fill(password + "different");
     await page.getByRole("button", { name: "حفظ كلمة المرور" }).click();
     await expect(page.locator("p[role=alert]")).toContainText("غير مطابق");
     await page
       .getByLabel("كلمة المرور الجديدة", { exact: true })
       .fill(password + "new");
-    await page.getByLabel("تأكيد كلمة المرور").fill(password + "new");
+    await page
+      .getByLabel("تأكيد كلمة المرور", { exact: true })
+      .fill(password + "new");
     await page.getByRole("button", { name: "حفظ كلمة المرور" }).click();
     const destination = role === "first-doctor" ? "/doctor" : "/secretary";
     await expect(page).toHaveURL(destination);

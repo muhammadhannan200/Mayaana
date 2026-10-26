@@ -35,7 +35,7 @@ test("critical controls have labels and an explicit unavailable state", async ({
     "type",
     "email"
   );
-  await expect(page.getByLabel("كلمة المرور")).toHaveAttribute(
+  await expect(page.getByLabel("كلمة المرور", { exact: true })).toHaveAttribute(
     "type",
     "password"
   );

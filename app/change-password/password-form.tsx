@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { changePassword } from "@/app/actions";
 import { SignOutForm } from "@/app/sign-out-form";
+import { PasswordInput } from "@/app/password-input";
 
 export function PasswordForm({ firstUse }: { firstUse: boolean }) {
   const [state, action, pending] = useActionState(changePassword, null);
@@ -25,42 +26,36 @@ export function PasswordForm({ firstUse }: { firstUse: boolean }) {
               {!firstUse && (
                 <div className="field">
                   <label htmlFor="currentPassword">كلمة المرور الحالية</label>
-                  <div className="input-wrap">
-                    <input
-                      id="currentPassword"
-                      name="currentPassword"
-                      type="password"
-                      autoComplete="current-password"
-                      required
-                    />
-                  </div>
+                  <PasswordInput
+                    visibilityLabel="كلمة المرور الحالية"
+                    id="currentPassword"
+                    name="currentPassword"
+                    autoComplete="current-password"
+                    required
+                  />
                 </div>
               )}
               <div className="field">
                 <label htmlFor="newPassword">كلمة المرور الجديدة</label>
-                <div className="input-wrap">
-                  <input
-                    id="newPassword"
-                    name="password"
-                    type="password"
-                    autoComplete="new-password"
-                    minLength={8}
-                    required
-                  />
-                </div>
+                <PasswordInput
+                  visibilityLabel="كلمة المرور الجديدة"
+                  id="newPassword"
+                  name="password"
+                  autoComplete="new-password"
+                  minLength={8}
+                  required
+                />
               </div>
               <div className="field">
                 <label htmlFor="confirmation">تأكيد كلمة المرور</label>
-                <div className="input-wrap">
-                  <input
-                    id="confirmation"
-                    name="confirmation"
-                    type="password"
-                    autoComplete="new-password"
-                    minLength={8}
-                    required
-                  />
-                </div>
+                <PasswordInput
+                  visibilityLabel="تأكيد كلمة المرور"
+                  id="confirmation"
+                  name="confirmation"
+                  autoComplete="new-password"
+                  minLength={8}
+                  required
+                />
               </div>
             </div>
             <div className="form-actions">
