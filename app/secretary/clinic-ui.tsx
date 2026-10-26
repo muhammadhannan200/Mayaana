@@ -43,7 +43,14 @@ export function SecretaryNav({ route }: { route: string }) {
   );
 }
 
-export function DoctorNav({ route }: { route: string }) {
+export function DoctorNav({
+  route,
+  demo = false,
+}: {
+  route: string;
+  demo?: boolean;
+}) {
+  const prefix = demo ? "/demo" : "";
   const tabs = [
     { key: "home", title: "الرئيسية", href: "/doctor" },
     { key: "patients", title: "المرضى", href: "/doctor/patients" },
@@ -59,11 +66,14 @@ export function DoctorNav({ route }: { route: string }) {
         ? "account"
         : "home";
   return (
-    <nav className="secretary-nav" aria-label="التنقل الرئيسي">
+    <nav
+      className="secretary-nav doctor-navigation"
+      aria-label="التنقل الرئيسي"
+    >
       {tabs.map((tab) => (
         <Link
           key={tab.key}
-          href={tab.href}
+          href={`${prefix}${demo && tab.key === "account" ? "/secretary/account" : tab.href}`}
           className={`secretary-nav-item${active === tab.key ? " active" : ""}`}
           aria-current={active === tab.key ? "page" : undefined}
         >

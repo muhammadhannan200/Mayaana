@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState, type FormEvent } from "react";
 import { SignOutForm } from "@/app/sign-out-form";
@@ -17,6 +18,7 @@ import "./secretary.css";
 import { PersistedFlow } from "./persisted-flow";
 import { DoctorNav, SecretaryNav, VisitOptions, VisitType } from "./clinic-ui";
 import "./persisted.css";
+import "@/app/doctor/workspace.css";
 import type {
   ClinicalOperations,
   ClinicalSnapshot,
@@ -286,9 +288,18 @@ export function ClinicFlowView({
         { id: "search", label: "البحث", path: "secretary/search" },
         { id: "account", label: "الحساب", path: "secretary/account" },
       ];
-  const subheader = (title: string, back = "secretary") => (
-    <header className="secretary-subheader">
-      <h1>{title}</h1>
+  const subheader = (title: string, back = "secretary", subtitle?: string) => (
+    <header
+      className={`secretary-subheader${doctor ? " doctor-record-header" : ""}`}
+    >
+      {doctor ? (
+        <div>
+          <h1>{title}</h1>
+          {subtitle && <p>{subtitle}</p>}
+        </div>
+      ) : (
+        <h1>{title}</h1>
+      )}
       <Link href={href(back)} aria-label="العودة">
         <Icon name={doctor ? "arrow" : "close"} />
       </Link>
@@ -832,9 +843,29 @@ export function ClinicFlowView({
         <div className="doctor-content">
           {current[0] && (
             <section className="doctor-current">
-              <p>عندك الآن</p>
-              <h2>{findPatient(current[0]).name}</h2>
-              {badge(current[0])}
+              <p className="doctor-current-label">
+                <Image
+                  src="/rashaqa/doctor-door.svg"
+                  width={18}
+                  height={18}
+                  alt=""
+                  unoptimized
+                />
+                عندك الآن
+              </p>
+              <div className="doctor-current-summary">
+                <h2>{findPatient(current[0]).name}</h2>
+                <p>
+                  {current[0].kind === "full_exam" ? "كشفية" : "مراجعة"} ·
+                  الزيارة {findPatient(current[0]).visits.length + 1}
+                  {current[0].measurements.weight && (
+                    <>
+                      {" "}
+                      · الوزن <bdi>{current[0].measurements.weight} كغ</bdi>
+                    </>
+                  )}
+                </p>
+              </div>
               <Link href={href(`doctor/patients/${current[0].patientId}`)}>
                 فتح الملف
               </Link>
@@ -878,13 +909,30 @@ export function ClinicFlowView({
               {waiting.map((e, i) => (
                 <li key={e.id}>
                   <span className="doctor-order">{i + 1}</span>
-                  <span>
+                  <span className="doctor-queue-person">
                     {findPatient(e).name}
                     <small>
-                      {e.status === "ready" ? "جاهز للدخول" : "بانتظار القياس"}
+                      {e.kind === "full_exam" ? "كشفية" : "مراجعة"}
+                      {e.arrivalTime && (
+                        <>
+                          {" "}
+                          · وصل <bdi>{e.arrivalTime}</bdi>
+                        </>
+                      )}
                     </small>
                   </span>
-                  {badge(e)}
+                  <span
+                    className={
+                      e.status === "ready" ? "doctor-ready" : "doctor-waiting"
+                    }
+                  >
+                    {e.status === "ready" ? (
+                      <Icon name="check" size={14} />
+                    ) : (
+                      <span className="doctor-clock" aria-hidden="true" />
+                    )}
+                    {e.status === "ready" ? "جاهز للدخول" : "بانتظار القياس"}
+                  </span>
                 </li>
               ))}
             </ol>
@@ -908,10 +956,13 @@ export function ClinicFlowView({
         </div>
       </>
     );
-  else if (route === "doctor/patients" || (!demo && route === "doctor/search"))
+  else if (route === "doctor/patients" || route === "doctor/search")
     content = (
       <>
-        {subheader(route === "doctor/search" ? "البحث" : "المرضى", "doctor")}
+        <header className="doctor-list-header">
+          <h1>{route === "doctor/search" ? "البحث" : "المرضى"}</h1>
+          <p>إجمالي المرضى ({matches.length})</p>
+        </header>
         <div className="secretary-content search-content doctor-patient-list">
           <label className="patient-search-input">
             <Icon name="search" size={20} />
@@ -926,7 +977,6 @@ export function ClinicFlowView({
               maxLength={80}
             />
           </label>
-          <p className="secretary-muted">إجمالي المرضى ({matches.length})</p>
           <ul className="patient-result-list">
             {matches.map((p) => (
               <li key={p.id}>
@@ -948,7 +998,7 @@ export function ClinicFlowView({
                       )}
                     </small>
                   </span>
-                  <Icon name="arrow" />
+                  <Icon name="arrow" size={18} />
                 </Link>
               </li>
             ))}
@@ -975,24 +1025,36 @@ export function ClinicFlowView({
         : null;
     content = (
       <>
-        {subheader(record?.name ?? "الملف غير موجود", "doctor")}
+        {subheader(
+          record?.name ?? "الملف غير موجود",
+          "doctor",
+          record ? `الهدف: ${record.goal}` : undefined
+        )}
         <div className="secretary-content demo-patient-file">
           {record ? (
             <>
               {latest?.weight && (
                 <section className="patient-progress">
-                  <h2>التقدم منذ البداية</h2>
+                  <h2>
+                    <Image
+                      src="/rashaqa/doctor-target.svg"
+                      width={18}
+                      height={18}
+                      alt=""
+                      unoptimized
+                    />
+                    التقدم منذ البداية
+                  </h2>
                   <p>
-                    <strong>
-                      <bdi>{latest.weight}</bdi>
-                    </strong>{" "}
-                    كغ
                     {startingWeight && (
                       <small>
-                        {" "}
                         من <bdi>{startingWeight}</bdi>
                       </small>
                     )}
+                    <strong>
+                      <bdi>{latest.weight}</bdi>
+                    </strong>
+                    <span>كغ</span>
                   </p>
                   {change !== null && (
                     <span>
@@ -1024,7 +1086,7 @@ export function ClinicFlowView({
                     </div>
                   )}
                   <div>
-                    <dt>الهاتف التجريبي</dt>
+                    <dt>{demo ? "الهاتف التجريبي" : "الهاتف"}</dt>
                     <dd>
                       <bdi>{record.phone}</bdi>
                     </dd>
@@ -1043,48 +1105,53 @@ export function ClinicFlowView({
                       : "زيارة اليوم"}
                   </Link>
                 )}
-              <h2>قياسات اليوم</h2>
-              {today && today.status !== "waiting" ? (
-                <dl className="demo-measurements">
-                  {measurementFields
-                    .filter((f) => today.measurements[f.key])
-                    .map((f) => (
-                      <div key={f.key}>
-                        <dt>{f.label}</dt>
-                        <dd>
-                          <bdi>
-                            {today.measurements[f.key]} {f.unit}
-                          </bdi>
-                        </dd>
-                      </div>
-                    ))}
-                </dl>
-              ) : (
-                <p>لم تُستكمل قياسات اليوم بعد.</p>
-              )}
-              <h2>
-                {demo ? "الزيارات السابقة" : "آخر الزيارات (حتى 100)"} (
-                {record.visits.length})
-              </h2>
-              <ul className="demo-visit-history">
-                {record.visits.map((v) => (
-                  <li key={v.id}>
-                    <span>
-                      {v.date}
-                      {!demo && (
-                        <Link href={href(`doctor/visits/${v.id}`)}>
-                          فتح الزيارة
-                        </Link>
-                      )}
-                      <small>
-                        {v.kind === "full_exam" ? "كشفية" : "مراجعة"} · الزيارة{" "}
-                        {v.number}
-                      </small>
-                    </span>
-                    <bdi>{v.measurements.weight} كغ</bdi>
-                  </li>
-                ))}
-              </ul>
+              <section className="doctor-record-section">
+                <h2>قياسات اليوم</h2>
+                {today && today.status !== "waiting" ? (
+                  <dl className="demo-measurements">
+                    {measurementFields
+                      .filter((f) => today.measurements[f.key])
+                      .map((f) => (
+                        <div key={f.key}>
+                          <dt>{f.label}</dt>
+                          <dd>
+                            <bdi>
+                              {today.measurements[f.key]}{" "}
+                              <small>{f.unit}</small>
+                            </bdi>
+                          </dd>
+                        </div>
+                      ))}
+                  </dl>
+                ) : (
+                  <p>لم تُستكمل قياسات اليوم بعد.</p>
+                )}
+              </section>
+              <section className="doctor-record-section">
+                <h2>
+                  {demo ? "الزيارات السابقة" : "آخر الزيارات (حتى 100)"} (
+                  {record.visits.length})
+                </h2>
+                <ul className="demo-visit-history">
+                  {record.visits.map((v) => (
+                    <li key={v.id}>
+                      <span>
+                        {v.date}
+                        {!demo && (
+                          <Link href={href(`doctor/visits/${v.id}`)}>
+                            فتح الزيارة
+                          </Link>
+                        )}
+                        <small>
+                          {v.kind === "full_exam" ? "كشفية" : "مراجعة"} ·
+                          الزيارة {v.number}
+                        </small>
+                      </span>
+                      <bdi>{v.measurements.weight} كغ</bdi>
+                    </li>
+                  ))}
+                </ul>
+              </section>
             </>
           ) : (
             <p>اختر مريضاً من القائمة.</p>
@@ -1104,7 +1171,10 @@ export function ClinicFlowView({
       ...(!demo ? ["secretary/search"] : []),
     ].includes(route) || doctor;
   return (
-    <main className={doctor ? "doctor-shell" : "secretary-shell"} dir="rtl">
+    <main
+      className={doctor ? "doctor-shell doctor-workspace" : "secretary-shell"}
+      dir="rtl"
+    >
       <fieldset
         disabled={operations?.pending}
         className={
@@ -1117,12 +1187,10 @@ export function ClinicFlowView({
       >
         {content}
       </fieldset>
-      {showNav && !demo ? (
-        doctor ? (
-          <DoctorNav route={route} />
-        ) : (
-          <SecretaryNav route={route} />
-        )
+      {showNav && doctor ? (
+        <DoctorNav route={route} demo={demo} />
+      ) : showNav && !demo ? (
+        <SecretaryNav route={route} />
       ) : (
         showNav && (
           <nav className="secretary-nav" aria-label="التنقل الرئيسي">
