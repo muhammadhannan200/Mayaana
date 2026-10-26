@@ -110,6 +110,9 @@ export function PersistedFlow({ route }: { route: string }) {
       const result = await operation();
       if (!result.ok) {
         setError(result);
+        // A competing handoff may have filled the slot since this snapshot.
+        // Refresh occupancy without discarding unsaved form/visit drafts.
+        if (result.kind === "conflict") await refresh();
         return false;
       }
       setMessage("تم الحفظ في العيادة.");

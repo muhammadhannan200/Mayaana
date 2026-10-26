@@ -1,6 +1,17 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
+async function finishFeaturedVisit(page: Page) {
+  await page.goto("/demo/doctor/visits/demo-featured?step=plan");
+  await page
+    .getByRole("button", { name: "إنهاء الزيارة", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "حفظ وإنهاء الزيارة", exact: true })
+    .click();
+  await expect(page.getByRole("status")).toContainText("اكتملت الزيارة");
+}
+
 async function checkSurface(page: Page) {
   await expect(page).toHaveTitle(/\S/);
   await expect(page.getByRole("main")).toHaveAttribute("dir", "rtl");
@@ -117,6 +128,12 @@ test("complete V1: secretary intake → measurements → handoff → doctor note
   await expect(
     doctor.locator(".doctor-queue").filter({ hasText: "الدور برّا" })
   ).toContainText("ريم الخطيب");
+  // The seeded consultation must finish before the next patient may enter.
+  await expect(
+    page.getByRole("button", { name: "إدخال عند الطبيب" }).first()
+  ).toBeDisabled();
+  await finishFeaturedVisit(doctor);
+  await doctor.goto("/demo/doctor");
   await page
     .locator(".queue-card")
     .filter({ hasText: "ريم الخطيب" })
@@ -216,9 +233,10 @@ test("complete V1: secretary intake → measurements → handoff → doctor note
   await doctor
     .getByRole("link", { name: "العودة للرئيسية", exact: true })
     .click();
-  await expect(doctor.locator(".doctor-current")).toContainText("نور الحسن");
+  await expect(doctor.locator(".doctor-current")).toHaveCount(0);
+  await expect(doctor.getByText("لا يوجد مريض عند الطبيب الآن.")).toBeVisible();
   await expect(
-    doctor.getByRole("heading", { name: "الزيارات المكتملة (2)" })
+    doctor.getByRole("heading", { name: "الزيارات المكتملة (3)" })
   ).toBeVisible();
   await page.goto("/demo/secretary/account");
   page.once("dialog", (dialog) => dialog.accept());
@@ -292,6 +310,9 @@ test("new patient: E2 → S4 → S3 → S6 validates all fields and shares ident
   ).toHaveValue("82.7");
   await checkSurface(page);
   await page.getByRole("button", { name: /حفظ القياسات/ }).click();
+  const consulting = await page.context().newPage();
+  await finishFeaturedVisit(consulting);
+  await consulting.close();
   await page
     .locator(".queue-card")
     .filter({ hasText: "هبة أحمد" })

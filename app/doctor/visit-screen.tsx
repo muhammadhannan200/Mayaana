@@ -163,19 +163,7 @@ function VisitEditor({
       setError("");
       return;
     }
-    update((state) => ({
-      ...state,
-      queue: state.queue.map((item) =>
-        item.id === entryId && item.status === "with_doctor"
-          ? {
-              ...item,
-              visit: change(
-                item.visit ?? { notes: "", days: [], appointment: "" }
-              ),
-            }
-          : item
-      ),
-    }));
+    local!.saveVisit(entryId, change);
     setError("");
   }
 
@@ -221,7 +209,7 @@ function VisitEditor({
       return;
     }
     const completedAt = new Date().toISOString();
-    update((state) => {
+    await update((state) => {
       const active = state.queue.find((item) => item.id === entryId);
       if (!active || active.status !== "with_doctor") return state;
       return {

@@ -9,6 +9,7 @@ import type {
   ScreenRequest,
 } from "./clinical-types";
 import type { DemoVisit } from "./demo-clinic";
+import { doctorOccupiedMessage } from "./queue-handoff";
 import type {
   MockVisit,
   VisitMeasurement,
@@ -28,6 +29,15 @@ const invalid = () => {
   throw { code: "22023" };
 };
 function failure(error: unknown): ClinicalFailure {
+  if (
+    error &&
+    typeof error === "object" &&
+    "code" in error &&
+    error.code === "PT409" &&
+    "details" in error &&
+    error.details === "clinic_occupied"
+  )
+    return { ok: false, kind: "conflict", message: doctorOccupiedMessage };
   const code =
     error && typeof error === "object" && "code" in error
       ? String(error.code)
@@ -166,9 +176,10 @@ export async function getClinicScreen(
       .eq("clinic_id", clinic)
       .order("arrived_at")
       .limit(501);
-    queueQuery = input.entry
-      ? queueQuery.or(`queue_date.eq.${date},id.eq.${input.entry}`)
-      : queueQuery.eq("queue_date", date);
+    // Unfinished visits from earlier days still occupy the clinic's single slot.
+    queueQuery = queueQuery.or(
+      `queue_date.eq.${date},status.eq.with_doctor${input.entry ? `,id.eq.${input.entry}` : ""}`
+    );
     const queueResult = await queueQuery;
     if (queueResult.error) throw queueResult.error;
     if (queueResult.data.length > 500)

@@ -11,6 +11,7 @@ import {
   type MockVisit,
   type VisitMeasurement,
 } from "@/app/secretary/measurements/mock-visits";
+import { handoffQueue, type DemoHandoffOutcome } from "./queue-handoff";
 
 export type DemoPatient = {
   id: string;
@@ -273,11 +274,13 @@ const initial: State = {
 // Deliberately browser-only, versioned and isolated from real patient tables.
 function createStore(scope: string) {
   const key = `mayanaa-demo-v1:${scope}`;
+  const draftPrefix = `mayanaa-demo-visit-v1:${scope}:`;
   let state = initial;
   let loaded = false;
+  let memoryOnly = false;
   const listeners = new Set<() => void>();
   function read() {
-    if (!loaded && typeof window !== "undefined") {
+    if (!loaded && typeof window !== "undefined" && !memoryOnly) {
       loaded = true;
       try {
         const raw = localStorage.getItem(key);
@@ -304,11 +307,57 @@ function createStore(scope: string) {
           )
             state = parsed;
         }
+        // Drafts have separate keys so synchronous note autosave cannot
+        // overwrite a concurrently committed queue transition or completion.
+        state = {
+          ...state,
+          queue: state.queue.map((entry) => {
+            if (entry.status !== "with_doctor") return entry;
+            const raw = localStorage.getItem(`${draftPrefix}${entry.id}`);
+            if (!raw) return entry;
+            const visit = JSON.parse(raw) as DemoVisit;
+            return typeof visit.notes === "string" &&
+              Array.isArray(visit.days) &&
+              typeof visit.appointment === "string"
+              ? { ...entry, visit }
+              : entry;
+          }),
+        };
       } catch {
-        /* Unavailable or stale storage: keep the functional in-memory demo. */
+        memoryOnly = true;
+        /* Keep in-memory edits rather than re-reading stale disk data. */
       }
     }
     return state;
+  }
+  function mutate<T>(
+    change: (current: State) => { next: State; result: T },
+    requireStorage = false
+  ): Promise<T> {
+    const apply = () => {
+      // A storage event can arrive after a competing tab acquires the lock.
+      // Re-read under the lock before queue writes, including completion/reset.
+      loaded = false;
+      const current = read();
+      if (requireStorage && memoryOnly)
+        throw new Error("Demo storage unavailable");
+      const { next, result } = change(current);
+      if (next !== current) {
+        try {
+          localStorage.setItem(key, JSON.stringify(next));
+        } catch {
+          memoryOnly = true;
+          if (requireStorage) throw new Error("Demo storage unavailable");
+          /* Other edits retain the best-effort memory fallback. */
+        }
+      }
+      state = next;
+      listeners.forEach((fn) => fn());
+      return result;
+    };
+    return navigator.locks
+      ? navigator.locks.request(key, apply)
+      : Promise.resolve(apply());
   }
   return {
     read,
@@ -316,7 +365,13 @@ function createStore(scope: string) {
     subscribe(listener: () => void) {
       listeners.add(listener);
       const sync = (event: StorageEvent) => {
-        if (event.key !== key && event.key !== null) return;
+        if (memoryOnly) return;
+        if (
+          event.key !== key &&
+          event.key !== null &&
+          !event.key.startsWith(draftPrefix)
+        )
+          return;
         loaded = false;
         state = initial;
         read();
@@ -329,13 +384,53 @@ function createStore(scope: string) {
       };
     },
     update(change: (current: State) => State) {
-      state = change(read());
+      return mutate((current) => ({
+        next: change(current),
+        result: undefined,
+      }));
+    },
+    saveVisit(id: string, change: (visit: DemoVisit) => DemoVisit) {
+      loaded = false;
+      const entry = read().queue.find((item) => item.id === id);
+      if (entry?.status !== "with_doctor") return;
+      const visit = change(
+        entry.visit ?? { notes: "", days: [], appointment: "" }
+      );
       try {
-        localStorage.setItem(key, JSON.stringify(state));
+        localStorage.setItem(`${draftPrefix}${id}`, JSON.stringify(visit));
       } catch {
-        /* Memory fallback; reload persistence is best effort. */
+        memoryOnly = true;
       }
+      state = {
+        ...state,
+        queue: state.queue.map((item) =>
+          item.id === id ? { ...item, visit } : item
+        ),
+      };
       listeners.forEach((fn) => fn());
+    },
+    reset() {
+      return mutate(() => {
+        try {
+          for (const draftKey of Object.keys(localStorage))
+            if (draftKey.startsWith(draftPrefix))
+              localStorage.removeItem(draftKey);
+        } catch {
+          /* Keep the existing memory-only reset fallback. */
+        }
+        return { next: initial, result: undefined };
+      });
+    },
+    handoff(id: string): Promise<DemoHandoffOutcome> {
+      // Do not pretend cross-tab atomicity is available on insecure/old browsers.
+      if (!navigator.locks) return Promise.resolve("unsupported");
+      return mutate((current) => {
+        const { queue, outcome } = handoffQueue(current.queue, id);
+        return {
+          next: queue === current.queue ? current : { ...current, queue },
+          result: outcome,
+        };
+      }, true).catch(() => "storage_unavailable" as const);
     },
   };
 }
@@ -368,6 +463,8 @@ export function useDemoClinic() {
   return {
     ...state,
     update: store.update,
-    reset: () => store.update(() => initial),
+    handoff: store.handoff,
+    saveVisit: store.saveVisit,
+    reset: store.reset,
   };
 }

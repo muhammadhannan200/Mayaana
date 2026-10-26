@@ -15,6 +15,7 @@ import { DoctorVisit } from "@/app/doctor/visit-screen";
 import { measurementFields } from "./measurements/mock-visits";
 import "./secretary.css";
 import { PersistedFlow } from "./persisted-flow";
+import { doctorOccupiedMessage } from "@/lib/queue-handoff";
 import type {
   ClinicalOperations,
   ClinicalSnapshot,
@@ -65,6 +66,7 @@ export function ClinicFlowView({
   const [name, setName] = useState("");
   const [goal, setGoal] = useState("نقص وزن");
   const [error, setError] = useState("");
+  const [handoffPending, setHandoffPending] = useState(false);
   const [patientRequestId, setPatientRequestId] = useState<string | null>(null);
   const selected = patients.find((p) => p.id === params.get("patient"));
   const visitKind = selected?.visits.length === 0 ? "full_exam" : kind;
@@ -93,7 +95,7 @@ export function ClinicFlowView({
         go("secretary?added=1");
       return;
     }
-    update((state) =>
+    await update((state) =>
       state.queue.some((e) => e.patientId === id)
         ? state
         : {
@@ -162,7 +164,10 @@ export function ClinicFlowView({
       }
       return;
     }
-    update((state) => ({ ...state, patients: [...state.patients, record] }));
+    await update((state) => ({
+      ...state,
+      patients: [...state.patients, record],
+    }));
     go(`secretary/confirm?patient=${id}`);
   }
 
@@ -234,7 +239,7 @@ export function ClinicFlowView({
               go("secretary?measured=1");
             return;
           }
-          update((state) => ({
+          await update((state) => ({
             ...state,
             queue: state.queue.map((e) =>
               e.id === entry.id ? { ...e, measurements, status: "ready" } : e
@@ -316,6 +321,16 @@ export function ClinicFlowView({
           </span>
         </header>
         <div className="secretary-content">
+          {error && (
+            <p className="secretary-error" role="alert">
+              {error}
+            </p>
+          )}
+          {current.length > 0 && (
+            <p className="intake-info" role="status">
+              {doctorOccupiedMessage}
+            </p>
+          )}
           {(params.has("added") ||
             params.has("measured") ||
             params.has("sent")) && (
@@ -378,22 +393,40 @@ export function ClinicFlowView({
                         <>
                           <button
                             className="secretary-primary"
-                            disabled={operations?.pending}
+                            disabled={
+                              operations?.pending ||
+                              handoffPending ||
+                              current.length > 0
+                            }
                             onClick={async () => {
                               if (operations) {
                                 if (await operations.handoffToDoctor(e.id))
                                   go("secretary?sent=1");
                                 return;
                               }
-                              update((state) => ({
-                                ...state,
-                                queue: state.queue.map((item) =>
-                                  item.id === e.id && item.status === "ready"
-                                    ? { ...item, status: "with_doctor" }
-                                    : item
-                                ),
-                              }));
-                              go("secretary?sent=1");
+                              setHandoffPending(true);
+                              try {
+                                const result = await local!.handoff(e.id);
+                                if (result === "sent" || result === "retry") {
+                                  setError("");
+                                  go("secretary?sent=1");
+                                } else
+                                  setError(
+                                    result === "occupied"
+                                      ? doctorOccupiedMessage
+                                      : result === "unsupported"
+                                        ? "يتطلب إدخال المريض متصفحاً يدعم القفل الآمن. افتح العرض عبر HTTPS أو localhost."
+                                        : result === "storage_unavailable"
+                                          ? "تعذّر حفظ حالة الدور في المتصفح. فعّل التخزين المحلي ثم أعد تحميل العرض قبل إدخال المريض."
+                                          : "تعذّر إدخال المريض. راجع حالة الدور والقياسات."
+                                  );
+                              } catch {
+                                setError(
+                                  "تعذّر تأكيد إدخال المريض. حدّث الدور وحاول مجدداً."
+                                );
+                              } finally {
+                                setHandoffPending(false);
+                              }
                             }}
                           >
                             إدخال عند الطبيب
@@ -781,13 +814,13 @@ export function ClinicFlowView({
           {demo && (
             <button
               className="secretary-outline"
-              onClick={() => {
+              onClick={async () => {
                 if (
                   window.confirm(
                     "إعادة بيانات العرض الخيالية؟ ستُحذف تعديلات العرض في هذا المتصفح فقط."
                   )
                 ) {
-                  reset();
+                  await reset();
                   go("secretary");
                 }
               }}
@@ -795,9 +828,7 @@ export function ClinicFlowView({
               إعادة ضبط العرض التجريبي
             </button>
           )}
-          {!demo && (
-            <SignOutForm buttonClassName="secretary-primary signout" />
-          )}
+          {!demo && <SignOutForm buttonClassName="secretary-primary signout" />}
           <DemoNote demo={demo} href={href("doctor")} />
         </div>
       </>
@@ -817,6 +848,12 @@ export function ClinicFlowView({
           )}
         </header>
         <div className="doctor-content">
+          {current.length > 1 && (
+            <p className="secretary-error" role="alert">
+              توجد زيارات نشطة متعارضة من بيانات سابقة. أكمل الزيارات المفتوحة
+              قبل إدخال مريض آخر.
+            </p>
+          )}
           {current[0] && (
             <section className="doctor-current">
               <p>عندك الآن</p>
