@@ -55,7 +55,7 @@ Before enabling Undo or Remove, authorize and implement server-owned contracts d
 
 ## Integration risks / review gates
 
-- Batch 1/PR #52 may edit the same queue/controller files. Reconcile deliberately after owner approval; do not copy protected work or assume this branch includes its visual fixes.
+- Batch 1 (PR #53) may edit the same queue/controller files. Preview Routing is addressed separately in PR #52. Reconcile deliberately after owner approval; do not copy protected work or assume this branch includes those changes.
 - The existing backend remains authoritative and may support multiple `with_doctor` entries. No UI-only single-active restriction is introduced.
 - A successful mutation followed by a failed refresh still produces confirmed handoff feedback alongside the existing refresh error. Retry/reconciliation behavior remains the existing controller's responsibility.
 - Chromium desktop/touch-emulation and automated axe checks do not replace real iOS Safari/Android assistive-technology testing.
