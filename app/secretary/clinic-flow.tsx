@@ -15,6 +15,8 @@ import { DoctorVisit } from "@/app/doctor/visit-screen";
 import { measurementFields } from "./measurements/mock-visits";
 import "./secretary.css";
 import { PersistedFlow } from "./persisted-flow";
+import { HandoffSnackbar, useHandoffFeedback } from "./handoff-feedback";
+import { QueuePatientCard } from "./queue-patient-actions";
 import type {
   ClinicalOperations,
   ClinicalSnapshot,
@@ -65,6 +67,7 @@ export function ClinicFlowView({
   const [name, setName] = useState("");
   const [goal, setGoal] = useState("نقص وزن");
   const [error, setError] = useState("");
+  const { notice, confirmHandoff } = useHandoffFeedback();
   const [patientRequestId, setPatientRequestId] = useState<string | null>(null);
   const selected = patients.find((p) => p.id === params.get("patient"));
   const visitKind = selected?.visits.length === 0 ? "full_exam" : kind;
@@ -316,15 +319,11 @@ export function ClinicFlowView({
           </span>
         </header>
         <div className="secretary-content">
-          {(params.has("added") ||
-            params.has("measured") ||
-            params.has("sent")) && (
+          {(params.has("added") || params.has("measured")) && (
             <p className="secretary-success" role="status">
-              {params.has("sent")
-                ? "تم إدخال المريض عند الطبيب."
-                : params.has("measured")
-                  ? "تم حفظ القياسات. المريض جاهز للدخول."
-                  : "تمت إضافة المريض للدور."}
+              {params.has("measured")
+                ? "تم حفظ القياسات. المريض جاهز للدخول."
+                : "تمت إضافة المريض للدور."}
             </p>
           )}
           <div className="queue-totals">
@@ -346,7 +345,11 @@ export function ClinicFlowView({
             {waiting.length ? (
               <ol className="queue-list">
                 {waiting.map((e, i) => (
-                  <li className="queue-card" key={e.id}>
+                  <QueuePatientCard
+                    key={e.id}
+                    patientName={findPatient(e).name}
+                    queueNumber={i + 1}
+                  >
                     <div className="queue-card-top">
                       <span className="queue-number">
                         <small>دور</small>
@@ -379,22 +382,22 @@ export function ClinicFlowView({
                           <button
                             className="secretary-primary"
                             disabled={operations?.pending}
-                            onClick={async () => {
-                              if (operations) {
-                                if (await operations.handoffToDoctor(e.id))
-                                  go("secretary?sent=1");
-                                return;
-                              }
-                              update((state) => ({
-                                ...state,
-                                queue: state.queue.map((item) =>
-                                  item.id === e.id && item.status === "ready"
-                                    ? { ...item, status: "with_doctor" }
-                                    : item
-                                ),
-                              }));
-                              go("secretary?sent=1");
-                            }}
+                            onClick={() =>
+                              void confirmHandoff(async () => {
+                                if (operations) {
+                                  return operations.handoffToDoctor(e.id);
+                                }
+                                update((state) => ({
+                                  ...state,
+                                  queue: state.queue.map((item) =>
+                                    item.id === e.id && item.status === "ready"
+                                      ? { ...item, status: "with_doctor" }
+                                      : item
+                                  ),
+                                }));
+                                return true;
+                              })
+                            }
                           >
                             إدخال عند الطبيب
                           </button>
@@ -419,7 +422,7 @@ export function ClinicFlowView({
                         </Link>
                       )}
                     </div>
-                  </li>
+                  </QueuePatientCard>
                 ))}
               </ol>
             ) : (
@@ -466,6 +469,7 @@ export function ClinicFlowView({
           )}
           <DemoNote demo={demo} href={href("doctor")} />
         </div>
+        <HandoffSnackbar visible={notice} />
         {queue.length > 0 && (
           <Link className="queue-fab" href={href("secretary/search")}>
             <Icon name="plus" size={20} />

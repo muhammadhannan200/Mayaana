@@ -18,6 +18,9 @@
 /artifacts/clinical/
 /artifacts/auth/
 /artifacts/persistence/
+/artifacts/issue-41-batch-2/
+/tests/queue-presentation/fixture/.next/
+/tests/queue-presentation/fixture/next-env.d.ts
 /supabase/.temp/
 /supabase/.branches/
 

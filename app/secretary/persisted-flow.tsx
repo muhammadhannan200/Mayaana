@@ -100,7 +100,10 @@ export function PersistedFlow({ route }: { route: string }) {
     }
     return id;
   }
-  async function write(operation: () => Promise<ClinicalResult<null>>) {
+  async function write(
+    operation: () => Promise<ClinicalResult<null>>,
+    handoff = false
+  ) {
     if (busy.current) return false;
     busy.current = true;
     setPending(true);
@@ -112,7 +115,7 @@ export function PersistedFlow({ route }: { route: string }) {
         setError(result);
         return false;
       }
-      setMessage("تم الحفظ في العيادة.");
+      if (!handoff) setMessage("تم الحفظ في العيادة.");
       await refresh();
       return true;
     } catch {
@@ -141,8 +144,10 @@ export function PersistedFlow({ route }: { route: string }) {
         )
       ),
     handoffToDoctor: (id) =>
-      write(() =>
-        actions.handoffToDoctor(id, revision(id), requestId(`handoff:${id}`))
+      write(
+        () =>
+          actions.handoffToDoctor(id, revision(id), requestId(`handoff:${id}`)),
+        true
       ),
     saveDoctorDraft: (id, version, draft) =>
       write(() => actions.saveDoctorDraft(id, version, draft)),
