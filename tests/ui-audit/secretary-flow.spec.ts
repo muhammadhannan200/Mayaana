@@ -1,7 +1,25 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
-async function checkSurface(page: Page) {
+const featuredPatientDestination = {
+  url: "/demo/doctor/patients/demo-noor",
+  heading: "نور الحسن",
+  title: "Mayaana — V1 Demo",
+};
+
+async function checkSurface(
+  page: Page,
+  destination?: { url: string; heading: string; title: string }
+) {
+  if (destination) {
+    // A title/RTL check can pass on the outgoing page during client navigation.
+    // Identify the destination before checking its title or starting the scan.
+    await expect(page).toHaveURL(destination.url);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+      destination.heading
+    );
+    await expect(page).toHaveTitle(destination.title);
+  }
   await expect(page).toHaveTitle(/\S/);
   await expect(page.getByRole("main")).toHaveAttribute("dir", "rtl");
   expect(
@@ -14,6 +32,57 @@ async function checkSurface(page: Page) {
     []
   );
 }
+
+test("patient accessibility scan waits for the destination navigation", async ({
+  page,
+}) => {
+  const destination = featuredPatientDestination.url;
+  let releaseDestination!: () => void;
+  const heldResponse = new Promise<void>((resolve) => {
+    releaseDestination = resolve;
+  });
+  let destinationRequested!: () => void;
+  const requested = new Promise<void>((resolve) => {
+    destinationRequested = resolve;
+  });
+  await page.route(`**${destination}*`, async (route) => {
+    destinationRequested();
+    await heldResponse;
+    await route.continue();
+  });
+
+  const scannedUrls: string[] = [];
+  const analyze = AxeBuilder.prototype.analyze;
+  AxeBuilder.prototype.analyze = function (...args) {
+    scannedUrls.push(page.url());
+    return analyze.apply(this, args);
+  };
+  let surface: Promise<void> | undefined;
+  try {
+    await page.goto("/demo/doctor");
+    await page.getByRole("link", { name: "فتح الملف", exact: true }).click();
+    await requested;
+    surface = checkSurface(page, featuredPatientDestination);
+    // Observe the actual outgoing document while the destination response is
+    // held. A non-empty title and RTL main alone cannot identify the new page.
+    await expect(page).toHaveURL("/demo/doctor");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+      "صباح الخير دكتور"
+    );
+    await expect(page).toHaveTitle("Mayaana — V1 Demo");
+    expect(scannedUrls, "no accessibility scan of the outgoing page").toEqual(
+      []
+    );
+
+    releaseDestination();
+    await surface;
+    expect(scannedUrls).toEqual([new URL(destination, page.url()).href]);
+  } finally {
+    releaseDestination();
+    await surface?.catch(() => {});
+    AxeBuilder.prototype.analyze = analyze;
+  }
+});
 
 test("complete V1: secretary intake → measurements → handoff → doctor notes → diet and meal → completed visit", async ({
   page,
@@ -86,7 +155,7 @@ test("complete V1: secretary intake → measurements → handoff → doctor note
   });
   await doctor.goto("/demo/doctor");
   await doctor.getByRole("link", { name: "فتح الملف", exact: true }).click();
-  await checkSurface(doctor);
+  await checkSurface(doctor, featuredPatientDestination);
   await doctor.screenshot({
     path: info.outputPath("populated-patient-file.png"),
     fullPage: true,
