@@ -208,13 +208,13 @@ export function PersistedFlow({ route }: { route: string }) {
   );
   if (!snapshot)
     return (
-      <main className="secretary-shell recovery" dir="rtl">
+      <main className="secretary-shell recovery persisted-clinic" dir="rtl">
         <h1>العيادة</h1>
         {error ? status : <p role="status">جارٍ تحميل بيانات العيادة…</p>}
       </main>
     );
   return (
-    <>
+    <div className="persisted-clinic">
       {status}
       <ClinicFlowView
         route={route}
@@ -243,6 +243,6 @@ export function PersistedFlow({ route }: { route: string }) {
           )}
         </div>
       )}
-    </>
+    </div>
   );
 }
