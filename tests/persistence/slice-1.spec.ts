@@ -521,12 +521,19 @@ test("two independent browser sessions see the persisted Secretary to Doctor han
     ).toHaveValue("74.8");
     await s.getByRole("button", { name: "حفظ القياسات وتجهيز للدخول" }).click();
     await expect(s).toHaveURL(/measured=1/);
+    const handoffNotice = s.locator(".handoff-announcer[role=status]");
+    await expect(handoffNotice.locator(".handoff-snackbar")).toHaveCount(0);
     await s
       .locator(".queue-card")
       .filter({ hasText: name })
       .getByRole("button", { name: "إدخال عند الطبيب" })
       .click();
-    await expect(s).toHaveURL(/sent=1/);
+    // Success belongs to this confirmed mutation, not a URL or stored replay.
+    await expect(handoffNotice.locator(".handoff-snackbar")).toHaveText(
+      "تم إدخال المريض عند الطبيب."
+    );
+    await expect(handoffNotice).toHaveAttribute("aria-live", "polite");
+    await expect(s.getByRole("button", { name: /تراجع|Undo/ })).toHaveCount(0);
     // No shared storage state, context or localStorage synchronization.
     // The clinical foundation retains the persisted handoff but presents it in
     // the doctor's queue, then opens the read-only patient/measurement profile.
@@ -555,6 +562,9 @@ test("two independent browser sessions see the persisted Secretary to Doctor han
     );
     await d.reload();
     await expect(d.locator(".demo-measurements")).toContainText("74.8");
+    await s.reload();
+    await expect(s.locator(".doctor-card").filter({ hasText: name })).toBeVisible();
+    await expect(handoffNotice.locator(".handoff-snackbar")).toHaveCount(0);
     await expect(d.getByRole("button", { name: /إنهاء الزيارة/ })).toHaveCount(
       0
     );
