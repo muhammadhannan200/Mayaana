@@ -6,7 +6,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useDemoClinic } from "@/lib/demo-clinic";
 import { measurementFields, type VisitDraft } from "@/lib/clinical-model";
 import { damascusDate } from "@/lib/doctor-agenda";
-import { Icon } from "@/app/secretary/components";
+import { Icon } from "@/components/icon";
 import "./visit.css";
 import type {
   ClinicalOperations,

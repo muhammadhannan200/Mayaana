@@ -1,13 +1,13 @@
 import Image from "next/image";
-import Link from "next/link";
+import { AppNav, type AppNavTab } from "@/components/app-nav";
 import type { ClinicEntry } from "@/lib/clinical-types";
 
-const secretaryTabs = [
+const secretaryTabs: AppNavTab[] = [
   { key: "queue", title: "الدور", href: "/secretary" },
   { key: "patients", title: "المرضى", href: "/secretary/patients" },
   { key: "search", title: "البحث", href: "/secretary/search" },
   { key: "account", title: "الحساب", href: "/secretary/account" },
-] as const;
+];
 
 export function SecretaryNav({ route }: { route: string }) {
   const active =
@@ -20,65 +20,7 @@ export function SecretaryNav({ route }: { route: string }) {
           : route === "secretary/search"
             ? "search"
             : "queue";
-  return (
-    <nav className="secretary-nav" aria-label="التنقل الرئيسي">
-      {secretaryTabs.map((tab) => (
-        <Link
-          key={tab.key}
-          href={tab.href}
-          className={`secretary-nav-item${active === tab.key ? " active" : ""}`}
-          aria-current={active === tab.key ? "page" : undefined}
-        >
-          <Image
-            src={`/rashaqa/nav-${tab.key}${active === tab.key ? "-active" : ""}.svg`}
-            width={54}
-            height={30}
-            alt=""
-            unoptimized
-          />
-          <span>{tab.title}</span>
-        </Link>
-      ))}
-    </nav>
-  );
-}
-
-export function DoctorNav({ route }: { route: string }) {
-  const tabs = [
-    { key: "home", title: "الرئيسية", href: "/doctor" },
-    { key: "patients", title: "المرضى", href: "/doctor/patients" },
-    { key: "search", title: "البحث", href: "/doctor/search" },
-    // Keep master's existing destination until Account/Profile is implemented.
-    { key: "account", title: "الحساب", href: "/doctor/staff" },
-  ];
-  const active = route.startsWith("doctor/patients")
-    ? "patients"
-    : route === "doctor/search"
-      ? "search"
-      : route === "doctor/staff"
-        ? "account"
-        : "home";
-  return (
-    <nav className="secretary-nav" aria-label="التنقل الرئيسي">
-      {tabs.map((tab) => (
-        <Link
-          key={tab.key}
-          href={tab.href}
-          className={`secretary-nav-item${active === tab.key ? " active" : ""}`}
-          aria-current={active === tab.key ? "page" : undefined}
-        >
-          <Image
-            src={`/rashaqa/nav-${tab.key}${active === tab.key ? "-active" : ""}.svg`}
-            width={54}
-            height={30}
-            alt=""
-            unoptimized
-          />
-          <span>{tab.title}</span>
-        </Link>
-      ))}
-    </nav>
-  );
+  return <AppNav tabs={secretaryTabs} active={active} />;
 }
 
 export function VisitType({ kind }: { kind: ClinicEntry["kind"] }) {

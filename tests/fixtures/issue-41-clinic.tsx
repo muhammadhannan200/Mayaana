@@ -2,7 +2,7 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { PersistedFlow } from "../../app/secretary/persisted-flow";
-import { DoctorNav } from "../../app/secretary/clinic-ui";
+import { DoctorNav } from "../../app/doctor/doctor-nav";
 import "../../app/secretary/secretary.css";
 import "../../app/doctor/doctor.css";
 
