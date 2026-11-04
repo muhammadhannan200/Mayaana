@@ -1,7 +1,8 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
-const secret = "PRIVATE-DEMO-NOTE-DO-NOT-PRINT-92a1";
+// Fictional assertion marker, not a credential or actual patient information.
+const fictionalNoteMarker = "PRIVATE-DEMO-NOTE-DO-NOT-PRINT-92a1";
 
 test("completed demo print is notes-free, browser-local, RTL and printable", async ({
   page,
@@ -15,7 +16,7 @@ test("completed demo print is notes-free, browser-local, RTL and printable", asy
       unexpected.push(request.url());
   });
   await page.goto("/demo/doctor/visits/demo-featured");
-  await page.getByLabel("ملاحظاتي").fill(secret);
+  await page.getByLabel("ملاحظاتي").fill(fictionalNoteMarker);
   await page.getByRole("link", { name: "متابعة للبرنامج والموعد" }).click();
   await page
     .getByRole("button", { name: "إنهاء الزيارة", exact: true })
@@ -33,15 +34,15 @@ test("completed demo print is notes-free, browser-local, RTL and printable", asy
   await expect(page.getByText("نور الحسن", { exact: true })).toBeVisible();
   await expect(page.getByText("بيضتان مسلوقتان، خبز أسمر وخيار")).toBeVisible();
   await expect(page.getByText("موعد المراجعة القادمة")).toBeVisible();
-  expect(await page.content()).not.toContain(secret);
+  expect(await page.content()).not.toContain(fictionalNoteMarker);
   expect(
     await page.evaluate(() => localStorage.getItem("mayanaa-demo-v1:public"))
-  ).toContain(secret);
+  ).toContain(fictionalNoteMarker);
   await page.reload();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
     "البرنامج الغذائي"
   );
-  expect(await page.content()).not.toContain(secret);
+  expect(await page.content()).not.toContain(fictionalNoteMarker);
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth + 1
@@ -103,7 +104,7 @@ test("multi-day demo produces A4 pages with intact meal break rules", async ({
   page,
 }, info) => {
   await page.goto("/demo/doctor");
-  await page.evaluate((secret) => {
+  await page.evaluate((fictionalNoteMarker) => {
     localStorage.setItem(
       "mayanaa-demo-v1:public",
       JSON.stringify({
@@ -118,7 +119,7 @@ test("multi-day demo produces A4 pages with intact meal break rules", async ({
             measurements: {},
             kind: "full_exam",
             visit: {
-              notes: secret,
+              notes: fictionalNoteMarker,
               completedAt: "2026-11-04T09:00:00Z",
               appointment: "2026-11-18",
               days: Array.from({ length: 8 }, (_, index) => ({
@@ -134,13 +135,13 @@ test("multi-day demo produces A4 pages with intact meal break rules", async ({
         ],
       })
     );
-  }, secret);
+  }, fictionalNoteMarker);
   await page.goto("/demo/doctor/visits/print-long/print");
   await expect(page.getByRole("article")).toBeVisible();
   await expect(
     page.getByRole("heading", { level: 2, name: "اليوم 8", exact: true })
   ).toBeVisible();
-  expect(await page.content()).not.toContain(secret);
+  expect(await page.content()).not.toContain(fictionalNoteMarker);
   await page.emulateMedia({ media: "print" });
   expect(
     await page
