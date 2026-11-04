@@ -117,6 +117,9 @@ test("two independent sessions: intake, handoff, private draft, diet, appointmen
     );
     await login(secretary, secretaryEmail, "secretary");
     await expect(secretary.getByText("الدور فارغ الآن")).toBeVisible();
+    await expect(
+      secretary.getByRole("heading", { name: /متوقع اليوم|متأخر/ })
+    ).toHaveCount(0);
     expect(
       await secretary.evaluate(
         (id) => localStorage.getItem(`mayanaa-demo-v1:${id}`),
@@ -127,6 +130,12 @@ test("two independent sessions: intake, handoff, private draft, diet, appointmen
     await login(doctor, doctorEmail, "doctor");
     await expect(
       doctor.getByText("لا يوجد مريض عند الطبيب الآن.")
+    ).toBeVisible();
+    await expect(
+      doctor.getByText("لا يوجد مرضى متوقعون اليوم لم يصلوا بعد.")
+    ).toBeVisible();
+    await expect(
+      doctor.getByText("لا توجد مواعيد متأخرة دون زيارة مكتملة أو موعد لاحق.")
     ).toBeVisible();
     await secretary
       .getByRole("link", { name: "إضافة مريض للدور", exact: true })
@@ -208,9 +217,9 @@ test("two independent sessions: intake, handoff, private draft, diet, appointmen
     ).toBeVisible();
     await surface(secretary);
     await secretary.getByRole("button", { name: "إدخال عند الطبيب" }).click();
-    await expect(
-      doctor.locator(".doctor-current")
-    ).toContainText(patientName, { timeout: 25_000 });
+    await expect(doctor.locator(".doctor-current")).toContainText(patientName, {
+      timeout: 25_000,
+    });
     await doctor.getByRole("link", { name: "فتح الملف", exact: true }).click();
     await expect(doctor.locator(".demo-measurements")).toContainText("80");
     await doctor

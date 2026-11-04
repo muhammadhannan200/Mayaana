@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useDemoClinic, type DemoVisit } from "@/lib/demo-clinic";
+import { damascusDate } from "@/lib/doctor-agenda";
 import { Icon } from "@/app/secretary/components";
 import { measurementFields } from "@/app/secretary/measurements/mock-visits";
 import "./visit.css";
@@ -267,6 +268,8 @@ function VisitEditor({
                     id: entryId,
                     number: record.visits.length + 1,
                     date: new Date(completedAt).toLocaleDateString("ar-SY"),
+                    serviceDate: damascusDate(new Date(completedAt)),
+                    appointment: completedAppointment,
                     detailDate: "زيارة مكتملة · العرض التجريبي",
                     kind: active.kind,
                     measurements: { ...active.measurements },
