@@ -2,15 +2,18 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { createClient as createAuthClient } from "@supabase/supabase-js";
 import type { AuthError } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/server";
 import { accountForUser, homeForRole } from "@/lib/auth";
-
-export type FormResult = {
-  error: string;
-  kind: "validation" | "credentials" | "service";
-} | null;
+import {
+  validateLogin,
+  validatePassword,
+  validationResult,
+  type FormResult,
+} from "@/lib/auth-validation";
+export type { FormResult } from "@/lib/auth-validation";
 
 const credentialsError: FormResult = {
   kind: "credentials",
@@ -19,6 +22,11 @@ const credentialsError: FormResult = {
 const serviceError: FormResult = {
   kind: "service",
   error: "تعذّر الاتصال بالخدمة. حاول مرة أخرى.",
+};
+
+const changePasswordError: FormResult = {
+  kind: "service",
+  error: "تعذّر تغيير كلمة المرور. تحقق من البيانات وحاول مجدداً.",
 };
 
 function isServiceError(error: AuthError) {
@@ -31,6 +39,22 @@ function isServiceError(error: AuthError) {
   );
 }
 
+// updateUser only checks current_password when the project enforces it, so
+// verify it here. A separate stateless client leaves the staff session alone.
+async function currentPasswordError(
+  email: string | undefined,
+  password: string
+): Promise<FormResult> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  if (!url || !key || !email) return serviceError;
+  const { error } = await createAuthClient(url, key, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  }).auth.signInWithPassword({ email, password });
+  if (!error) return null;
+  return isServiceError(error) ? serviceError : changePasswordError;
+}
+
 export async function signIn(
   _previous: FormResult,
   formData: FormData
@@ -40,12 +64,10 @@ export async function signIn(
   const email =
     typeof rawEmail === "string" ? rawEmail.trim().toLowerCase() : "";
 
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return { kind: "validation", error: "أدخل بريداً إلكترونياً صالحاً." };
-  }
-  if (typeof password !== "string" || !password) {
-    return { kind: "validation", error: "أدخل كلمة المرور." };
-  }
+  const invalid = validationResult(validateLogin(formData));
+  if (invalid) return invalid;
+  // Keep the runtime type guard at the authentication boundary.
+  if (typeof password !== "string") return serviceError;
   if (!isSupabaseConfigured()) {
     return {
       kind: "service",
@@ -88,32 +110,36 @@ export async function changePassword(
   formData: FormData
 ): Promise<FormResult> {
   const password = formData.get("password");
-  const confirmation = formData.get("confirmation");
   const current = formData.get("currentPassword");
-  if (typeof password !== "string" || password.length < 8) {
-    return {
-      kind: "validation",
-      error: "كلمة المرور الجديدة يجب أن تكون 8 أحرف على الأقل.",
-    };
-  }
-  if (password !== confirmation) {
-    return { kind: "validation", error: "تأكيد كلمة المرور غير مطابق." };
-  }
+  // Include the current field when rendered/submitted so missing-field focus
+  // follows DOM order. Omitting it cannot bypass the account-based check below.
+  const invalid = validationResult(
+    validatePassword(formData, formData.has("currentPassword"))
+  );
+  if (invalid) return invalid;
+  if (typeof password !== "string") return serviceError;
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
-  const account = user && (await accountForUser(supabase, user));
-  if (error || !user || !account) redirect("/");
+  let supabase: Awaited<ReturnType<typeof createClient>>;
+  let user;
+  let account;
+  try {
+    supabase = await createClient();
+    const result = await supabase.auth.getUser();
+    if (result.error && isServiceError(result.error)) return serviceError;
+    user = result.error ? null : result.data.user;
+    account = user && (await accountForUser(supabase, user));
+  } catch {
+    return serviceError;
+  }
+  // Keep redirect control flow outside the service-error catch.
+  if (!user || !account) redirect("/");
   if (!account.mustChangePassword && account.role !== "doctor")
     redirect(homeForRole(account.role));
   if (
     !account.mustChangePassword &&
     (typeof current !== "string" || !current)
   ) {
-    return { kind: "validation", error: "أدخل كلمة المرور الحالية." };
+    return validationResult({ currentPassword: "أدخل كلمة المرور الحالية." });
   }
   if (account.mustChangePassword && !process.env.SUPABASE_SECRET_KEY) {
     return {
@@ -123,17 +149,17 @@ export async function changePassword(
   }
 
   try {
+    if (!account.mustChangePassword && typeof current === "string") {
+      const rejected = await currentPasswordError(user.email, current);
+      if (rejected) return rejected;
+    }
     const { error: updateError } = await supabase.auth.updateUser({
       password,
       ...(!account.mustChangePassword && typeof current === "string"
         ? { current_password: current }
         : {}),
     });
-    if (updateError)
-      return {
-        kind: "service",
-        error: "تعذّر تغيير كلمة المرور. تحقق من البيانات وحاول مجدداً.",
-      };
+    if (updateError) return changePasswordError;
 
     if (account.mustChangePassword) {
       const admin = createAdminClient();

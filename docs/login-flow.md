@@ -28,3 +28,19 @@ This is the **product-owner decision record** from the interview after the [Figm
 5. Share temporary credentials with the person outside the app, as agreed. The doctor-facing secretary-creation and password-reset controls remain future work. Until the doctor reset control exists, an authorized administrator handles a secretary reset on the doctor's request: assign a new temporary password through Supabase Auth, set that staff member's `must_change_password` flag to `true`, and deliver the temporary password outside the app. The doctor continues to contact the administrator for their own reset. Do not use the public login page as a recovery flow.
 
 Exact Arabic copy and session lifetime can be refined later. The doctor Figma Login frame still displays signed-out “change password” copy; the implemented entry point instead tells the doctor to contact the system administrator, matching the agreed recovery policy.
+
+## Issue #50 recovery clarification
+
+The approved recovery path remains administrator-managed temporary passwords,
+not email-token recovery or public self-service reset. Do not send recovery
+emails as a substitute for the temporary-password process above. Legacy recovery
+links now show administrator-contact guidance only, without token exchange or
+password mutation. Recognized query arrivals at Login redirect to `/auth/confirm`;
+fragment arrivals do so after JavaScript loads. The fixed guidance also works
+directly at `/auth/confirm`, ignores `next` and does not validate or consume tokens.
+Without JavaScript, fragments are unavailable to the server and Login's existing
+administrator-contact help remains visible. This is not email recovery acceptance.
+
+See the [Issue #50 baseline and investigation](issue-50-auth-baseline.md) for
+the isolated master baseline, confirmed repository behavior, blocked hosted
+configuration inspection, dependencies and the Batch 0/1 stop condition.

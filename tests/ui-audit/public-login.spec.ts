@@ -35,7 +35,7 @@ test("critical controls have labels and an explicit unavailable state", async ({
     "type",
     "email"
   );
-  await expect(page.getByLabel("كلمة المرور")).toHaveAttribute(
+  await expect(page.getByLabel("كلمة المرور", { exact: true })).toHaveAttribute(
     "type",
     "password"
   );
@@ -82,8 +82,8 @@ test("the eye button shows and hides the password", async ({ page }) => {
   await page.goto("/");
   const password = page.getByLabel("كلمة المرور", { exact: true });
   await expect(password).toHaveAttribute("type", "password");
-  await page.getByRole("button", { name: "إظهار كلمة السر" }).click();
+  await page.getByRole("button", { name: "إظهار كلمة المرور" }).click();
   await expect(password).toHaveAttribute("type", "text");
-  await page.getByRole("button", { name: "إخفاء كلمة السر" }).click();
+  await page.getByRole("button", { name: "إخفاء كلمة المرور" }).click();
   await expect(password).toHaveAttribute("type", "password");
 });

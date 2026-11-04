@@ -24,6 +24,20 @@ begin
     or not has_function_privilege('authenticated',f.oid,'EXECUTE') then
     raise exception 'Unsafe directory helper owner/config/grants';
   end if;
+  -- Both intake overloads retain the non-bypass owner, pinned search path and
+  -- authenticated-only execution after replacing the current RPC body.
+  for f in select p.* from pg_proc p where p.oid in (
+    'public.clinical_save_measurements(uuid,integer,jsonb)'::regprocedure,
+    'public.clinical_save_measurements(uuid,integer,uuid,jsonb)'::regprocedure
+  ) loop
+    if not f.prosecdef or f.proowner<>api
+      or not coalesce(f.proconfig @> array['search_path=""'],false)
+      or not has_function_privilege('authenticated',f.oid,'EXECUTE')
+      or has_function_privilege('anon',f.oid,'EXECUTE')
+      or exists(select 1 from aclexplode(coalesce(f.proacl,acldefault('f',f.proowner))) where grantee=0 and privilege_type='EXECUTE') then
+      raise exception 'Unsafe intake owner/config/grants';
+    end if;
+  end loop;
   foreach t in array array['clinics','clinic_staff'] loop
     relation := ('public.'||t)::regclass;
     if not exists(select 1 from pg_class where oid=relation and relrowsecurity) then raise exception 'Directory RLS disabled: %',t; end if;

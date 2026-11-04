@@ -6,12 +6,17 @@ export type AppNavTab = { key: string; title: string; href: string };
 export function AppNav({
   tabs,
   active,
+  className = "",
 }: {
   tabs: AppNavTab[];
   active: string;
+  className?: string;
 }) {
   return (
-    <nav className="secretary-nav" aria-label="التنقل الرئيسي">
+    <nav
+      className={`secretary-nav ${className}`.trim()}
+      aria-label="التنقل الرئيسي"
+    >
       {tabs.map((tab) => (
         <Link
           key={tab.key}

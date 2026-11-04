@@ -1,0 +1,292 @@
+/* D1, D3, D4 and 117:132. Doctor-only presentation; account UI is unchanged. */
+.doctor-navigation.secretary-nav {
+  inset-inline-start: 50%;
+  transform: translateX(50%);
+  align-items: center;
+  padding: 4px 16px max(16px, env(safe-area-inset-bottom));
+}
+.doctor-navigation .secretary-nav-item {
+  width: 80px;
+  min-width: 0;
+  min-height: 56px;
+  justify-content: center;
+  gap: 4px;
+  line-height: 16px;
+  color: var(--muted);
+}
+.doctor-navigation .secretary-nav-item.active {
+  color: var(--ink);
+}
+.doctor-navigation img {
+  flex: none;
+}
+.doctor-navigation a:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 3px;
+}
+.doctor-workspace .doctor-scroll {
+  padding-bottom: calc(92px + env(safe-area-inset-bottom));
+}
+.doctor-workspace .doctor-home-header,
+.doctor-workspace .doctor-list-header {
+  padding: 20px 16px 12px;
+}
+.doctor-workspace .doctor-list-header h1 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 28px;
+}
+.doctor-workspace .doctor-list-header p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 16px;
+}
+.doctor-workspace .doctor-current {
+  gap: 16px;
+  color: var(--soft);
+}
+.doctor-workspace .doctor-current-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+}
+.doctor-current-summary {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.doctor-workspace .doctor-current h2 {
+  overflow-wrap: anywhere;
+}
+.doctor-workspace .doctor-current a {
+  padding: 12px 20px;
+  line-height: 24px;
+}
+.doctor-workspace .doctor-current a:hover {
+  background: #ccfbf1;
+}
+.doctor-workspace .doctor-stats > div {
+  min-width: 0;
+}
+.doctor-workspace .doctor-stats :is(span, small) {
+  line-height: 16px;
+}
+.doctor-workspace .doctor-stats strong {
+  font-variant-numeric: tabular-nums;
+}
+.doctor-workspace .doctor-queue li {
+  min-height: 66px;
+}
+.doctor-workspace .doctor-queue li > a {
+  gap: 8px;
+  min-height: 44px;
+}
+.doctor-workspace .doctor-queue-person,
+.doctor-workspace .doctor-queue li > a > span:first-child {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: 20px;
+}
+.doctor-workspace .doctor-queue small {
+  line-height: 16px;
+}
+.doctor-workspace .doctor-order {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  min-height: 36px;
+  flex: none;
+  padding: 8px;
+  line-height: 20px;
+}
+.doctor-workspace :is(.doctor-ready, .doctor-waiting) {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  gap: 4px;
+  padding: 4px 12px;
+  border: 1px solid #99f6e4;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+}
+.doctor-workspace .doctor-waiting {
+  background: #fffbeb;
+  color: #92400e;
+  border-color: #fde68a;
+}
+.doctor-clock {
+  width: 12px;
+  height: 12px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  position: relative;
+  flex: none;
+}
+.doctor-clock::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 5px;
+  width: 3px;
+  height: 4px;
+  border-inline-start: 1px solid currentColor;
+  border-bottom: 1px solid currentColor;
+}
+.doctor-workspace .doctor-patient-list {
+  padding: 16px;
+  gap: 16px;
+}
+.doctor-workspace .doctor-patient-list .patient-search-input input {
+  background: #f1f5f9;
+  border-color: transparent;
+  font-size: 14px;
+  line-height: 20px;
+  padding: 12px 44px 12px 16px;
+}
+.doctor-workspace
+  .doctor-patient-list
+  .patient-search-input
+  input::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+.doctor-workspace .doctor-patient-list .patient-result {
+  gap: 8px;
+  min-height: 70px;
+}
+.doctor-workspace .doctor-patient-list .patient-result strong {
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 600;
+}
+.doctor-workspace .doctor-patient-list .patient-result small {
+  font-size: 12px;
+  line-height: 16px;
+}
+.doctor-workspace .patient-avatar {
+  color: #115e59;
+  font-size: 14px;
+  line-height: 20px;
+}
+.doctor-workspace .doctor-patient-list .patient-result:hover {
+  background: #f8fafc;
+  border-color: #99f6e4;
+}
+.doctor-workspace .doctor-record-header {
+  flex-direction: row-reverse;
+  justify-content: flex-end;
+  padding: 12px;
+  gap: 8px;
+  margin-bottom: 0;
+}
+.doctor-workspace .doctor-record-header > div {
+  flex: 1;
+  min-width: 0;
+}
+.doctor-workspace .doctor-record-header h1 {
+  text-align: start;
+  font-size: 20px;
+  line-height: 28px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.doctor-workspace .doctor-record-header p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 16px;
+}
+.doctor-workspace .doctor-record-header > a {
+  min-width: 44px;
+  min-height: 44px;
+  flex: none;
+}
+.doctor-workspace .demo-patient-file {
+  padding: 20px 20px 24px;
+  gap: 20px;
+}
+.doctor-workspace .patient-progress {
+  display: grid;
+  gap: 8px;
+}
+.doctor-workspace .patient-progress h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--brand);
+  font-size: 14px;
+  line-height: 20px;
+}
+.doctor-workspace .patient-progress p {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+}
+.doctor-workspace .patient-progress p > span {
+  font-size: 16px;
+  font-weight: 500;
+}
+.doctor-workspace .patient-progress small {
+  font-size: 14px;
+  line-height: 20px;
+}
+.doctor-workspace .patient-progress > span {
+  font-size: 14px;
+  line-height: 20px;
+}
+.doctor-workspace .demo-patient-info > div {
+  align-items: baseline;
+}
+.doctor-workspace .demo-patient-info dt,
+.doctor-workspace .demo-patient-info dd {
+  line-height: 20px;
+}
+.doctor-workspace .demo-patient-info dd {
+  text-align: end;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.doctor-workspace .doctor-record-section {
+  display: grid;
+  gap: 12px;
+}
+.doctor-workspace .demo-measurements dd {
+  font-size: 20px;
+  line-height: 28px;
+  font-variant-numeric: tabular-nums;
+}
+.doctor-workspace .demo-measurements dd small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 16px;
+}
+.doctor-workspace .demo-visit-history li {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  margin-bottom: 8px;
+  font-size: 14px;
+  line-height: 20px;
+}
+.doctor-workspace .demo-visit-history a {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+}
+.doctor-workspace .secretary-primary {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 24px;
+  gap: 8px;
+  text-align: center;
+}
+.doctor-workspace input:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
