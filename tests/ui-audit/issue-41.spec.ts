@@ -200,7 +200,7 @@ async function mount(page: Page, route: string, data = snapshot) {
   await page.evaluate(() => document.fonts.ready);
   expect(
     await page.evaluate(() =>
-      document.fonts.check('16px "Noto Sans Arabic"', "مريض")
+      document.fonts.check('16px "IBM Plex Sans Arabic"', "مريض")
     )
   ).toBe(true);
 }
