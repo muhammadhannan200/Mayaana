@@ -207,7 +207,7 @@
 }
 .record-menu {
   position: relative;
-  margin-inline-start: auto;
+  margin-right: auto;
 }
 .record-menu summary {
   display: grid;

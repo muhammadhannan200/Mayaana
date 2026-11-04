@@ -5,6 +5,12 @@
 .visit-shell .doctor-back svg {
   transform: rotate(180deg);
 }
+.visit-shell .visit-header-action {
+  margin-right: auto;
+}
+.visit-shell .visit-header-action svg {
+  transform: none;
+}
 .visit-content {
   display: grid;
   gap: 16px;
