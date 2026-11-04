@@ -7,6 +7,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { SignOutForm } from "@/app/sign-out-form";
 import type { useDemoClinic } from "@/lib/demo-clinic";
 import { Icon } from "@/components/icon";
+import { visitCountLabel } from "@/lib/arabic-count";
 import { DoctorNav } from "@/app/doctor/doctor-nav";
 import { MeasurementScreen } from "./measurements/measurement-screen";
 import { DoctorVisit } from "@/app/doctor/visit-screen";
@@ -218,7 +219,9 @@ export function ClinicFlowView({
         : "follow-up";
     return (
       <MeasurementScreen
-        key={`${entry.id}-${mode}`}
+        // Remount when the demo calendar settles after hydration, so history
+        // seeded in useState does not keep the prerendered dates.
+        key={`${entry.id}-${mode}-${local?.today ?? ""}`}
         mode={mode}
         patientName={patient.name}
         history={patient.visits}
@@ -1004,7 +1007,7 @@ export function ClinicFlowView({
                     <span>
                       {change < 0 ? "نزول" : change > 0 ? "زيادة" : "ثبات"}{" "}
                       <bdi>{Math.abs(change).toFixed(1)}</bdi> كغ ·{" "}
-                      {record.visits.length} زيارات سابقة
+                      {visitCountLabel(record.visits.length)}
                     </span>
                   )}
                 </section>
