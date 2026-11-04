@@ -2,13 +2,10 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import type { useDemoClinic } from "@/frontend/demo/demo-clinic";
 import { Icon } from "@/frontend/components/icon";
-import { NotificationBell } from "@/frontend/components/notification-bell";
-import { Toast } from "@/frontend/components/toast";
 import { clinicNotifications } from "@/shared/clinic-notifications";
-import { longDate } from "@/shared/clinic-dates";
 import type { AccountProfile } from "@/backend/account-profile";
 import {
   parsePatientFields,
@@ -16,6 +13,7 @@ import {
 } from "@/shared/patient-validation";
 import { SecretaryAccount } from "./account-screen";
 import { ConfirmQueueScreen } from "./confirm-queue-screen";
+import { QueueScreen } from "./queue-screen";
 import { NewPatientScreen } from "./new-patient-screen";
 import { PatientSearchScreen } from "./patient-search-screen";
 import { PatientEditForm } from "./patient-edit-form";
@@ -26,58 +24,19 @@ import { DoctorVisit } from "@/frontend/doctor/visit-screen";
 import { DoctorHome } from "@/frontend/doctor/doctor-home";
 import { DoctorWeek } from "@/frontend/doctor/doctor-week";
 import { DoctorPatientList } from "@/frontend/doctor/patient-list";
-import { DoctorPatientRecord, PatientMenu } from "@/frontend/doctor/patient-record";
+import {
+  DoctorPatientRecord,
+  PatientMenu,
+} from "@/frontend/doctor/patient-record";
 import { type PatientRecord, type QueueEntry } from "@/shared/clinical-model";
 import "./secretary.css";
-import { SecretaryNav, VisitType } from "./clinic-ui";
+import { DemoNote, SecretaryNav, VisitType } from "./clinic-ui";
 import "./persisted.css";
 import "@/frontend/doctor/workspace.css";
-import {
-  cancelUnavailableMessage,
-  doctorAvailableMessage,
-  doctorBusyMessage,
-  doctorOccupiedMessage,
-  handoffCancelMs,
-} from "@/shared/queue-handoff";
 import type {
   ClinicalOperations,
   ClinicalSnapshot,
 } from "@/shared/clinical-types";
-
-// Display only: the database enforces the same window and the doctor-opened rule.
-function CancelHandoff({
-  entry,
-  disabled,
-  onCancel,
-}: {
-  entry: { handedOffAt?: string; doctorOpened?: boolean };
-  disabled?: boolean;
-  onCancel: () => void;
-}) {
-  const remaining = () =>
-    entry.handedOffAt
-      ? Math.ceil(
-          (Date.parse(entry.handedOffAt) + handoffCancelMs - Date.now()) / 1000
-        )
-      : 0;
-  const [seconds, setSeconds] = useState(remaining);
-  useEffect(() => {
-    const timer = setInterval(() => setSeconds(remaining()), 1000);
-    return () => clearInterval(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entry.handedOffAt]);
-  if (entry.doctorOpened || seconds <= 0) return null;
-  return (
-    <button
-      type="button"
-      className="secretary-outline"
-      disabled={disabled}
-      onClick={onCancel}
-    >
-      إلغاء الإدخال ({seconds} ث)
-    </button>
-  );
-}
 
 export function ClinicFlowView({
   route,
@@ -398,201 +357,23 @@ export function ClinicFlowView({
 
   if (route === "secretary")
     content = (
-      <>
-        <header className="secretary-header">
-          <div>
-            <h1>دور اليوم</h1>
-            <p>
-              {longDate(
-                local?.today ? new Date(`${local.today}T12:00:00Z`) : undefined
-              )}
-            </p>
-          </div>
-          <NotificationBell
-            items={notifications}
-            scope="secretary"
-            className="secretary-bell"
-          />
-        </header>
-        <div className="secretary-content">
-          {error && (
-            <p className="secretary-error" role="alert">
-              {error}
-            </p>
-          )}
-          {current[0] ? (
-            <p className="intake-info" role="status">
-              {doctorBusyMessage(findPatient(current[0]).name)}
-            </p>
-          ) : (
-            completed.length > 0 && (
-              <p className="intake-info" role="status">
-                {doctorAvailableMessage}
-              </p>
-            )
-          )}
-          {queueToast && <Toast key={queueToast} message={queueToast} />}
-          <div className="queue-totals">
-            <div>
-              <strong>{waiting.length}</strong>
-              <span>بالانتظار</span>
-            </div>
-            <div>
-              <strong>{current.length}</strong>
-              <span>عند الطبيب</span>
-            </div>
-            <div>
-              <strong>{completed.length}</strong>
-              <span>انتهت</span>
-            </div>
-          </div>
-          {current.length > 0 && (
-            <section className="queue-section">
-              <h2>عند الطبيب ({current.length})</h2>
-              <ul className="queue-list">
-                {current.map((e) => (
-                  <li key={e.id} className="queue-card doctor-card">
-                    <strong>{findPatient(e).name}</strong>
-                    <span className="queue-status">عند الطبيب</span>
-                    <CancelHandoff
-                      entry={e}
-                      disabled={operations?.pending}
-                      onCancel={async () => {
-                        setError("");
-                        if (operations) {
-                          await operations.cancelHandoff(e.id);
-                          return;
-                        }
-                        if (!local!.cancelHandoff(e.id))
-                          setError(cancelUnavailableMessage);
-                      }}
-                    />
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-          <section className="queue-section">
-            <h2>بالانتظار الآن ({waiting.length})</h2>
-            {waiting.length ? (
-              <ol className="queue-list">
-                {waiting.map((e, i) => (
-                  <li className="queue-card" key={e.id}>
-                    <div className="queue-card-top">
-                      <span className="queue-number">
-                        <small>دور</small>
-                        {i + 1}
-                      </span>
-                      <div className="queue-person">
-                        <strong>{findPatient(e).name}</strong>
-                        <span>
-                          {e.arrivalTime && (
-                            <>
-                              {findPatient(e).gender === "female"
-                                ? "وصلت"
-                                : "وصل"}{" "}
-                              <bdi>{e.arrivalTime}</bdi> ·{" "}
-                            </>
-                          )}
-                          الزيارة {findPatient(e).visits.length + 1}
-                        </span>
-                        {e.status === "waiting" &&
-                          Object.keys(e.measurements).length > 0 && (
-                            <span>القياسات غير مكتملة</span>
-                          )}
-                      </div>
-                      {badge(e)}
-                    </div>
-                    <div className="queue-card-actions">
-                      {e.status === "ready" ? (
-                        <>
-                          <button
-                            className="secretary-primary"
-                            disabled={operations?.pending}
-                            onClick={async () => {
-                              setError("");
-                              // The server decides: this snapshot can be up to
-                              // ten seconds behind a visit that just finished.
-                              if (operations) {
-                                if (await operations.handoffToDoctor(e.id))
-                                  go("secretary?sent=1");
-                                return;
-                              }
-                              if (local!.handoff(e.id) === "occupied")
-                                setError(
-                                  current[0]
-                                    ? doctorBusyMessage(
-                                        findPatient(current[0]).name
-                                      )
-                                    : doctorOccupiedMessage
-                                );
-                              else go("secretary?sent=1");
-                            }}
-                          >
-                            إدخال عند الطبيب
-                          </button>
-                          <Link
-                            className="queue-edit"
-                            href={href(
-                              `secretary/measurements/${e.kind === "full_exam" ? "full-exam" : "follow-up"}?entry=${e.id}`
-                            )}
-                          >
-                            تعديل القياسات
-                          </Link>
-                        </>
-                      ) : (
-                        <Link
-                          className="secretary-outline"
-                          href={href(
-                            `secretary/measurements/${e.kind === "full_exam" ? "full-exam" : "follow-up"}?entry=${e.id}`
-                          )}
-                        >
-                          <Icon name="scale" size={18} />
-                          أخذ القياس
-                        </Link>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            ) : (
-              <div className="queue-empty">
-                <span className="queue-empty-icon">
-                  <Icon name="queue" size={32} />
-                </span>
-                <h3>الدور فارغ الآن</h3>
-                <p>أضف مريضاً لبدء دور اليوم.</p>
-                <Link
-                  className="secretary-primary"
-                  href={href("secretary/search")}
-                >
-                  إضافة مريض للدور
-                </Link>
-              </div>
-            )}
-          </section>
-          {completed.length > 0 && (
-            <section className="queue-section">
-              <h2>انتهت ({completed.length})</h2>
-              <ul className="queue-list">
-                {completed.map((e) => (
-                  <li key={e.id} className="queue-card doctor-card">
-                    <strong>{findPatient(e).name}</strong>
-                    <span className="queue-status">اكتملت الزيارة</span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-          <DemoNote demo={demo} href={href("doctor")} />
-        </div>
-        {queue.length > 0 && (
-          <Link className="queue-fab" href={href("secretary/add")}>
-            <Icon name="plus" size={20} />
-            إضافة للدور
-          </Link>
-        )}
-      </>
+      <QueueScreen
+        demo={demo}
+        queue={queue}
+        waiting={waiting}
+        current={current}
+        completed={completed}
+        notifications={notifications}
+        queueToast={queueToast}
+        error={error}
+        setError={setError}
+        operations={operations}
+        local={local}
+        href={href}
+        go={go}
+        findPatient={findPatient}
+        badge={badge}
+      />
     );
   else if (
     route === "secretary/add" ||
@@ -833,25 +614,5 @@ export function ClinicFlowView({
         )
       )}
     </main>
-  );
-}
-
-function DemoNote({
-  demo,
-  href,
-  secretary = false,
-}: {
-  demo: boolean;
-  href: string;
-  secretary?: boolean;
-}) {
-  if (!demo) return null;
-  return (
-    <p className="demo-flow-note">
-      عرض تجريبي · بيانات خيالية في هذا المتصفح فقط.
-      {demo && (
-        <Link href={href}>{secretary ? "عرض السكرتيرة" : "عرض الطبيب"}</Link>
-      )}
-    </p>
   );
 }
