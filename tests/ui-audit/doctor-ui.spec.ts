@@ -189,7 +189,7 @@ test("week stat opens this week's patients with type filters", async ({
   page,
 }) => {
   await page.goto("/demo/doctor");
-  await page.getByRole("link", { name: "عرض مرضى هذا الأسبوع" }).click();
+  await page.getByRole("link", { name: /مرضى هذا الأسبوع/ }).click();
   await expect(page).toHaveURL(/\/demo\/doctor\/week$/);
   await expect(page.getByRole("button", { name: /^الكل/ })).toHaveText(
     "الكل (5)"

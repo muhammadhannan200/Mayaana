@@ -11,7 +11,7 @@ import {
   type DoctorWeekData,
 } from "@/lib/doctor-week";
 import { VisitType } from "@/app/secretary/clinic-ui";
-import { getDoctorWeek } from "./agenda-actions";
+import { getDoctorWeek } from "./week-actions";
 import "./doctor-week.css";
 
 function useDoctorWeek(demoState?: DemoState, demoToday = "") {
@@ -54,7 +54,7 @@ export function DoctorWeekStats({
   const value = (number?: number) => (failed ? "—" : (number ?? "…"));
   return (
     <div className="doctor-stats">
-      <Link href={href} aria-label="عرض مرضى هذا الأسبوع">
+      <Link href={href}>
         <strong>{value(data?.visits.length)}</strong>
         <span>مرضى هذا الأسبوع</span>
         <small>
