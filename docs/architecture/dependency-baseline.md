@@ -12,17 +12,12 @@ The command prints Markdown to stdout and writes no files. Findings return
 success; they are not ESLint/CI gates. Tool execution errors still fail normally.
 The script uses the existing TypeScript dependency, with no added packages.
 
-## Confirmed runtime cycle
+## Runtime cycles
 
-```text
-app/secretary/clinic-flow.tsx
-  -> app/secretary/persisted-flow.tsx
-  -> app/secretary/clinic-flow.tsx
-```
-
-`ClinicFlow` chooses the authenticated flow, which imports `ClinicFlowView`
-from the chooser's module. The inventory detects this runtime cycle; it does
-not remove it. Type-only imports are excluded from the runtime graph.
+None. ARCH-05 moved the shared screens to `app/secretary/clinic-flow-view.tsx`,
+so `clinic-flow.tsx` only composes the demo and authenticated flows and
+`persisted-flow.tsx` imports the view directly. Type-only imports are excluded
+from the runtime graph.
 
 ## Production/demo coupling
 

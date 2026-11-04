@@ -10,7 +10,7 @@ import type {
   ClinicalResult,
   ClinicalSnapshot,
 } from "@/lib/clinical-types";
-import { ClinicFlowView } from "./clinic-flow";
+import { ClinicFlowView } from "./clinic-flow-view";
 
 const networkError: ClinicalFailure = {
   ok: false,
