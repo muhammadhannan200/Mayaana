@@ -125,7 +125,11 @@ test("directory API preserves active staff access, own login records and clinic 
     assert.equal(own.data.login_email, identity.data.user.email);
     assert.equal(own.data.active, name !== "inactive");
     assert.equal(own.data.must_change_password, name === "firstUse");
-    if (name !== "doctor") {
+    if (name === "otherDoctor") {
+      const rows = await staff[name].from("clinic_staff").select("clinic_id");
+      assert.ifError(rows.error); assert.equal(rows.data.length, 2);
+      assert.ok(rows.data.every(row => row.clinic_id === clinics[1]));
+    } else if (name !== "doctor") {
       const rows = await staff[name].from("clinic_staff").select("user_id");
       assert.ifError(rows.error); assert.deepEqual(rows.data, [{ user_id: identity.data.user.id }]);
     }
