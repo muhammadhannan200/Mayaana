@@ -1,7 +1,17 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentAccount, homeForRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { getAccountProfile } from "@/lib/account-profile";
+import {
+  ProfileCard,
+  ProfileRow,
+  ProfileSummary,
+} from "@/components/profile-screen";
+import { Icon } from "@/components/icon";
+import { SignOutForm } from "@/app/sign-out-form";
+import { DoctorNav } from "../doctor-nav";
+import "@/app/secretary/secretary.css";
+import "../workspace.css";
 
 export const instant = false;
 
@@ -12,42 +22,72 @@ export default async function ClinicStaffPage() {
   if (account.role !== "doctor") redirect(homeForRole(account.role));
 
   const supabase = await createClient();
-  const { data: staff, error } = await supabase.from("clinic_staff")
-    .select("user_id, display_name, login_email, role, active, must_change_password")
-    .eq("clinic_id", account.clinicId)
-    .order("created_at", { ascending: true });
+  const [profile, { data: staff, error }] = await Promise.all([
+    getAccountProfile(),
+    supabase
+      .from("clinic_staff")
+      .select("user_id, display_name, role, active, must_change_password")
+      .eq("clinic_id", account.clinicId)
+      .order("created_at", { ascending: true }),
+  ]);
+  const secretaries = staff?.filter((member) => member.role !== "doctor") ?? [];
 
   return (
-    <main className="auth-shell">
-      <div className="auth-panel logged-in">
-        <div className="page-header">
-          <h1>حسابات العيادة</h1>
-          <Link className="text-link" href="/doctor">العودة</Link>
+    <main className="doctor-shell doctor-workspace" dir="rtl">
+      <div className="doctor-scroll">
+        <div className="profile-screen">
+          <h1>الحساب</h1>
+          <ProfileSummary name={profile?.name ?? "الطبيب"} subtitle="طبيب" />
+          <h2 className="profile-section-title">الحساب</h2>
+          <ProfileCard>
+            {profile?.email && (
+              <ProfileRow
+                icon="mail"
+                label="البريد الإلكتروني"
+                value={profile.email}
+              />
+            )}
+            <ProfileRow
+              icon="lock"
+              label="كلمة المرور"
+              value="••••••••"
+              href="/change-password"
+            />
+          </ProfileCard>
+          <h2 className="profile-section-title">العيادة</h2>
+          {error ? (
+            <p className="message message-error" role="alert">
+              تعذّر تحميل الحسابات. حاول مرة أخرى.
+            </p>
+          ) : (
+            <ProfileCard>
+              {secretaries.length === 0 ? (
+                <ProfileRow icon="account" label="لا يوجد حساب سكرتيرة" />
+              ) : (
+                secretaries.map((member) => (
+                  <ProfileRow
+                    key={member.user_id}
+                    icon="account"
+                    label={member.display_name}
+                    value={
+                      !member.active
+                        ? "موقوف"
+                        : member.must_change_password
+                          ? "ينتظر تعيين كلمة مرور"
+                          : "نشط"
+                    }
+                  />
+                ))
+              )}
+            </ProfileCard>
+          )}
+          <SignOutForm buttonClassName="profile-signout">
+            <Icon name="logout" size={18} />
+            تسجيل الخروج
+          </SignOutForm>
         </div>
-        <p className="message message-info">حسابات الطبيب والسكرتيرة المرتبطة بهذه العيادة.</p>
-        {error ? (
-          <p className="message message-error" role="alert">
-            تعذّر تحميل الحسابات. حاول مرة أخرى.
-          </p>
-        ) : staff?.length === 0 ? (
-          <p className="message message-info">
-            لا توجد حسابات في هذه العيادة حتى الآن.
-          </p>
-        ) : (
-          <ul className="staff-list">
-            {staff?.map((member) => (
-              <li className="staff-item" key={member.user_id}>
-                <strong>{member.display_name}</strong>
-                <span dir="ltr">{member.login_email}</span>
-                <span>
-                  {member.role === "doctor" ? "طبيب" : "سكرتيرة"} · {member.active ? "نشط" : "موقوف"}
-                </span>
-                {member.must_change_password && <span>ينتظر تعيين كلمة مرور جديدة</span>}
-              </li>
-            ))}
-          </ul>
-        )}
       </div>
+      <DoctorNav route="doctor/staff" />
     </main>
   );
 }

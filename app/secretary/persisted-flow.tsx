@@ -10,6 +10,7 @@ import type {
   ClinicalResult,
   ClinicalSnapshot,
 } from "@/lib/clinical-types";
+import type { AccountProfile } from "@/lib/account-profile";
 import { ClinicFlowView } from "./clinic-flow-view";
 
 const networkError: ClinicalFailure = {
@@ -18,7 +19,13 @@ const networkError: ClinicalFailure = {
   message: "تعذّر الاتصال بالخدمة. احتفظ بمدخلاتك وحاول مجدداً.",
 };
 
-export function PersistedFlow({ route }: { route: string }) {
+export function PersistedFlow({
+  route,
+  profile,
+}: {
+  route: string;
+  profile?: AccountProfile | null;
+}) {
   const params = useSearchParams();
   const patient =
     params.get("patient") ??
@@ -230,6 +237,7 @@ export function PersistedFlow({ route }: { route: string }) {
         route={route}
         clinical={snapshot}
         operations={operations}
+        profile={profile}
       />
       {(snapshot.hasMore || page > 0) && (
         <div className="clinical-status" dir="rtl">

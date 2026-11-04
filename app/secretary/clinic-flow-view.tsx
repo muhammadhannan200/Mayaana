@@ -4,10 +4,11 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
-import { SignOutForm } from "@/app/sign-out-form";
 import type { useDemoClinic } from "@/lib/demo-clinic";
 import { Icon } from "@/components/icon";
 import { Toast } from "@/components/toast";
+import type { AccountProfile } from "@/lib/account-profile";
+import { SecretaryAccount } from "./account-screen";
 import { visitCountLabel } from "@/lib/arabic-count";
 import { DoctorNav } from "@/app/doctor/doctor-nav";
 import { MeasurementScreen } from "./measurements/measurement-screen";
@@ -75,12 +76,14 @@ export function ClinicFlowView({
   local,
   clinical,
   operations,
+  profile,
 }: {
   route: string;
   demo?: boolean;
   local?: ReturnType<typeof useDemoClinic>;
   clinical?: ClinicalSnapshot;
   operations?: ClinicalOperations;
+  profile?: AccountProfile | null;
 }) {
   const { patients, queue } = clinical ?? local!;
   const update: ReturnType<typeof useDemoClinic>["update"] =
@@ -871,39 +874,31 @@ export function ClinicFlowView({
     );
   else if (route === "secretary/account")
     content = (
-      <>
-        {subheader("الحساب")}
-        <div className="secretary-content">
-          <h2>{demo ? "العرض التجريبي V1" : "حساب العيادة"}</h2>
-          <p className="secretary-muted">
-            {demo
-              ? "بيانات خيالية محفوظة في هذا المتصفح فقط. لا تدخل بيانات مرضى حقيقية. قد لا تبقى البيانات بعد إعادة التحميل إذا كان تخزين المتصفح محظوراً."
-              : "بيانات العيادة محفوظة في الخدمة. تغييرات النماذج غير المحفوظة لا تنتقل إلى الأجهزة الأخرى."}
-          </p>
-          <Link className="secretary-outline" href={href("secretary")}>
-            العودة للدور
-          </Link>
-          {demo && (
-            <button
-              className="secretary-outline"
-              onClick={() => {
-                if (
-                  window.confirm(
-                    "إعادة بيانات العرض الخيالية؟ ستُحذف تعديلات العرض في هذا المتصفح فقط."
-                  )
-                ) {
-                  reset();
-                  go("secretary");
-                }
-              }}
-            >
-              إعادة ضبط العرض التجريبي
-            </button>
-          )}
-          {!demo && <SignOutForm buttonClassName="secretary-primary signout" />}
-          <DemoNote demo={demo} href={href("doctor")} />
-        </div>
-      </>
+      <SecretaryAccount
+        profile={profile}
+        demoActions={
+          demo ? (
+            <>
+              <button
+                className="secretary-outline"
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      "إعادة بيانات العرض الخيالية؟ ستُحذف تعديلات العرض في هذا المتصفح فقط."
+                    )
+                  ) {
+                    reset();
+                    go("secretary");
+                  }
+                }}
+              >
+                إعادة ضبط العرض التجريبي
+              </button>
+              <DemoNote demo={demo} href={href("doctor")} />
+            </>
+          ) : undefined
+        }
+      />
     );
   else if (route === "doctor")
     content = (

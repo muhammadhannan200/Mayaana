@@ -442,7 +442,7 @@ test("existing Secretary logout retains SignOutForm pending and failure states",
   await expect(page.getByRole("alert")).toContainText("تعذّر تسجيل الخروج");
   await expect(logout).toBeEnabled();
   await expect(
-    page.getByRole("heading", { name: "حساب العيادة" })
+    page.getByRole("heading", { name: "الحساب", exact: true })
   ).toBeVisible();
   expect(await page.evaluate("window.__commands")).toEqual([]);
 });

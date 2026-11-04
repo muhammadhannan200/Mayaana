@@ -1,0 +1,123 @@
+.profile-screen {
+  display: grid;
+  gap: 16px;
+  padding: 8px 16px 24px;
+}
+.profile-screen > h1 {
+  margin: 8px 0;
+  font-size: 24px;
+  font-weight: 700;
+}
+.profile-section-title {
+  margin: 4px 0 -4px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+.profile-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid #99f6e4;
+  border-radius: 16px;
+  background: #f0fdfa;
+}
+.profile-summary > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.profile-summary h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+.profile-summary p {
+  margin: 2px 0 0;
+  color: #475569;
+  font-size: 13px;
+}
+.profile-avatar {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: #99f6e4;
+  color: #115e59;
+  font-size: 20px;
+  font-weight: 700;
+}
+.profile-card {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #fff;
+}
+.profile-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 53px;
+  padding: 10px 16px;
+  color: var(--ink);
+  text-decoration: none;
+}
+.profile-row + .profile-row {
+  border-top: 1px solid var(--line);
+}
+.profile-row > svg {
+  flex: none;
+  color: var(--muted);
+}
+.profile-row-label {
+  font-size: 15px;
+}
+.profile-row-value {
+  min-width: 0;
+  margin-inline-start: auto;
+  color: #475569;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.profile-row-value + svg {
+  margin-inline-start: 0;
+}
+.profile-row > .profile-row-label:nth-last-child(2) {
+  flex: 1;
+}
+.profile-note {
+  display: flex;
+  gap: 8px;
+  margin: 0;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: #eff6ff;
+  color: #075985;
+  font-size: 13px;
+  line-height: 18px;
+}
+.profile-note svg {
+  flex: none;
+  margin-top: 1px;
+}
+.profile-signout {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 52px;
+  border: 0;
+  border-radius: 16px;
+  background: #fef2f2;
+  color: #b91c1c;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.profile-signout:hover {
+  background: #fee2e2;
+}
