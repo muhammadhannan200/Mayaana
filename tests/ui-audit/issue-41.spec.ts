@@ -37,14 +37,14 @@ test.beforeAll(async ({ request }) => {
             (args) => ({ path: args.path, namespace: "fixture" })
           );
           // The real agenda action imports server-only modules.
-          builder.onResolve({ filter: /(agenda|week)-actions$/ }, () => ({
+          builder.onResolve({ filter: /(agenda|week|attachment)-actions$/ }, () => ({
             path: "agenda-actions",
             namespace: "agenda-fixture",
           }));
           builder.onLoad({ filter: /.*/, namespace: "agenda-fixture" }, () => ({
             loader: "tsx",
             resolveDir: process.cwd(),
-            contents: `export const getDoctorWeek = async () => ({ok: false});\nexport const getDoctorAgenda = async () => ({ok: true, data: {today: [], overdue: []}});`,
+            contents: `export const getDoctorWeek = async () => ({ok: false});\nexport const getDoctorAgenda = async () => ({ok: true, data: {today: [], overdue: []}});\nexport const listVisitAttachments = async () => [];\nexport const prepareAttachment = async () => ({ok: false, message: ""});\nexport const confirmAttachment = async () => false;\nexport const deleteAttachment = async () => false;`,
           }));
           builder.onLoad({ filter: /.*/, namespace: "fixture" }, (args) => ({
             loader: "tsx",

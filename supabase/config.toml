@@ -20,7 +20,7 @@ enabled = false
 enabled = false
 
 [storage]
-enabled = false
+enabled = true
 
 [auth]
 site_url = "http://127.0.0.1:3102"
