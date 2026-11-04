@@ -446,6 +446,32 @@ export function ClinicFlowView({
               <span>انتهت</span>
             </div>
           </div>
+          {current.length > 0 && (
+            <section className="queue-section">
+              <h2>عند الطبيب ({current.length})</h2>
+              <ul className="queue-list">
+                {current.map((e) => (
+                  <li key={e.id} className="queue-card doctor-card">
+                    <strong>{findPatient(e).name}</strong>
+                    <span className="queue-status">عند الطبيب</span>
+                    <CancelHandoff
+                      entry={e}
+                      disabled={operations?.pending}
+                      onCancel={async () => {
+                        setError("");
+                        if (operations) {
+                          await operations.cancelHandoff(e.id);
+                          return;
+                        }
+                        if (!local!.cancelHandoff(e.id))
+                          setError(cancelUnavailableMessage);
+                      }}
+                    />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
           <section className="queue-section">
             <h2>بالانتظار الآن ({waiting.length})</h2>
             {waiting.length ? (
@@ -545,32 +571,6 @@ export function ClinicFlowView({
               </div>
             )}
           </section>
-          {current.length > 0 && (
-            <section className="queue-section">
-              <h2>عند الطبيب ({current.length})</h2>
-              <ul className="queue-list">
-                {current.map((e) => (
-                  <li key={e.id} className="queue-card doctor-card">
-                    <strong>{findPatient(e).name}</strong>
-                    <span className="queue-status">عند الطبيب</span>
-                    <CancelHandoff
-                      entry={e}
-                      disabled={operations?.pending}
-                      onCancel={async () => {
-                        setError("");
-                        if (operations) {
-                          await operations.cancelHandoff(e.id);
-                          return;
-                        }
-                        if (!local!.cancelHandoff(e.id))
-                          setError(cancelUnavailableMessage);
-                      }}
-                    />
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
           {completed.length > 0 && (
             <section className="queue-section">
               <h2>انتهت ({completed.length})</h2>

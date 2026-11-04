@@ -19,12 +19,18 @@
   align-items: center;
   gap: 8px;
 }
-.agenda-row > a:first-child {
+.doctor-workspace .doctor-queue .agenda-row > a:first-child {
   display: flex;
   flex: 1;
+  width: auto;
   align-items: center;
   gap: 10px;
   min-width: 0;
+}
+.doctor-workspace .doctor-queue li.agenda-row > a > .patient-avatar {
+  flex: none;
+  width: 40px;
+  height: 40px;
 }
 .agenda-person {
   display: grid;
