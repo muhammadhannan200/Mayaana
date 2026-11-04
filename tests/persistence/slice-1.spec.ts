@@ -565,15 +565,15 @@ test("two independent browser sessions see the persisted Secretary to Doctor han
       new RegExp(`/doctor/patients/${storedPatient.data!.id}$`)
     );
     await expect(
-      d.getByRole("link", { name: "زيارة اليوم", exact: true })
+      d.getByRole("link", { name: "فتح زيارة اليوم", exact: true })
     ).toHaveAttribute("href", `/doctor/visits/${storedVisit.data!.queue_id}`);
     await expect(d.getByRole("heading", { name })).toBeVisible();
-    await expect(d.locator(".demo-measurements")).toContainText("74.8");
+    await expect(d.locator(".patient-progress")).toContainText("74.8");
     expect((await new AxeBuilder({ page: d }).analyze()).violations).toEqual(
       []
     );
     await d.reload();
-    await expect(d.locator(".demo-measurements")).toContainText("74.8");
+    await expect(d.locator(".patient-progress")).toContainText("74.8");
     await expect(d.getByRole("button", { name: /إنهاء الزيارة/ })).toHaveCount(
       0
     );
