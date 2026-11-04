@@ -67,6 +67,11 @@ test("Doctor Home agenda uses fictional browser-local records, RTL, dates and pa
   });
   await expect(overdue.locator(".patient-avatar")).toHaveCSS("width", "40px");
   await expect(overdue.locator(".patient-avatar")).toHaveCSS("height", "40px");
+  const call = overdue.locator(".agenda-call");
+  await expect(call).toHaveCSS("width", "44px");
+  await expect(call).toHaveCSS("height", "44px");
+  const person = await overdue.locator(".agenda-person").boundingBox();
+  expect(person?.width).toBeGreaterThan(60);
   await expect(
     today.getByRole("link", { name: /خيالي متوقع/ })
   ).toHaveAttribute("href", "/demo/doctor/patients/today");
