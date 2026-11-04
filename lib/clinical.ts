@@ -8,12 +8,12 @@ import type {
   PatientInput,
   ScreenRequest,
 } from "./clinical-types";
-import type { DemoVisit } from "./demo-clinic";
-import { cancelUnavailableMessage, doctorOccupiedMessage } from "./queue-handoff";
 import type {
-  MockVisit,
+  VisitDraft,
+  VisitHistoryItem,
   VisitMeasurement,
-} from "@/app/secretary/measurements/mock-visits";
+} from "./clinical-model";
+import { cancelUnavailableMessage, doctorOccupiedMessage } from "./queue-handoff";
 
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -367,7 +367,7 @@ export async function getClinicScreen(
             ...completedVisitDate(String(v.completed_at)),
             kind: visitKinds.get(v.queue_entry_id),
             measurements: measurements.get(v.id) ?? {},
-          })) as MockVisit[],
+          })) as VisitHistoryItem[],
       })),
     };
   });
@@ -489,7 +489,7 @@ export async function openVisit(entry: string): Promise<ClinicalResult<null>> {
   if (!validId(entry)) return failure({ code: "22023" });
   return mutate("clinical_open_visit", { p_queue: entry }, true);
 }
-function validDraft(entry: string, revision: number, draft: DemoVisit) {
+function validDraft(entry: string, revision: number, draft: VisitDraft) {
   return (
     validId(entry) &&
     Number.isInteger(revision) &&
@@ -505,7 +505,7 @@ function validDraft(entry: string, revision: number, draft: DemoVisit) {
 export async function saveDoctorDraft(
   entry: string,
   revision: number,
-  draft: DemoVisit
+  draft: VisitDraft
 ): Promise<ClinicalResult<null>> {
   if (!validDraft(entry, revision, draft)) return failure({ code: "22023" });
   return mutate(
@@ -524,7 +524,7 @@ export async function finishVisit(
   entry: string,
   revision: number,
   request: string,
-  draft: DemoVisit
+  draft: VisitDraft
 ): Promise<ClinicalResult<null>> {
   if (!validDraft(entry, revision, draft) || !validId(request))
     return failure({ code: "22023" });

@@ -4,12 +4,14 @@ import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Icon } from "../components";
 import {
-  followUpFixture,
-  fullExamFixture,
   measurementFields,
   type MeasurementKey,
-  type MockVisit,
   type VisitMeasurement,
+} from "@/lib/clinical-model";
+import {
+  followUpFixture,
+  fullExamFixture,
+  type MockVisit,
 } from "./mock-visits";
 import "./measurements.css";
 

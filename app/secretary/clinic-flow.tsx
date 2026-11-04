@@ -13,7 +13,7 @@ import { Icon } from "./components";
 import { MeasurementScreen } from "./measurements/measurement-screen";
 import { DoctorVisit } from "@/app/doctor/visit-screen";
 import { DoctorAgenda } from "@/app/doctor/agenda";
-import { measurementFields } from "./measurements/mock-visits";
+import { measurementFields } from "@/lib/clinical-model";
 import "./secretary.css";
 import { PersistedFlow } from "./persisted-flow";
 import { DoctorNav, SecretaryNav, VisitOptions, VisitType } from "./clinic-ui";

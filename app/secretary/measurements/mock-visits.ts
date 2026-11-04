@@ -1,28 +1,8 @@
+import type { VisitHistoryItem, VisitMeasurement } from "@/lib/clinical-model";
+
 // Fictional design fixtures only. Never import these into a Supabase mutation.
 // Replace this module's consumer with a clinic-scoped visits repository when available.
-export type MeasurementKey =
-  | "weight"
-  | "fat"
-  | "muscle"
-  | "visceral"
-  | "bmr"
-  | "waist"
-  | "arm"
-  | "thigh"
-  | "hip"
-  | "bmi";
-
-export type VisitMeasurement = Partial<Record<MeasurementKey, string>>;
-export type MockVisit = {
-  id: string;
-  number: number;
-  date: string;
-  detailDate: string;
-  kind: "follow_up" | "full_exam";
-  measurements: VisitMeasurement;
-  starting?: boolean;
-  delta?: string;
-};
+export type MockVisit = VisitHistoryItem;
 
 export const followUpFixture = {
   patientName: "ريم الخطيب",
@@ -88,20 +68,3 @@ export const fullExamFixture = {
     hip: "103",
   } as VisitMeasurement,
 };
-
-export const measurementFields: {
-  key: MeasurementKey;
-  label: string;
-  unit: string;
-  max: number;
-}[] = [
-  { key: "weight", label: "الوزن", unit: "كغ", max: 500 },
-  { key: "fat", label: "نسبة الدهون", unit: "%", max: 100 },
-  { key: "muscle", label: "الكتلة العضلية", unit: "كغ", max: 300 },
-  { key: "visceral", label: "الدهون الحشوية", unit: "مستوى", max: 100 },
-  { key: "bmr", label: "الحرق الأساسي", unit: "kcal", max: 10000 },
-  { key: "waist", label: "الخصر", unit: "سم", max: 300 },
-  { key: "arm", label: "الذراع", unit: "سم", max: 200 },
-  { key: "thigh", label: "الفخذ", unit: "سم", max: 200 },
-  { key: "hip", label: "الورك", unit: "سم", max: 300 },
-];
