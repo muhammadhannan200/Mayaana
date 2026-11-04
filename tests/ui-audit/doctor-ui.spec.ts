@@ -108,6 +108,9 @@ test("D3 matches the patient-row type scale and preserves filtering, empty state
   ).toBeVisible();
   await search.fill("نور");
   await expect(page.locator(".patient-result")).toHaveCount(1);
+  await page.getByRole("button", { name: /^زيادة وزن/ }).click();
+  await expect(page.locator(".patient-result")).toHaveCount(0);
+  await page.getByRole("button", { name: /^الكل/ }).click();
   await page.getByRole("link", { name: /نور الحسن/ }).click();
   await expect(page).toHaveURL(/\/demo\/doctor\/patients\/demo-noor$/);
 });
