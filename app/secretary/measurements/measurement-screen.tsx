@@ -9,6 +9,10 @@ import {
   type VisitMeasurement,
 } from "@/lib/clinical-model";
 import {
+  normalizeMeasurement,
+  validateMeasurement,
+} from "@/lib/measurement-validation";
+import {
   followUpFixture,
   fullExamFixture,
   type MockVisit,
@@ -16,30 +20,6 @@ import {
 import "./measurements.css";
 
 type Mode = "follow-up" | "full-exam" | "previous";
-
-function normalize(value: string) {
-  return value
-    .trim()
-    .replace(/[٠-٩]/g, (digit) => String(digit.charCodeAt(0) - 1632))
-    .replace(/[۰-۹]/g, (digit) => String(digit.charCodeAt(0) - 1776))
-    .replace(/[٫,]/g, ".");
-}
-
-function validate(value: string, key: MeasurementKey): string | null {
-  const normalized = normalize(value);
-  const number = Number(normalized);
-  const field = measurementFields.find((item) => item.key === key);
-  if (
-    !value.trim() ||
-    !Number.isFinite(number) ||
-    number <= 0 ||
-    number > (field?.max ?? 500)
-  )
-    return `أدخل ${field?.label ?? "الوزن"} برقم أكبر من صفر ولا يتجاوز ${field?.max ?? 500}.`;
-  if (!/^\d+(?:\.\d{1,2})?$/.test(normalized))
-    return "استخدم رقماً موجباً بدقة لا تزيد عن منزلتين عشريتين.";
-  return null;
-}
 
 function TopBar({
   title,
@@ -263,14 +243,17 @@ function PreviousSheet({
     const nextErrors: Partial<Record<MeasurementKey, string>> = {};
     for (const field of measurementFields) {
       if (draft[field.key] === undefined) continue;
-      const error = validate(draft[field.key] ?? "", field.key);
+      const error = validateMeasurement(draft[field.key] ?? "", field.key);
       if (error) nextErrors[field.key] = error;
     }
     setErrors(nextErrors);
     if (!Object.keys(nextErrors).length) {
       onSave(
         Object.fromEntries(
-          Object.entries(draft).map(([key, value]) => [key, normalize(value)])
+          Object.entries(draft).map(([key, value]) => [
+            key,
+            normalizeMeasurement(value),
+          ])
         )
       );
       setEditing(false);
@@ -480,8 +463,8 @@ export function MeasurementScreen({
   );
   const [saved, setSaved] = useState(false);
   const activeVisit = visits.find((visit) => visit.id === selected);
-  const validWeight = validate(weight, "weight") === null;
-  const currentWeight = Number(normalize(weight));
+  const validWeight = validateMeasurement(weight, "weight") === null;
+  const currentWeight = Number(normalizeMeasurement(weight));
   const lastWeight = Number(visits[0]?.measurements.weight ?? weight);
   const firstWeight = Number(
     visits[visits.length - 1]?.measurements.weight ?? weight
@@ -496,7 +479,7 @@ export function MeasurementScreen({
     const nextErrors: Partial<Record<MeasurementKey, string>> = {};
     const fields = full ? measurementFields : measurementFields.slice(0, 1);
     for (const field of fields) {
-      const error = validate(
+      const error = validateMeasurement(
         full ? (values[field.key] ?? "") : (weight ?? ""),
         field.key
       );
@@ -516,7 +499,7 @@ export function MeasurementScreen({
           Object.fromEntries(
             Object.entries(measurements).map(([key, value]) => [
               key,
-              normalize(value),
+              normalizeMeasurement(value),
             ])
           ),
           expectedRevision
@@ -676,7 +659,7 @@ export function MeasurementScreen({
                   </div>
                   <div className="measure-journey-steps">
                     {[
-                      { value: normalize(weight), date: "اليوم" },
+                      { value: normalizeMeasurement(weight), date: "اليوم" },
                       ...visits.map((visit) => ({
                         value: visit.measurements.weight,
                         date: visit.date,
