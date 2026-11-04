@@ -29,7 +29,9 @@ export function PersistedFlow({
   const params = useSearchParams();
   const patient =
     params.get("patient") ??
-    (route.startsWith("doctor/patients/") ? route.split("/")[2] : undefined);
+    (/^(doctor|secretary)\/patients\/(?!new$)/.test(route)
+      ? route.split("/")[2]
+      : undefined);
   const entry =
     params.get("entry") ??
     (route.startsWith("doctor/visits/") ? route.split("/")[2] : undefined);
@@ -138,6 +140,8 @@ export function PersistedFlow({
   const operations: ClinicalOperations = {
     pending,
     createPatient: (input) => write(() => actions.createPatient(input)),
+    updatePatient: (input, version) =>
+      write(() => actions.updatePatient(input, version)),
     enqueuePatient: (id, kind) => write(() => actions.enqueuePatient(id, kind)),
     saveMeasurements: (id, values, version) =>
       write(() =>
@@ -154,8 +158,7 @@ export function PersistedFlow({
       write(() =>
         actions.handoffToDoctor(id, revision(id), requestId(`handoff:${id}`))
       ),
-    cancelHandoff: (id) =>
-      write(() => actions.cancelHandoff(id, revision(id))),
+    cancelHandoff: (id) => write(() => actions.cancelHandoff(id, revision(id))),
     openVisit: async (id) => {
       // Best effort: failure only leaves the short cancel window open, and the
       // server still rejects cancellation once notes or a diet exist.

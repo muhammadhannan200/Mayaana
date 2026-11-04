@@ -11,4 +11,5 @@ export {
   openVisit,
   saveDoctorDraft,
   saveMeasurements,
+  updatePatient,
 } from "./clinical-mutations";

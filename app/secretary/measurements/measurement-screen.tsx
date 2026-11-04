@@ -120,7 +120,7 @@ function NumericField({
   );
 }
 
-function PreviousVisitCard({
+export function PreviousVisitCard({
   visit,
   onOpen,
   expanded,
@@ -187,7 +187,7 @@ function DetailCell({
   );
 }
 
-function PreviousSheet({
+export function PreviousSheet({
   visit,
   onClose,
   onSave,
