@@ -6,6 +6,7 @@ import { VisitType } from "@/app/secretary/clinic-ui";
 import type {
   MeasurementKey,
   PatientRecord,
+  QueueEntry,
   VisitHistoryItem,
 } from "@/lib/clinical-model";
 
@@ -32,7 +33,10 @@ function chartPoints(values: { value: number; date: string }[]) {
   return values.map((item, index) => ({
     ...item,
     // Oldest visit on the right, matching the RTL reading direction.
-    x: width - pad - (index * (width - pad * 2)) / (values.length - 1),
+    x:
+      values.length === 1
+        ? width / 2
+        : width - pad - (index * (width - pad * 2)) / (values.length - 1),
     y: height - pad - ((item.value - min) / range) * (height - pad * 2),
   }));
 }
@@ -44,14 +48,14 @@ function ProgressChart({
   values: { value: number; date: string }[];
   title: string;
 }) {
-  if (values.length < 2)
-    return <p className="record-empty">يظهر الرسم بعد زيارتين على الأقل.</p>;
+  if (!values.length)
+    return <p className="record-empty">لا توجد قياسات مسجّلة بعد.</p>;
   const points = chartPoints(values);
   return (
     <figure className="progress-chart">
       <figcaption>
         <strong>{title}</strong>
-        <span>{values.length} زيارات</span>
+        <span>عدد الزيارات: {values.length}</span>
       </figcaption>
       <svg
         viewBox={`0 0 ${width} ${height}`}
@@ -76,7 +80,7 @@ function ProgressChart({
 
 function fullExamComparison(visits: VisitHistoryItem[]) {
   const exams = visits.filter((visit) => visit.kind === "full_exam");
-  return exams.length > 1 ? { latest: exams[0], first: exams.at(-1)! } : null;
+  return exams.length ? { latest: exams[0], first: exams.at(-1)! } : null;
 }
 
 export function PatientProgress({ patient }: { patient: PatientRecord }) {
@@ -114,7 +118,9 @@ export function PatientProgress({ patient }: { patient: PatientRecord }) {
             <thead>
               <tr>
                 <th scope="col">القياس</th>
-                <th scope="col">{comparison.first.date}</th>
+                {comparison.first !== comparison.latest && (
+                  <th scope="col">{comparison.first.date}</th>
+                )}
                 <th scope="col">{comparison.latest.date}</th>
                 <th scope="col">التغيّر</th>
               </tr>
@@ -124,11 +130,15 @@ export function PatientProgress({ patient }: { patient: PatientRecord }) {
                 const before = comparison.first.measurements[key];
                 const after = comparison.latest.measurements[key];
                 const change =
-                  before && after ? Number(after) - Number(before) : null;
+                  before && after && comparison.first !== comparison.latest
+                    ? Number(after) - Number(before)
+                    : null;
                 return (
                   <tr key={key}>
                     <th scope="row">{label}</th>
-                    <td>{before ?? "—"}</td>
+                    {comparison.first !== comparison.latest && (
+                      <td>{before ?? "—"}</td>
+                    )}
                     <td>{after ?? "—"}</td>
                     <td>
                       {change === null ? (
@@ -146,7 +156,7 @@ export function PatientProgress({ patient }: { patient: PatientRecord }) {
             </tbody>
           </table>
         ) : (
-          <p className="record-empty">تظهر المقارنة بعد كشفيتين على الأقل.</p>
+          <p className="record-empty">لا توجد كشفية مسجّلة بعد.</p>
         )}
       </section>
     </div>
@@ -155,12 +165,16 @@ export function PatientProgress({ patient }: { patient: PatientRecord }) {
 
 export function PatientVisits({
   patient,
+  today,
+  todayHref,
   visitHref,
 }: {
   patient: PatientRecord;
+  today?: QueueEntry;
+  todayHref?: string;
   visitHref?: (visit: VisitHistoryItem) => string;
 }) {
-  if (!patient.visits.length)
+  if (!patient.visits.length && !today)
     return (
       <div className="record-tab-content">
         <p className="record-empty">لا توجد زيارات سابقة.</p>
@@ -168,6 +182,25 @@ export function PatientVisits({
     );
   return (
     <ul className="record-tab-content record-visits demo-visit-history">
+      {today && todayHref && (
+        <li>
+          <Link href={todayHref}>
+            <div>
+              <strong>زيارة اليوم</strong>
+              <VisitType kind={today.kind} />
+            </div>
+            <p>
+              {today.status === "completed" ? "اكتملت" : "عند الطبيب الآن"}
+              {today.measurements.weight && (
+                <>
+                  {" · "}
+                  <bdi>{today.measurements.weight} كغ</bdi>
+                </>
+              )}
+            </p>
+          </Link>
+        </li>
+      )}
       {patient.visits.map((visit, index) => {
         const previous = patient.visits[index + 1]?.measurements.weight;
         const change =

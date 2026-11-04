@@ -20,7 +20,9 @@ export function Icon({
     | "trash"
     | "lock"
     | "logout"
-    | "mail";
+    | "mail"
+    | "print"
+    | "dots";
   size?: number;
 }) {
   const paths: Record<typeof name, React.ReactNode> = {
@@ -63,6 +65,13 @@ export function Icon({
         <path d="m3 7 9 6 9-6" />
       </>
     ),
+    print: (
+      <>
+        <path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v6a1 1 0 0 1-1 1h-2" />
+        <rect x="6" y="14" width="12" height="7" />
+      </>
+    ),
+    dots: <path d="M12 5.5h.01M12 12h.01M12 18.5h.01" strokeWidth="3" />,
     plus: <path d="M12 5v14M5 12h14" />,
     arrow: <path d="m15 5-7 7 7 7" />,
     bell: (

@@ -129,12 +129,17 @@ test("D4 preserves clinical content and visit access with aligned RTL header and
     "font-size",
     "14px"
   );
-  await expect(page.locator(".demo-measurements > div")).toHaveCount(9);
-  const visit = page.getByRole("link", { name: "زيارة اليوم", exact: true });
+  await expect(page.locator(".record-exam > div")).toHaveCount(4);
+  const visit = page.getByRole("link", {
+    name: "فتح زيارة اليوم",
+    exact: true,
+  });
   await expect(visit).toHaveCSS("font-size", "16px");
   await expect(visit).toHaveCSS("font-weight", "700");
   await expect(visit).toHaveCSS("line-height", "24px");
-  await checkDoctorSurface(page, "d4");
+  await expect(
+    page.getByRole("navigation", { name: "التنقل الرئيسي" })
+  ).toHaveCount(0);
   await visit.click();
   await expect(
     page.getByRole("heading", { name: "زيارة اليوم", exact: true })
