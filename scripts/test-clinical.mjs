@@ -81,6 +81,19 @@ try {
     await run(process.execPath,["tests/clinical/slice1-upgrade.mjs","verify"],testEnv);
     await supabase(["db","query","--local","--file",join(root,"tests/clinical/security-contract.sql")]);
     await run(process.execPath,["--test","tests/clinical/database.test.mjs"],testEnv);
+    // Existing parallel consultations must block this migration without any
+    // automatic clinical repair. Verify rollback, explicit resolution, retry.
+    await supabase(["db", "reset", "--local", "--version", "20261023162459"]);
+    await run(process.execPath, ["tests/clinical/single-active-upgrade.mjs", "seed"], testEnv);
+    let blocked = false;
+    try { await supabase(["migration", "up", "--local"]); }
+    catch { blocked = true; }
+    if (!blocked) throw new Error("Conflicting consultations did not block migration");
+    await run(process.execPath, ["tests/clinical/single-active-upgrade.mjs", "blocked"], testEnv);
+    await supabase(["migration", "up", "--local"]);
+    await waitForClinicalSchema(testEnv);
+    await run(process.execPath, ["tests/clinical/single-active-upgrade.mjs", "verify"], testEnv);
+    await supabase(["db","query","--local","--file",join(root,"tests/clinical/security-contract.sql")]);
     await supabase(["db", "lint", "--local", "--level", "warning", "--fail-on", "warning"]);
     await supabase(["db", "advisors", "--local", "--fail-on", "warn"]);
   }

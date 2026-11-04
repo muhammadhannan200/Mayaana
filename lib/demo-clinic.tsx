@@ -45,6 +45,9 @@ export function useDemoClinic() {
   return {
     ...state,
     update: store.update,
+    handoff: store.handoff,
+    cancelHandoff: store.cancelHandoff,
+    openVisit: store.openVisit,
     reset: store.reset,
     currentDate: store.currentDate,
   };
