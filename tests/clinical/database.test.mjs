@@ -275,6 +275,69 @@ test("measurement persistence, stale rejection, retry-safe handoff and no post-h
   const persisted = await staff.doctor.from("visit_measurements").select("measurements").eq("visit_id", visitId).single(); assert.deepEqual(persisted.data.measurements, measurements);
 });
 
+test("same-clinic doctor saves intake; foreign, inactive and first-use staff cannot", async () => {
+  const patient = await rpc(staff.secretary, "clinical_create_patient", create(randomUUID()));
+  const entry = await rpc(staff.secretary, "clinical_enqueue", { p_clinic: clinics[0], p_patient: patient, p_kind: "full_exam" });
+  const args = { p_queue: entry.id, p_revision: entry.revision, p_values: measurements };
+  for (const name of ["otherDoctor", "otherSecretary", "inactive", "firstUse"]) {
+    const error = await denied(staff[name].rpc("clinical_save_measurements", args));
+    assert.equal(error.code, "42501", name);
+  }
+  await denied(anonymous.rpc("clinical_save_measurements", args));
+  // Already-issued sessions must lose write access immediately for either role.
+  for (const name of ["doctor", "secretary"]) {
+    const identity = await staff[name].auth.getUser(); assert.ifError(identity.error);
+    const id = identity.data.user.id;
+    try {
+      for (const change of [{ active: false }, { active: true, must_change_password: true }]) {
+        assert.ifError((await admin.from("clinic_staff").update(change).eq("user_id", id)).error);
+        assert.equal((await denied(staff[name].rpc("clinical_save_measurements", args))).code, "42501");
+      }
+    } finally {
+      assert.ifError((await admin.from("clinic_staff").update({ active: true, must_change_password: false }).eq("user_id", id)).error);
+    }
+  }
+  const unchanged = await staff.secretary.from("daily_queue").select("*").eq("id", entry.id).single();
+  assert.ifError(unchanged.error); assert.deepEqual(unchanged.data, entry);
+  const visit = await staff.doctor.from("visits").select("id,revision").eq("queue_id", entry.id).single();
+  assert.ifError(visit.error);
+  const empty = await staff.doctor.from("visit_measurements").select("id").eq("visit_id", visit.data.id);
+  assert.ifError(empty.error); assert.deepEqual(empty.data, []);
+
+  let saved = await rpc(staff.doctor, "clinical_save_measurements", args);
+  assert.equal(saved.id, entry.id); assert.equal(saved.status, "ready");
+  assert.equal(saved.revision, entry.revision + 1);
+  const doctor = await staff.doctor.auth.getUser(); assert.ifError(doctor.error);
+  const persisted = await staff.doctor.from("visit_measurements").select("measurements,recorded_by,expected_revision,request_payload").eq("visit_id", visit.data.id).single();
+  assert.ifError(persisted.error); assert.deepEqual(persisted.data.measurements, measurements);
+  assert.equal(persisted.data.recorded_by, doctor.data.user.id);
+  assert.equal(persisted.data.expected_revision, entry.revision);
+  assert.deepEqual(persisted.data.request_payload, Object.fromEntries(Object.entries(measurements).map(([key, value]) => [key, String(value)])));
+  assert.equal((await denied(staff.doctor.rpc("clinical_save_measurements", args))).code, "PT409");
+  const edited = { ...measurements, weight: 81 };
+  saved = await rpc(staff.doctor, "clinical_save_measurements", { ...args, p_revision: saved.revision, p_values: edited });
+  assert.equal(saved.revision, entry.revision + 2);
+  const updatedVisit = await staff.doctor.from("visits").select("revision").eq("id", visit.data.id).single();
+  assert.ifError(updatedVisit.error); assert.equal(updatedVisit.data.revision, visit.data.revision + 2);
+  // Legacy RPC remains secretary-only; neither direct writes nor grants expand.
+  assert.equal((await denied(staff.doctor.rpc("clinical_save_measurements", {
+    p_entry: entry.id, p_revision: saved.revision, p_request: randomUUID(),
+    p_values: Object.fromEntries(Object.entries(edited).map(([key, value]) => [key, String(value)])),
+  }))).code, "42501");
+  await denied(staff.doctor.from("visit_measurements").update({ weight_kg: 99 }).eq("visit_id", visit.data.id));
+  for (const values of [{ weight: 80 }, { ...measurements, weight: -1 }, { ...measurements, secret: 1 }, { ...measurements, fat: "20" }, { ...measurements, weight: 80.123 }]) {
+    assert.equal((await denied(staff.doctor.rpc("clinical_save_measurements", { ...args, p_revision: saved.revision, p_values: values }))).code, "22023");
+  }
+  saved = await rpc(staff.secretary, "clinical_save_measurements", { ...args, p_revision: saved.revision });
+  assert.equal(saved.status, "ready"); assert.equal(saved.revision, entry.revision + 3);
+  const secretary = await staff.secretary.auth.getUser(); assert.ifError(secretary.error);
+  const restored = await staff.doctor.from("visit_measurements").select("measurements,recorded_by").eq("visit_id", visit.data.id).single();
+  assert.ifError(restored.error); assert.deepEqual(restored.data.measurements, measurements);
+  assert.equal(restored.data.recorded_by, secretary.data.user.id);
+  const sent = await rpc(staff.secretary, "clinical_handoff", handoffArgs(saved));
+  assert.equal((await denied(staff.doctor.rpc("clinical_save_measurements", { ...args, p_revision: sent.revision }))).code, "PT409");
+});
+
 test("doctor-only drafts and private notes isolation, including direct writes", async () => {
   let {queue,visitId} = await doctorVisit();
   const args = { p_queue: queue.id, p_revision: queue.revision, p_notes: "Synthetic private note", p_days: days, p_appointment: null };
