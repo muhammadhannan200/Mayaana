@@ -36,6 +36,16 @@ test.beforeAll(async ({ request }) => {
             },
             (args) => ({ path: args.path, namespace: "fixture" })
           );
+          // The real agenda action imports server-only modules.
+          builder.onResolve({ filter: /agenda-actions$/ }, () => ({
+            path: "agenda-actions",
+            namespace: "agenda-fixture",
+          }));
+          builder.onLoad({ filter: /.*/, namespace: "agenda-fixture" }, () => ({
+            loader: "tsx",
+            resolveDir: process.cwd(),
+            contents: `export const getDoctorAgenda = async () => ({ok: true, data: {today: [], overdue: []}});`,
+          }));
           builder.onLoad({ filter: /.*/, namespace: "fixture" }, (args) => ({
             loader: "tsx",
             resolveDir: process.cwd(),
