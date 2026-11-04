@@ -86,7 +86,7 @@ test("D1 presents existing current-patient metadata and queue status without cha
   await expect(current.locator(".visit-badge")).toHaveCount(0);
   await expect(page.locator(".doctor-queue .doctor-waiting")).toHaveCount(2);
   await expect(page.locator(".doctor-queue ol .doctor-ready")).toHaveCount(1);
-  await expect(page.locator(".doctor-stats strong")).toHaveText(["6", "5"]);
+  await expect(page.locator(".doctor-stats strong")).toHaveText(["5", "6"]);
   await checkDoctorSurface(page, "d1");
 });
 
@@ -183,4 +183,17 @@ test("Doctor surfaces wrap long Arabic names and mixed-direction metadata withou
     ).toBe(true);
   }
   expect(writes).toEqual([]);
+});
+
+test("week stat opens this week's patients with type filters", async ({
+  page,
+}) => {
+  await page.goto("/demo/doctor");
+  await page.getByRole("link", { name: "عرض مرضى هذا الأسبوع" }).click();
+  await expect(page).toHaveURL(/\/demo\/doctor\/week$/);
+  await expect(page.getByRole("button", { name: /^الكل/ })).toHaveText(
+    "الكل (5)"
+  );
+  await page.getByRole("button", { name: /^كشفية/ }).click();
+  await expect(page.locator(".doctor-week li").first()).toContainText("كشفية");
 });

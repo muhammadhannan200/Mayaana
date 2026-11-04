@@ -20,7 +20,7 @@ export default async function DemoPage({
       </DemoClinicProvider>
     );
   if (
-    !/^(secretary(?:\/(?:add|search|confirm|account|patients(?:\/[^/]+(?:\/edit)?)?|measurements\/(?:follow-up|previous|full-exam)))?|doctor(?:\/(?:search|patients(?:\/[^/]+)?|visits\/[^/]+))?)$/.test(
+    !/^(secretary(?:\/(?:add|search|confirm|account|patients(?:\/[^/]+(?:\/edit)?)?|measurements\/(?:follow-up|previous|full-exam)))?|doctor(?:\/(?:week|search|patients(?:\/[^/]+)?|visits\/[^/]+))?)$/.test(
       route
     )
   )
