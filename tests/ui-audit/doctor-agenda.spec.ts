@@ -58,16 +58,19 @@ test("Doctor Home agenda uses fictional browser-local records, RTL, dates and pa
   });
   await page.goto("/demo/doctor");
   const today = page.getByRole("region", {
-    name: "متوقع اليوم (1)",
+    name: "متوقعون اليوم (1)",
     exact: true,
   });
-  const overdue = page.getByRole("region", { name: "متأخر (1)", exact: true });
+  const overdue = page.getByRole("region", {
+    name: "متأخرون (1)",
+    exact: true,
+  });
   await expect(
     today.getByRole("link", { name: /خيالي متوقع/ })
   ).toHaveAttribute("href", "/demo/doctor/patients/today");
   await expect(today.locator("time")).toHaveText("2026-11-04");
   await expect(
-    overdue.getByRole("link", { name: /خيالي متأخر/ })
+    overdue.getByRole("link", { name: /خيالي متأخر/ }).first()
   ).toHaveAttribute("href", "/demo/doctor/patients/overdue");
   await expect(overdue.locator("time")).toHaveAttribute(
     "datetime",
@@ -150,7 +153,7 @@ test("visible demo advances at Damascus midnight without rewriting stored appoin
   await page.goto("/demo/doctor");
   await expect(
     page
-      .getByRole("region", { name: "متوقع اليوم (1)", exact: true })
+      .getByRole("region", { name: "متوقعون اليوم (1)", exact: true })
       .getByRole("link")
   ).toBeVisible();
   const stored = await page.evaluate(() =>
@@ -159,7 +162,7 @@ test("visible demo advances at Damascus midnight without rewriting stored appoin
   await page.clock.fastForward(11_000);
   await expect(
     page
-      .getByRole("region", { name: "متأخر (1)", exact: true })
+      .getByRole("region", { name: "متأخرون (1)", exact: true })
       .getByRole("link")
   ).toBeVisible();
   expect(

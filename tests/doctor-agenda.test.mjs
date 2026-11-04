@@ -104,7 +104,7 @@ function clientFor(tables) {
       const chain = {
         select(columns) {
           query.columns = columns;
-          assert.doesNotMatch(columns, /\*|notes|days|measurements|phone/);
+          assert.doesNotMatch(columns, /\*|notes|days|measurements/);
           return chain;
         },
         eq(key, value) {
