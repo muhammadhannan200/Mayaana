@@ -179,6 +179,9 @@ for (const role of ["doctor", "secretary"] as const) {
       local: { "mayanaa-demo-v1:public": publicStore },
       session: {},
     });
+    // Let the live page's own server actions finish so they are not counted
+    // as demo traffic.
+    await page.waitForLoadState("networkidle");
     const demoBackendRequests: string[] = [];
     page.on("request", (request) => {
       if (
