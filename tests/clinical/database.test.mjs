@@ -32,6 +32,15 @@ function fault(file) {
 const create = (id = patientId, clinic = clinics[0]) => ({ p_id: id, p_clinic: clinic, p_name: "Synthetic patient", p_phone: "+12025550101", p_height: 170, p_gender: "female", p_birth_year: 1990, p_goal: "نقص وزن" });
 const tableNames = ["patients", "daily_queue", "visits", "visit_measurements", "visit_private_notes", "diet_plans", "appointments"];
 
+function tomorrowServiceDate(now = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Damascus", year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(now);
+  const value = type => Number(parts.find(part => part.type === type).value);
+  // UTC calendar arithmetic handles rollover without using the machine timezone.
+  return new Date(Date.UTC(value("year"), value("month") - 1, value("day") + 1)).toISOString().slice(0,10);
+}
+
 // Each doctor scenario establishes its own legal transition sequence. A failed
 // handoff-injection test must not masquerade as a doctor/finish RPC failure.
 async function doctorVisit() {
@@ -165,7 +174,7 @@ test("doctor-only drafts and private notes isolation, including direct writes", 
 test("failed completion leaves no partial notes, plan, appointment or completed state", async () => {
   let {queue,visitId} = await doctorVisit();
   queue=await rpc(staff.doctor,"clinical_save_doctor_draft",{p_queue:queue.id,p_revision:queue.revision,p_notes:"Synthetic private note",p_days:days,p_appointment:null});
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0,10);
+  const tomorrow = tomorrowServiceDate();
   const args = { p_queue: queue.id, p_revision: queue.revision, p_request: randomUUID(), p_notes: "Must roll back", p_days: [], p_appointment: tomorrow };
   await denied(staff.doctor.rpc("clinical_finish", args));
   await denied(staff.doctor.rpc("clinical_finish", { ...args, p_days: days, p_appointment: "2000-01-01" }));
@@ -185,7 +194,7 @@ test("failed completion leaves no partial notes, plan, appointment or completed 
 
 test("finish is atomic, retry-safe, visible across sessions and immutable", async () => {
   let {queue,visitId} = await doctorVisit();
-  const args = { p_queue: queue.id, p_revision: queue.revision, p_request: randomUUID(), p_notes: "Final private note", p_days: days, p_appointment: new Date(Date.now()+86400000).toISOString().slice(0,10) };
+  const args = { p_queue: queue.id, p_revision: queue.revision, p_request: randomUUID(), p_notes: "Final private note", p_days: days, p_appointment: tomorrowServiceDate() };
   const [first, retry] = await Promise.all([rpc(staff.doctor, "clinical_finish", args), rpc(staff.doctor, "clinical_finish", args)]);
   assert.deepEqual(first,retry); queue = first; assert.equal(queue.status, "completed");
   const secretary = await staff.secretary.from("daily_queue").select("status").eq("id", queue.id).single(); assert.equal(secretary.data.status,"completed");
