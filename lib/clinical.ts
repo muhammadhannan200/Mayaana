@@ -102,6 +102,25 @@ const measurementStrings = (
     Object.entries(values ?? {}).map(([key, value]) => [key, String(value)])
   );
 
+const completionFormatter = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Asia/Damascus",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+function completedVisitDate(timestamp: string) {
+  const parts = Object.fromEntries(
+    completionFormatter
+      .formatToParts(new Date(timestamp))
+      .map(({ type, value }) => [type, value])
+  );
+  const date = `${parts.year}-${parts.month}-${parts.day}`;
+  return { date, detailDate: `${date} · ${parts.hour}:${parts.minute}` };
+}
+
 async function readBatches<Row>(
   ids: string[],
   query: (
@@ -319,8 +338,7 @@ export async function getClinicScreen(
           .map((v, index) => ({
             id: v.queue_entry_id,
             number: index + 1,
-            date: String(v.completed_at).slice(0, 10),
-            detailDate: String(v.completed_at).slice(0, 16).replace("T", " · "),
+            ...completedVisitDate(String(v.completed_at)),
             kind: visitKinds.get(v.queue_entry_id),
             measurements: measurements.get(v.id) ?? {},
           })) as MockVisit[],

@@ -122,7 +122,10 @@ function VisitEditor({
       appointment: "",
     };
   function appointmentOn(date?: string) {
-    return visit.appointment || dateAfter(Math.max(1, visit.days.length), date);
+    return (
+      visit.appointment ||
+      (completed ? "" : dateAfter(Math.max(1, visit.days.length), date))
+    );
   }
   const appointment = appointmentOn(
     demo ? local!.today : clinical?.serviceDate
@@ -472,7 +475,7 @@ function VisitEditor({
       <section className="visit-appointment">
         <h2>موعد المراجعة القادمة</h2>
         {completed ? (
-          <p>{appointment}</p>
+          <p>{appointment || "لم يُحدّد موعد متابعة"}</p>
         ) : (
           <label className="secretary-field">
             تاريخ الموعد
@@ -490,11 +493,13 @@ function VisitEditor({
             />
           </label>
         )}
-        <small>
-          {visit.appointment
-            ? "موعد مخصص لهذه الزيارة"
-            : "يُحسب تلقائياً: اليوم التالي لنهاية البرنامج"}
-        </small>
+        {(!completed || visit.appointment) && (
+          <small>
+            {visit.appointment
+              ? "موعد مخصص لهذه الزيارة"
+              : "يُحسب تلقائياً: اليوم التالي لنهاية البرنامج"}
+          </small>
+        )}
       </section>
     </section>
   );
