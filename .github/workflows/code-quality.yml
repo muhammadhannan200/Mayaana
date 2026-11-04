@@ -26,4 +26,5 @@ jobs:
       - run: npx next typegen
       - run: npm run typecheck
       - run: npm run lint
+      - run: node --test tests/clinical/history-display.test.mjs
       - run: npm run build

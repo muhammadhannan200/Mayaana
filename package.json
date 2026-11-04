@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
+    "seed:demo": "node scripts/seed-demo-clinic.mjs",
     "test:single-active": "node --test tests/queue-handoff.test.mjs tests/queue-handoff-boundary.test.mjs",
     "test:agenda": "node --test tests/doctor-agenda.test.mjs",
     "test:clinical": "node scripts/test-clinical.mjs",
