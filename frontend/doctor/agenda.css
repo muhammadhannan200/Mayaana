@@ -56,7 +56,7 @@
   background: #f1f5f9;
   color: #334155;
 }
-.agenda-call {
+.doctor-workspace .doctor-queue li.agenda-row > a.agenda-call {
   display: grid;
   flex: none;
   place-items: center;
