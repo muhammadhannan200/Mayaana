@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import type { useDemoClinic } from "@/lib/demo-clinic";
 import { Icon } from "@/components/icon";
 import { Toast } from "@/components/toast";
@@ -21,7 +21,7 @@ import { DoctorVisit } from "@/app/doctor/visit-screen";
 import { DoctorHome } from "@/app/doctor/doctor-home";
 import { DoctorWeek } from "@/app/doctor/doctor-week";
 import { DoctorPatientList } from "@/app/doctor/patient-list";
-import { DoctorPatientRecord } from "@/app/doctor/patient-record";
+import { DoctorPatientRecord, PatientMenu } from "@/app/doctor/patient-record";
 import { type PatientRecord, type QueueEntry } from "@/lib/clinical-model";
 import "./secretary.css";
 import { SecretaryNav, VisitOptions, VisitType } from "./clinic-ui";
@@ -352,7 +352,12 @@ export function ClinicFlowView({
         { id: "search", label: "البحث", path: "secretary/search" },
         { id: "account", label: "الحساب", path: "secretary/account" },
       ];
-  const subheader = (title: string, back = "secretary", subtitle?: string) => (
+  const subheader = (
+    title: string,
+    back = "secretary",
+    subtitle?: string,
+    menu?: ReactNode
+  ) => (
     <header
       className={`secretary-subheader${doctor ? " doctor-record-header" : ""}`}
     >
@@ -364,6 +369,7 @@ export function ClinicFlowView({
       ) : (
         <h1>{title}</h1>
       )}
+      {menu}
       <Link href={href(back)} aria-label="العودة">
         <Icon name={doctor ? "arrow" : "close"} />
       </Link>
@@ -441,21 +447,20 @@ export function ClinicFlowView({
                       <div className="queue-person">
                         <strong>{findPatient(e).name}</strong>
                         <span>
-                          {e.status === "ready"
-                            ? "جاهز للدخول"
-                            : Object.keys(e.measurements).length
-                              ? "القياسات غير مكتملة"
-                              : "بانتظار القياس"}{" "}
-                          {demo && (
-                            <> · الزيارة {findPatient(e).visits.length + 1}</>
-                          )}
                           {e.arrivalTime && (
                             <>
-                              {" "}
-                              · <bdi>{e.arrivalTime}</bdi>
+                              {findPatient(e).gender === "female"
+                                ? "وصلت"
+                                : "وصل"}{" "}
+                              <bdi>{e.arrivalTime}</bdi> ·{" "}
                             </>
                           )}
+                          الزيارة {findPatient(e).visits.length + 1}
                         </span>
+                        {e.status === "waiting" &&
+                          Object.keys(e.measurements).length > 0 && (
+                            <span>القياسات غير مكتملة</span>
+                          )}
                       </div>
                       {badge(e)}
                     </div>
@@ -628,7 +633,7 @@ export function ClinicFlowView({
                         <bdi>{p.phone}</bdi> ·{" "}
                         {p.visits.length
                           ? `عدد الزيارات ${p.visits.length}`
-                          : "ملف جديد"}
+                          : "زيارة أولى"}
                       </small>
                     </span>
                     <Icon name="arrow" size={18} />
@@ -880,7 +885,7 @@ export function ClinicFlowView({
               name="birthYear"
               inputMode="numeric"
               maxLength={4}
-              placeholder="مثال: 1990"
+              placeholder="اختياري"
               aria-invalid={!!fieldErrors.birthYear}
             />
             <FieldError message={fieldErrors.birthYear} />
@@ -1000,14 +1005,14 @@ export function ClinicFlowView({
         {subheader(
           record?.name ?? "الملف غير موجود",
           "doctor",
-          record ? `الهدف: ${record.goal}` : undefined
+          record ? `الهدف: ${record.goal}` : undefined,
+          record && <PatientMenu phone={record.phone} />
         )}
         <div className="secretary-content demo-patient-file">
           {record ? (
             <DoctorPatientRecord
               patient={record}
               today={today}
-              demo={demo}
               currentYear={
                 demo
                   ? Number(local!.today.slice(0, 4))
@@ -1021,9 +1026,6 @@ export function ClinicFlowView({
           ) : (
             <p>اختر مريضاً من القائمة.</p>
           )}
-          <Link className="secretary-primary" href={href("doctor")}>
-            العودة للرئيسية
-          </Link>
         </div>
       </>
     );
@@ -1034,7 +1036,8 @@ export function ClinicFlowView({
       "secretary/patients",
       "secretary/account",
       "secretary/search",
-    ].includes(route) || doctor;
+    ].includes(route) ||
+    (doctor && !/^doctor\/patients\/[^/]+$/.test(route));
   return (
     <main
       className={doctor ? "doctor-shell doctor-workspace" : "secretary-shell"}

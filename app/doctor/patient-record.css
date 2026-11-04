@@ -160,3 +160,95 @@
   background: #fff7ed;
   color: #9a3412;
 }
+.record-exam {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.record-exam > div {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+}
+.record-exam span {
+  color: #475569;
+  font-size: 12px;
+}
+.record-exam > div > small {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #f0fdf4;
+  color: #166534;
+  font-size: 12px;
+  font-weight: 700;
+}
+.record-exam strong {
+  grid-column: 1 / -1;
+  font-size: 20px;
+}
+.record-exam strong small {
+  color: #475569;
+  font-size: 12px;
+  font-weight: 400;
+}
+.record-menu {
+  position: relative;
+  margin-inline-start: auto;
+}
+.record-menu summary {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  cursor: pointer;
+  list-style: none;
+}
+.record-menu summary::-webkit-details-marker {
+  display: none;
+}
+.record-menu > div {
+  position: absolute;
+  z-index: 10;
+  inset-inline-end: 0;
+  min-width: 160px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+}
+.record-menu a {
+  display: block;
+  padding: 12px 16px;
+  color: var(--ink);
+  font-size: 14px;
+  text-decoration: none;
+}
+.record-menu a + a {
+  border-top: 1px solid var(--line);
+}
+.record-cta {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  z-index: 5;
+  width: min(100%, 390px);
+  padding: 12px 16px max(16px, env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line);
+  background: #fff;
+  transform: translateX(-50%);
+}
+.record-cta a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+}
+.demo-patient-file {
+  padding-bottom: 110px;
+}

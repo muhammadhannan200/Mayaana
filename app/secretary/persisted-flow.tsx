@@ -11,6 +11,7 @@ import type {
   ClinicalSnapshot,
 } from "@/lib/clinical-types";
 import type { AccountProfile } from "@/lib/account-profile";
+import { readCachedSnapshot, writeCachedSnapshot } from "@/lib/clinical-cache";
 import { ClinicFlowView } from "./clinic-flow-view";
 
 const networkError: ClinicalFailure = {
@@ -37,7 +38,9 @@ export function PersistedFlow({
     (route.startsWith("doctor/visits/") ? route.split("/")[2] : undefined);
   const [term, setTerm] = useState("");
   const [page, setPage] = useState(0);
-  const [snapshot, setSnapshot] = useState<ClinicalSnapshot>();
+  const [snapshot, setSnapshot] = useState<ClinicalSnapshot | undefined>(() =>
+    readCachedSnapshot(route.split("/")[0], entry, patient)
+  );
   const [error, setError] = useState<ClinicalFailure>();
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState("");
@@ -54,6 +57,7 @@ export function PersistedFlow({
   }, [clinicId]);
   const busy = useRef(false);
   const generation = useRef(0);
+  const loading = useRef(false);
   const requestIds = useRef(new Map<string, string>());
   const searchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined
@@ -61,11 +65,13 @@ export function PersistedFlow({
   const refresh = useCallback(
     (signal?: AbortSignal) => {
       const ticket = ++generation.current;
+      loading.current = true;
       return actions
         .getClinicScreen({ term, page, patient, entry })
         .then((result) => {
           if (signal?.aborted || ticket !== generation.current) return;
           if (result.ok) {
+            writeCachedSnapshot(result.data);
             setSnapshot(result.data);
             setError((current) =>
               current?.kind === "network" ? undefined : current
@@ -75,6 +81,9 @@ export function PersistedFlow({
         .catch(() => {
           if (!signal?.aborted && ticket === generation.current)
             setError(networkError);
+        })
+        .finally(() => {
+          if (ticket === generation.current) loading.current = false;
         });
     },
     [term, page, patient, entry]
@@ -83,7 +92,12 @@ export function PersistedFlow({
     const controller = new AbortController();
     void refresh(controller.signal);
     const focus = () => {
-      if (!busy.current && window.location.pathname === `/${route}`)
+      // Polls share the server action queue with clicks, so never stack them.
+      if (
+        !busy.current &&
+        !loading.current &&
+        window.location.pathname === `/${route}`
+      )
         void refresh(controller.signal);
     };
     const visible = () => {
@@ -91,7 +105,7 @@ export function PersistedFlow({
     };
     const timer = setInterval(() => {
       if (document.visibilityState === "visible") focus();
-    }, 10_000);
+    }, 5_000);
     window.addEventListener("focus", focus);
     document.addEventListener("visibilitychange", visible);
     return () => {

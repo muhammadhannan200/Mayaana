@@ -221,9 +221,9 @@ test("two independent sessions: intake, handoff, private draft, diet, appointmen
       doctor.locator(".doctor-current")
     ).toContainText(patientName, { timeout: 25_000 });
     await doctor.getByRole("link", { name: "فتح الملف", exact: true }).click();
-    await expect(doctor.locator(".demo-measurements")).toContainText("80");
+    await expect(doctor.locator(".patient-progress")).toContainText("80");
     await doctor
-      .getByRole("link", { name: "زيارة اليوم", exact: true })
+      .getByRole("link", { name: "فتح زيارة اليوم", exact: true })
       .click();
     await doctor
       .getByLabel("ملاحظاتي")

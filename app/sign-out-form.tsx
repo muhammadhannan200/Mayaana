@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, type ReactNode } from "react";
+import { clearCachedSnapshot } from "@/lib/clinical-cache";
 import { signOut } from "./actions";
 
 export function SignOutForm({
@@ -12,7 +13,7 @@ export function SignOutForm({
 }) {
   const [state, action, pending] = useActionState(signOut, null);
   return (
-    <form action={action}>
+    <form action={action} onSubmit={clearCachedSnapshot}>
       <button
         type="submit"
         className={buttonClassName}

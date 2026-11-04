@@ -131,10 +131,6 @@ export async function getClinicScreen(
     );
     const hasMore = patientsResult.data.length > 50;
     const patientRows = [...patientsResult.data.slice(0, 50), ...additional];
-    const entryPatient = queueResult.data.find(
-      (row) => row.id === input.entry
-    )?.patient_id;
-    const detailPatient = input.patient ?? entryPatient;
     const visits = {
       data: await readBatches(
         queueResult.data.map((row) => row.id as string),
@@ -150,21 +146,23 @@ export async function getClinicScreen(
             .limit(501)
       ),
     };
-    if (detailPatient) {
-      const history = await client
-        .from("visits")
-        .select(
-          "id,patient_id,queue_entry_id,completed_at,created_at,doctor_opened_at"
-        )
-        .eq("clinic_id", clinic)
-        .eq("patient_id", detailPatient)
-        .not("completed_at", "is", null)
-        .order("created_at", { ascending: false })
-        .limit(100);
-      if (history.error) throw history.error;
-      for (const row of history.data)
-        if (!visits.data.some((v) => v.id === row.id)) visits.data.push(row);
-    }
+    // Listed patients show visit counts everywhere, so read their history too.
+    const history = await readBatches(
+      patientRows.map((row) => row.id as string),
+      (batch) =>
+        client
+          .from("visits")
+          .select(
+            "id,patient_id,queue_entry_id,completed_at,created_at,doctor_opened_at"
+          )
+          .eq("clinic_id", clinic)
+          .in("patient_id", batch)
+          .not("completed_at", "is", null)
+          .order("created_at", { ascending: false })
+          .limit(1000)
+    );
+    for (const row of history)
+      if (!visits.data.some((v) => v.id === row.id)) visits.data.push(row);
     const visitIds = visits.data.map((row) => row.id as string);
     const measured = await readBatches(visitIds, (batch) =>
       client
@@ -251,25 +249,30 @@ export async function getClinicScreen(
       serviceDate: date,
       hasMore,
       queue,
-      patients: patientRows.map((row) => ({
-        id: row.id,
-        name: row.full_name,
-        phone: row.phone ?? "",
-        height: row.height_cm == null ? "" : String(row.height_cm),
-        gender: row.gender ?? "",
-        birthYear: row.birth_year == null ? "" : String(row.birth_year),
-        goal: row.goal ?? "",
-        revision: row.revision,
-        visits: visits.data
+      patients: patientRows.map((row) => {
+        const completed = visits.data
           .filter((v) => v.patient_id === row.id && v.completed_at)
-          .map((v, index) => ({
+          .sort((a, b) =>
+            String(b.completed_at).localeCompare(String(a.completed_at))
+          );
+        return {
+          id: row.id,
+          name: row.full_name,
+          phone: row.phone ?? "",
+          height: row.height_cm == null ? "" : String(row.height_cm),
+          gender: row.gender ?? "",
+          birthYear: row.birth_year == null ? "" : String(row.birth_year),
+          goal: row.goal ?? "",
+          revision: row.revision,
+          visits: completed.map((v, index) => ({
             id: v.queue_entry_id,
-            number: index + 1,
+            number: completed.length - index,
             ...completedVisitDate(String(v.completed_at)),
             kind: visitKinds.get(v.queue_entry_id),
             measurements: measurements.get(v.id) ?? {},
           })) as VisitHistoryItem[],
-      })),
+        };
+      }),
     };
   });
 }
