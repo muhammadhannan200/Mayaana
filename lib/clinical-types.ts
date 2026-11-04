@@ -31,6 +31,7 @@ export type ScreenRequest = {
 export type ClinicalOperations = {
   pending: boolean;
   createPatient: (patient: PatientInput) => Promise<boolean>;
+  updatePatient: (patient: PatientInput, revision: number) => Promise<boolean>;
   enqueuePatient: (
     patient: string,
     kind: QueueEntry["kind"]

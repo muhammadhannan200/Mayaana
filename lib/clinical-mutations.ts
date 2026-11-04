@@ -11,27 +11,52 @@ import {
   validId,
 } from "./clinical-core";
 
+function validPatient(input: PatientInput) {
+  return !(
+    !input ||
+    !validId(input.id) ||
+    typeof input.name !== "string" ||
+    input.name.trim().length < 2 ||
+    input.name.length > 160 ||
+    typeof input.phone !== "string" ||
+    !/^\+?\d{6,15}$/.test(input.phone) ||
+    typeof input.height !== "string" ||
+    !Number.isFinite(Number(input.height)) ||
+    Number(input.height) < 50 ||
+    Number(input.height) > 250 ||
+    !["male", "female"].includes(input.gender) ||
+    typeof input.birthYear !== "string" ||
+    (input.birthYear && !/^\d{4}$/.test(input.birthYear))
+  );
+}
+
+export async function updatePatient(
+  input: PatientInput,
+  revision: number
+): Promise<ClinicalResult<null>> {
+  return attempt(async () => {
+    if (!validPatient(input) || !Number.isInteger(revision)) invalid();
+    const { client } = await session();
+    const { error } = await client.rpc("clinical_update_patient", {
+      p_id: input.id,
+      p_revision: revision,
+      p_name: input.name,
+      p_phone: input.phone,
+      p_height: Number(input.height),
+      p_gender: input.gender,
+      p_birth_year: input.birthYear ? Number(input.birthYear) : null,
+      p_goal: input.goal,
+    });
+    if (error) throw error;
+    return null;
+  });
+}
+
 export async function createPatient(
   input: PatientInput
 ): Promise<ClinicalResult<null>> {
   return attempt(async () => {
-    if (
-      !input ||
-      !validId(input.id) ||
-      typeof input.name !== "string" ||
-      input.name.trim().length < 2 ||
-      input.name.length > 160 ||
-      typeof input.phone !== "string" ||
-      !/^\+?\d{6,15}$/.test(input.phone) ||
-      typeof input.height !== "string" ||
-      !Number.isFinite(Number(input.height)) ||
-      Number(input.height) < 50 ||
-      Number(input.height) > 250 ||
-      !["male", "female"].includes(input.gender) ||
-      typeof input.birthYear !== "string" ||
-      (input.birthYear && !/^\d{4}$/.test(input.birthYear))
-    )
-      invalid();
+    if (!validPatient(input)) invalid();
     const { client, account } = await session();
     const { error } = await client.rpc("clinical_create_patient", {
       p_id: input.id,
