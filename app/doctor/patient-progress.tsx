@@ -58,18 +58,31 @@ function ProgressChart({
         <span>عدد الزيارات: {values.length}</span>
       </figcaption>
       <svg
-        viewBox={`0 0 ${width} ${height}`}
+        viewBox={`0 0 ${width} ${height + 18}`}
         role="img"
         aria-label={`${title}: ${values
           .map((item) => `${item.date} ${item.value}`)
           .join("، ")}`}
       >
+        {[0, 1, 2, 3].map((line) => (
+          <line
+            key={line}
+            className="progress-grid"
+            x1={pad / 2}
+            x2={width - pad / 2}
+            y1={pad + (line * (height - pad * 2)) / 3}
+            y2={pad + (line * (height - pad * 2)) / 3}
+          />
+        ))}
         <polyline points={points.map((p) => `${p.x},${p.y}`).join(" ")} />
         {points.map((point) => (
           <g key={`${point.date}-${point.x}`}>
             <circle cx={point.x} cy={point.y} r="4" />
             <text x={point.x} y={point.y - 10}>
               {point.value}
+            </text>
+            <text className="progress-date" x={point.x} y={height + 12}>
+              {point.date.slice(5)}
             </text>
           </g>
         ))}
