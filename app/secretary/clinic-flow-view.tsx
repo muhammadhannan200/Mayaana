@@ -9,8 +9,9 @@ import { Toast } from "@/components/toast";
 import type { AccountProfile } from "@/lib/account-profile";
 import {
   parsePatientFields,
-  patientFieldsError,
+  type PatientFieldErrors,
 } from "@/lib/patient-validation";
+import { FieldError } from "./field-error";
 import { SecretaryAccount } from "./account-screen";
 import { PatientEditForm } from "./patient-edit-form";
 import { PatientFile } from "./patient-file";
@@ -103,6 +104,7 @@ export function ClinicFlowView({
   const [name, setName] = useState("");
   const [goal, setGoal] = useState("نقص وزن");
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<PatientFieldErrors>({});
   const [patientRequestId, setPatientRequestId] = useState<string | null>(null);
   const selected = patients.find((p) => p.id === params.get("patient"));
   const visitKind = selected?.visits.length === 0 ? "full_exam" : kind;
@@ -196,15 +198,13 @@ export function ClinicFlowView({
   async function createPatient(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
-    const { phone, height, birthYear, valid } = parsePatientFields(
+    const { phone, height, birthYear, errors } = parsePatientFields(
       data,
       name,
       normalize
     );
-    if (!valid) {
-      setError(patientFieldsError);
-      return;
-    }
+    setFieldErrors(errors);
+    if (Object.keys(errors).length) return;
     if (demo && patients.some((p) => p.phone === phone)) {
       setError("يوجد ملف بهذا الهاتف. اختر الملف الموجود من البحث.");
       return;
@@ -812,6 +812,7 @@ export function ClinicFlowView({
         <form
           className="secretary-content new-patient-form"
           onSubmit={createPatient}
+          noValidate
         >
           <label className="secretary-field">
             الاسم الكامل *
@@ -822,7 +823,9 @@ export function ClinicFlowView({
               value={name}
               onChange={(e) => setName(e.target.value)}
               autoComplete="off"
+              aria-invalid={!!fieldErrors.name}
             />
+            <FieldError message={fieldErrors.name} />
           </label>
           {name.trim().length > 1 &&
             patients.some((p) => p.name.includes(name.trim())) && (
@@ -847,7 +850,9 @@ export function ClinicFlowView({
               maxLength={20}
               dir="ltr"
               placeholder="09XX XXX XXX"
+              aria-invalid={!!fieldErrors.phone}
             />
+            <FieldError message={fieldErrors.phone} />
           </label>
           <div className="intake-two-columns">
             <label className="secretary-field">
@@ -857,7 +862,9 @@ export function ClinicFlowView({
                 inputMode="decimal"
                 required
                 placeholder="مثال: 165 سم"
+                aria-invalid={!!fieldErrors.height}
               />
+              <FieldError message={fieldErrors.height} />
             </label>
             <label className="secretary-field">
               الجنس
@@ -874,7 +881,9 @@ export function ClinicFlowView({
               inputMode="numeric"
               maxLength={4}
               placeholder="مثال: 1990"
+              aria-invalid={!!fieldErrors.birthYear}
             />
+            <FieldError message={fieldErrors.birthYear} />
           </label>
           <fieldset className="goal-options">
             <legend>هدف المتابعة</legend>
