@@ -7,6 +7,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { SignOutForm } from "@/app/sign-out-form";
 import type { useDemoClinic } from "@/lib/demo-clinic";
 import { Icon } from "@/components/icon";
+import { Toast } from "@/components/toast";
 import { visitCountLabel } from "@/lib/arabic-count";
 import { DoctorNav } from "@/app/doctor/doctor-nav";
 import { MeasurementScreen } from "./measurements/measurement-screen";
@@ -102,6 +103,17 @@ export function ClinicFlowView({
   const entry = queue.find((e) => e.id === params.get("entry"));
   const patient = patients.find((p) => p.id === entry?.patientId);
   const go = (path: string) => router.push(href(path));
+  const queueToast = params.has("sent")
+    ? "تم إدخال المريض عند الطبيب."
+    : params.has("measured")
+      ? "تم حفظ القياسات. المريض جاهز للدخول."
+      : params.has("added")
+        ? selected
+          ? `أضيف ${selected.name} للدور · ${
+              params.get("kind") === "full_exam" ? "كشفية" : "مراجعة"
+            }`
+          : "تمت إضافة المريض للدور."
+        : "";
   const waiting = queue.filter(
     (e) => e.status === "waiting" || e.status === "ready"
   );
@@ -115,13 +127,15 @@ export function ClinicFlowView({
   const matches = patients.filter((p) =>
     `${p.name} ${p.phone}`.includes(normalize(term))
   );
+  const showResults = route !== "secretary/add" || !!normalize(term);
+  const results = showResults ? matches : [];
   const findPatient = (e: QueueEntry) =>
     patients.find((p) => p.id === e.patientId)!;
 
   async function enqueue(id: string, visitKind: QueueEntry["kind"]) {
     if (operations) {
       if (await operations.enqueuePatient(id, visitKind))
-        go("secretary?added=1");
+        go(`secretary?added=1&patient=${id}&kind=${visitKind}`);
       return;
     }
     update((state) =>
@@ -145,7 +159,7 @@ export function ClinicFlowView({
             ],
           }
     );
-    go("secretary?added=1");
+    go(`secretary?added=1&patient=${id}&kind=${visitKind}`);
   }
   async function createPatient(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -377,17 +391,7 @@ export function ClinicFlowView({
               </p>
             )
           )}
-          {(params.has("added") ||
-            params.has("measured") ||
-            params.has("sent")) && (
-            <p className="secretary-success" role="status">
-              {params.has("sent")
-                ? "تم إدخال المريض عند الطبيب."
-                : params.has("measured")
-                  ? "تم حفظ القياسات. المريض جاهز للدخول."
-                  : "تمت إضافة المريض للدور."}
-            </p>
-          )}
+          {queueToast && <Toast key={queueToast} message={queueToast} />}
           <div className="queue-totals">
             <div>
               <strong>{waiting.length}</strong>
@@ -544,18 +548,32 @@ export function ClinicFlowView({
           <DemoNote demo={demo} href={href("doctor")} />
         </div>
         {queue.length > 0 && (
-          <Link className="queue-fab" href={href("secretary/search")}>
+          <Link className="queue-fab" href={href("secretary/add")}>
             <Icon name="plus" size={20} />
             إضافة للدور
           </Link>
         )}
       </>
     );
-  else if (route === "secretary/search" || route === "secretary/patients")
+  else if (
+    route === "secretary/add" ||
+    route === "secretary/search" ||
+    route === "secretary/patients"
+  )
     content = (
       <>
-        {subheader(route.endsWith("search") ? "إضافة للدور" : "المرضى")}
-        <div className="secretary-content search-content">
+        {subheader(
+          route.endsWith("add")
+            ? "إضافة للدور"
+            : route.endsWith("search")
+              ? "البحث"
+              : "المرضى"
+        )}
+        <div
+          className={`secretary-content search-content${
+            route.endsWith("add") ? " add-to-queue" : ""
+          }`}
+        >
           <label className="patient-search-input">
             <Icon name="search" size={20} />
             <input
@@ -570,9 +588,9 @@ export function ClinicFlowView({
             />
           </label>
           <section className="patient-results" aria-live="polite">
-            <h2>نتائج البحث ({matches.length})</h2>
+            {showResults && <h2>نتائج البحث ({results.length})</h2>}
             <ul className="patient-result-list">
-              {matches.map((p) => (
+              {results.map((p) => (
                 <li key={p.id}>
                   <Link
                     className="patient-result patient-result-link"
@@ -593,7 +611,7 @@ export function ClinicFlowView({
                 </li>
               ))}
             </ul>
-            {!matches.length && (
+            {showResults && !results.length && (
               <div className="queue-empty">
                 <Icon name="search" size={32} />
                 <h3>لا توجد نتائج</h3>
@@ -618,7 +636,7 @@ export function ClinicFlowView({
   else if (route === "secretary/confirm")
     content = (
       <>
-        {subheader("إضافة للدور", "secretary/search")}
+        {subheader("إضافة للدور", "secretary/add")}
         <div className="secretary-content">
           {selected ? (
             <>
@@ -743,7 +761,7 @@ export function ClinicFlowView({
   else if (route === "secretary/patients/new")
     content = (
       <>
-        {subheader("ملف مريض جديد", "secretary/search")}
+        {subheader("ملف مريض جديد", "secretary/add")}
         <form
           className="secretary-content new-patient-form"
           onSubmit={createPatient}
@@ -766,7 +784,7 @@ export function ClinicFlowView({
                 <p>هل هو نفس الشخص؟ أضفه للدور بدل فتح ملف جديد.</p>
                 <Link
                   href={href(
-                    `secretary/search?q=${encodeURIComponent(name.trim())}`
+                    `secretary/add?q=${encodeURIComponent(name.trim())}`
                   )}
                 >
                   عرض الملفات المشابهة
@@ -1118,7 +1136,7 @@ export function ClinicFlowView({
       "secretary",
       "secretary/patients",
       "secretary/account",
-      ...(!demo ? ["secretary/search"] : []),
+      "secretary/search",
     ].includes(route) || doctor;
   return (
     <main

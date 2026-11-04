@@ -332,7 +332,7 @@ test("new patient: E2 → S4 → S3 → S6 validates all fields and shares ident
   page,
 }, info) => {
   test.setTimeout(60000);
-  await page.goto("/demo/secretary/search");
+  await page.goto("/demo/secretary/add");
   await page.getByLabel("اسم المريض أو رقم هاتفه").fill("غير موجود");
   await expect(
     page.getByRole("heading", { name: "لا توجد نتائج" })
