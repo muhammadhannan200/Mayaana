@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { getPrintPlan } from "@/lib/print-plan-server";
-import { PrintScreen } from "@/app/doctor/print-plan/screen";
+import { getPrintPlan } from "@/backend/print-plan-server";
+import { PrintScreen } from "@/frontend/doctor/print-plan/screen";
 
 export const instant = false;
 export const metadata: Metadata = {

@@ -1,4 +1,4 @@
-import { ClinicFlow } from "@/app/secretary/clinic-flow";
+import { ClinicFlow } from "@/frontend/secretary/clinic-flow";
 
 export const instant = false;
 

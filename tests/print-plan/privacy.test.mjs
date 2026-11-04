@@ -115,7 +115,7 @@ function fixture({
     }).outputText;
     const require = (id) => {
       if (id === "server-only") return {};
-      if (id === "./supabase/server" || id === "@/lib/supabase/server")
+      if (id === "./supabase/server" || id === "@/backend/supabase/server")
         return { createClient: async () => client };
       if (id.startsWith(".")) return load(path.resolve(path.dirname(file), id));
       if (id.startsWith("@/")) return load(path.resolve(id.slice(2)));
@@ -128,8 +128,8 @@ function fixture({
   }
   return {
     calls,
-    read: load(path.resolve("lib/print-plan-server.ts")).getPrintPlan,
-    document: load(path.resolve("app/doctor/print-plan/document.tsx"))
+    read: load(path.resolve("backend/print-plan-server.ts")).getPrintPlan,
+    document: load(path.resolve("frontend/doctor/print-plan/document.tsx"))
       .PrintDocument,
   };
 }

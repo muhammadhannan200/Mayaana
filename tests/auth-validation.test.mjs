@@ -4,7 +4,7 @@ import {
   validateLogin,
   validatePassword,
   validationResult,
-} from "../lib/auth-validation.ts";
+} from "../shared/auth-validation.ts";
 
 function data(values = {}) {
   const form = new FormData();

@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import ts from "typescript";
-import * as agenda from "../lib/doctor-agenda.ts";
+import * as agenda from "../shared/doctor-agenda.ts";
 
 const { classifyAgenda, damascusDate, readDoctorAgenda, AgendaBoundError } =
   agenda;
@@ -314,9 +314,9 @@ test("server action reauthenticates and rejects anonymous, inactive, first-use a
   ]) {
     let read = false;
     let authentications = 0;
-    const action = compile("../app/doctor/agenda-actions.ts", {
-      "@/lib/auth": { accountForUser: async () => account },
-      "@/lib/supabase/server": {
+    const action = compile("../backend/actions/agenda-actions.ts", {
+      "@/backend/auth": { accountForUser: async () => account },
+      "@/backend/supabase/server": {
         createClient: async () => ({
           auth: {
             getUser: async () => {
@@ -326,7 +326,7 @@ test("server action reauthenticates and rejects anonymous, inactive, first-use a
           },
         }),
       },
-      "@/lib/doctor-agenda": {
+      "@/shared/doctor-agenda": {
         AgendaBoundError,
         readDoctorAgenda: async () => {
           read = true;
@@ -338,23 +338,23 @@ test("server action reauthenticates and rejects anonymous, inactive, first-use a
     assert.equal(read, account === doctor);
     assert.equal(authentications, 1);
   }
-  const action = compile("../app/doctor/agenda-actions.ts", {
-    "@/lib/auth": {
+  const action = compile("../backend/actions/agenda-actions.ts", {
+    "@/backend/auth": {
       accountForUser: () => assert.fail("No account lookup for anonymous"),
     },
-    "@/lib/supabase/server": {
+    "@/backend/supabase/server": {
       createClient: async () => ({
         auth: { getUser: async () => ({ data: { user: null }, error: null }) },
       }),
     },
-    "@/lib/doctor-agenda": agenda,
+    "@/shared/doctor-agenda": agenda,
   });
   assert.equal((await action.getDoctorAgenda()).ok, false);
 });
 
 test("demo reads fictional local appointment metadata without reading private fields", () => {
-  const { demoAgenda } = compile("../lib/demo-agenda.ts", {
-    "./doctor-agenda": agenda,
+  const { demoAgenda } = compile("../frontend/demo/demo-agenda.ts", {
+    "../../shared/doctor-agenda": agenda,
   });
   const privateValue = {
     get() {

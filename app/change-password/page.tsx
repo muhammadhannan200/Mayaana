@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
-import { getCurrentAccount, homeForRole } from "@/lib/auth";
-import { PasswordForm } from "./password-form";
+import { getCurrentAccount, homeForRole } from "@/backend/auth";
+import { PasswordForm } from "../../frontend/auth/password-form";
 
 export const instant = false;
 

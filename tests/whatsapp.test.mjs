@@ -4,7 +4,7 @@ import {
   dietPlanMessage,
   whatsappPhone,
   whatsappUrl,
-} from "../lib/whatsapp.ts";
+} from "../shared/whatsapp.ts";
 
 test("normalizes phone numbers for wa.me", () => {
   assert.equal(whatsappPhone("0944 123 456"), "963944123456");

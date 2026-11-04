@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
-import { getCurrentAccount, homeForRole } from "@/lib/auth";
-import { isSupabaseConfigured } from "@/lib/supabase/server";
-import "./doctor.css";
+import { getCurrentAccount, homeForRole } from "@/backend/auth";
+import { isSupabaseConfigured } from "@/backend/supabase/server";
+import "../../frontend/doctor/doctor.css";
 
 export const instant = false;
 

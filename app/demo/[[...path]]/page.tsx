@@ -1,8 +1,8 @@
 import { notFound } from "next/navigation";
-import { DemoClinicProvider } from "@/lib/demo-clinic";
-import { ClinicFlow } from "@/app/secretary/clinic-flow";
-import { DemoPrintPlan } from "@/app/doctor/print-plan/demo";
-import "@/app/doctor/doctor.css";
+import { DemoClinicProvider } from "@/frontend/demo/demo-clinic";
+import { ClinicFlow } from "@/frontend/secretary/clinic-flow";
+import { DemoPrintPlan } from "@/frontend/doctor/print-plan/demo";
+import "@/frontend/doctor/doctor.css";
 export const instant = false;
 
 export default async function DemoPage({

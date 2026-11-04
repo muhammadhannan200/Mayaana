@@ -12,8 +12,8 @@ import {
 const inspect = (files) => inventorySources(new Map(Object.entries(files)));
 
 test("detects the retained clinic-flow runtime cycle, but not a type-only back edge", () => {
-  const flow = "app/secretary/clinic-flow.tsx";
-  const persisted = "app/secretary/persisted-flow.tsx";
+  const flow = "frontend/secretary/clinic-flow.tsx";
+  const persisted = "frontend/secretary/persisted-flow.tsx";
   const result = inspect({
     [flow]: 'import { PersistedFlow } from "./persisted-flow";',
     [persisted]: 'import { ClinicFlowView } from "./clinic-flow";',
@@ -43,10 +43,11 @@ test("recognizes re-exports, literal lazy/require edges, self-cycles and import 
 
 test("reports production Demo contracts, route dependencies and clinical React dependencies", () => {
   const result = inspect({
-    "lib/clinical-types.ts":
-      'import type { DemoVisit as Visit } from "./demo-clinic"; import type { MockVisit } from "@/app/secretary/measurements/mock-visits"; import type { ReactNode } from "react";',
-    "lib/demo-clinic.tsx": "export type DemoVisit = {};",
-    "app/secretary/measurements/mock-visits.ts": "export type MockVisit = {};",
+    "shared/clinical-types.ts":
+      'import type { DemoVisit as Visit } from "../frontend/demo/demo-clinic"; import type { MockVisit } from "@/frontend/secretary/measurements/mock-visits"; import type { ReactNode } from "react";',
+    "frontend/demo/demo-clinic.tsx": "export type DemoVisit = {};",
+    "frontend/secretary/measurements/mock-visits.ts":
+      "export type MockVisit = {};",
   });
   assert.equal(
     result.findings.filter((item) => item.kind === "production-demo").length,
@@ -61,7 +62,9 @@ test("reports production Demo contracts, route dependencies and clinical React d
     2
   );
   assert.equal(
-    result.findings.some((item) => item.path === "lib/demo-clinic.tsx"),
+    result.findings.some(
+      (item) => item.path === "frontend/demo/demo-clinic.tsx"
+    ),
     false
   );
 });
@@ -69,12 +72,14 @@ test("reports production Demo contracts, route dependencies and clinical React d
 test("reports shared UI/server imports and Doctor-to-Secretary ownership", () => {
   const result = inspect({
     "components/ui/card.tsx":
-      'import { read } from "@/lib/data"; import { save } from "@/app/clinical-actions"; import type { SupabaseClient } from "@supabase/supabase-js";',
+      'import { read } from "@/lib/data"; import { save } from "@/backend/actions/clinical-actions"; import type { SupabaseClient } from "@supabase/supabase-js";',
     "lib/data.ts": 'import "server-only";',
-    "app/clinical-actions.ts": '"use server"; export async function save() {}',
+    "backend/actions/clinical-actions.ts":
+      '"use server"; export async function save() {}',
     "app/doctor/page.tsx":
-      'import { ClinicFlow } from "../secretary/clinic-flow";',
-    "app/secretary/clinic-flow.tsx": "export const ClinicFlow = () => null;",
+      'import { ClinicFlow } from "@/frontend/secretary/clinic-flow";',
+    "frontend/secretary/clinic-flow.tsx":
+      "export const ClinicFlow = () => null;",
   });
   assert.equal(
     result.findings.filter((item) => item.kind === "shared-ui-server").length,

@@ -4,7 +4,7 @@ import {
   countWeekKinds,
   groupWeekVisits,
   weekStart,
-} from "../lib/doctor-week.ts";
+} from "../shared/doctor-week.ts";
 
 const visit = (id, date, kind, arrivalTime) => ({
   id,
