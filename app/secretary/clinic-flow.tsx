@@ -438,20 +438,22 @@ export function ClinicFlowView({
                             className="secretary-primary"
                             disabled={operations?.pending}
                             onClick={async () => {
-                              if (current[0]) {
-                                setError(
-                                  doctorBusyMessage(findPatient(current[0]).name)
-                                );
-                                return;
-                              }
                               setError("");
+                              // The server decides: this snapshot can be up to
+                              // ten seconds behind a visit that just finished.
                               if (operations) {
                                 if (await operations.handoffToDoctor(e.id))
                                   go("secretary?sent=1");
                                 return;
                               }
                               if (local!.handoff(e.id) === "occupied")
-                                setError(doctorOccupiedMessage);
+                                setError(
+                                  current[0]
+                                    ? doctorBusyMessage(
+                                        findPatient(current[0]).name
+                                      )
+                                    : doctorOccupiedMessage
+                                );
                               else go("secretary?sent=1");
                             }}
                           >
