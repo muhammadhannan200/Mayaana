@@ -11,7 +11,10 @@ Read [AGENTS.md](AGENTS.md) first. It holds the project rules, commands and refe
 
 ## Where things go
 
-- Screens: `app/secretary/`, `app/doctor/`. Shared UI: `components/`. Logic and data access: `lib/`.
+- Routes only: `app/`. Next.js requires this folder name.
+- Screens and their styles: `frontend/secretary/`, `frontend/doctor/`, `frontend/auth/`. Shared UI: `frontend/components/`. Fictional demo: `frontend/demo/`.
+- Server code: `backend/`, with server actions in `backend/actions/`.
+- Code used by both sides, such as types, validation and dates: `shared/`.
 - Styles stay beside the screen they belong to. Keep CSS import order unchanged when moving files.
 - Database changes: a new file in `supabase/migrations/`, never an edit to an old one.
 

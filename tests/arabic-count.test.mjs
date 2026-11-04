@@ -4,7 +4,7 @@ import {
   dayCountLabel,
   mealCountLabel,
   visitCountLabel,
-} from "../lib/arabic-count.ts";
+} from "../shared/arabic-count.ts";
 
 test("uses correct Arabic forms for counts", () => {
   assert.equal(dayCountLabel(1), "يوم واحد");

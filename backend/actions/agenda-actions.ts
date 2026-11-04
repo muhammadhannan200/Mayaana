@@ -1,0 +1,35 @@
+"use server";
+
+import { accountForUser } from "@/backend/auth";
+import { createClient } from "@/backend/supabase/server";
+import { AgendaBoundError, readDoctorAgenda } from "@/shared/doctor-agenda";
+
+export async function getDoctorAgenda() {
+  try {
+    const client = await createClient();
+    const {
+      data: { user },
+      error,
+    } = await client.auth.getUser();
+    if (error || !user)
+      return {
+        ok: false as const,
+        message: "سجّل الدخول بحساب الطبيب لعرض المواعيد.",
+      };
+    const account = await accountForUser(client, user);
+    if (!account || account.role !== "doctor" || account.mustChangePassword)
+      return {
+        ok: false as const,
+        message: "عرض المواعيد متاح للطبيب المصرّح له فقط.",
+      };
+    return { ok: true as const, data: await readDoctorAgenda(client, account) };
+  } catch (error) {
+    return {
+      ok: false as const,
+      message:
+        error instanceof AgendaBoundError
+          ? "تجاوزت المواعيد أو سجلاتها حد العرض الآمن. لم تُعرض قائمة جزئية؛ راجع ملفات المرضى."
+          : "تعذّر تحميل المواعيد. أعد المحاولة.",
+    };
+  }
+}

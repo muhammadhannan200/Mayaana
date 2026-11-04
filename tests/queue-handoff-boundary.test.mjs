@@ -43,5 +43,5 @@ test("shared queue handoff contract has no transitive Demo, route, React or pers
     visit(source);
     assert.doesNotMatch(text, /\b(localStorage|navigator|window)\b/);
   }
-  inspect(resolve("lib/queue-handoff.ts"));
+  inspect(resolve("shared/queue-handoff.ts"));
 });

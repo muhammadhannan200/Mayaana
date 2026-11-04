@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
-import { readDoctorAgenda } from "../../lib/doctor-agenda.ts";
+import { readDoctorAgenda } from "../../shared/doctor-agenda.ts";
 
 if (process.env.CLINICAL_TEST_LOCAL !== "1" || process.env.NEXT_PUBLIC_SUPABASE_URL !== "http://127.0.0.1:55431") throw new Error("Isolated local runner required");
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;

@@ -4,7 +4,7 @@ import {
   type Locator,
   type Page,
 } from "@playwright/test";
-import { createDemoFixture } from "../../lib/demo-fixture";
+import { createDemoFixture } from "../../frontend/demo/demo-fixture";
 
 const key = "mayanaa-demo-v1:public";
 const test = base.extend<{ cleanHydration: void }>({

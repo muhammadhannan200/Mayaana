@@ -3,7 +3,7 @@ import path from "node:path";
 import { build } from "esbuild";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
-import type { ClinicalSnapshot } from "../../lib/clinical-types";
+import type { ClinicalSnapshot } from "../../shared/clinical-types";
 
 // Batch 1 against the actual current controller/view. Only framework navigation
 // and explicit server-action boundaries are substituted; no hosted credentials.
@@ -22,17 +22,17 @@ test.beforeAll(async ({ request }) => {
         name: "test-boundaries",
         setup(builder) {
           // SignOutForm imports its server action relatively, unlike the controller.
-          builder.onResolve({ filter: /^\.\/actions$/ }, (args) =>
-            args.importer
-              .replaceAll("\\", "/")
-              .endsWith("/app/sign-out-form.tsx")
-              ? { path: "@/app/actions", namespace: "fixture" }
-              : undefined
+          builder.onResolve(
+            { filter: /^\.\.\/\.\.\/backend\/actions\/auth-actions$/ },
+            () => ({
+              path: "@/backend/actions/auth-actions",
+              namespace: "fixture",
+            })
           );
           builder.onResolve(
             {
               filter:
-                /^(next\/(link|image|navigation)|@\/app\/(clinical-actions|actions))$/,
+                /^(next\/(link|image|navigation)|@\/backend\/actions\/(clinical-actions|auth-actions))$/,
             },
             (args) => ({ path: args.path, namespace: "fixture" })
           );

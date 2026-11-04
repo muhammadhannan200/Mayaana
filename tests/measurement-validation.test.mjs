@@ -3,7 +3,7 @@ import { test } from "node:test";
 import {
   normalizeMeasurement,
   validateMeasurement,
-} from "../lib/measurement-validation.ts";
+} from "../shared/measurement-validation.ts";
 
 test("normalizes Arabic and Persian digits and separators", () => {
   assert.equal(normalizeMeasurement(" ٨٢٫٥ "), "82.5");

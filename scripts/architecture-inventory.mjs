@@ -23,7 +23,16 @@ export function readSources(root) {
     if (entry.isSymbolicLink()) continue;
     if (
       entry.isDirectory() &&
-      ["app", "lib", "components", "features", "tests"].includes(entry.name)
+      [
+        "app",
+        "backend",
+        "frontend",
+        "shared",
+        "lib",
+        "components",
+        "features",
+        "tests",
+      ].includes(entry.name)
     )
       visit(join(root, entry.name));
     else if (entry.isFile() && entry.name === "proxy.ts")
@@ -205,9 +214,11 @@ const fictional = (path) =>
   );
 const production = (path) => !path.startsWith("tests/") && !fictional(path);
 const sharedUI = (path) =>
-  path.startsWith("components/") || /\/ui\//.test(path);
+  path.startsWith("components/") ||
+  path.startsWith("frontend/components/") ||
+  /\/ui\//.test(path);
 const model = (path) =>
-  path === "lib/clinical-types.ts" ||
+  path === "shared/clinical-types.ts" ||
   path.startsWith("features/clinical/model/");
 
 export function inventorySources(sources) {
@@ -256,14 +267,22 @@ export function inventorySources(sources) {
           "production-demo",
           `imports ${edge.names.filter((name) => /^Demo[A-Z]/.test(name)).join(", ") || "fictional module"}${edge.runtime ? " (runtime)" : " (type-only)"}`
         );
-      if (item.path.startsWith("lib/") && edge.target?.startsWith("app/"))
+      if (
+        /^(lib|backend|shared)\//.test(item.path) &&
+        /^(app|frontend)\//.test(edge.target ?? "") &&
+        !/^frontend\/demo\//.test(edge.target ?? "")
+      )
         finding("lib-route", "lib depends on route-owned code");
       if (
         model(item.path) &&
         (/^react(?:\/|$)/.test(edge.specifier) ||
-          edge.target?.startsWith("app/"))
+          (/^(app|frontend)\//.test(edge.target ?? "") &&
+            !/^frontend\/demo\//.test(edge.target ?? "")))
       )
-        finding("model-dependency", "clinical model depends on React or app/");
+        finding(
+          "model-dependency",
+          "clinical model depends on React or frontend code"
+        );
       const target = byPath.get(edge.target);
       if (
         sharedUI(item.path) &&
@@ -280,8 +299,8 @@ export function inventorySources(sources) {
           "shared UI depends on server/Supabase code"
         );
       if (
-        item.path.startsWith("app/doctor/") &&
-        edge.target?.startsWith("app/secretary/")
+        /^(app|frontend)\/doctor\//.test(item.path) &&
+        /^(app|frontend)\/secretary\//.test(edge.target ?? "")
       )
         finding("cross-role", "Doctor imports Secretary-owned implementation");
     }

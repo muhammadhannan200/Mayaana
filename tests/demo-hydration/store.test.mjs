@@ -35,8 +35,8 @@ function modules() {
     return loaded.exports;
   }
   return {
-    fixture: load(path.resolve("lib/demo-fixture.ts")),
-    store: load(path.resolve("lib/demo-store.ts")),
+    fixture: load(path.resolve("frontend/demo/demo-fixture.ts")),
+    store: load(path.resolve("frontend/demo/demo-store.ts")),
   };
 }
 

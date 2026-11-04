@@ -1,17 +1,17 @@
 import { redirect } from "next/navigation";
-import { getCurrentAccount, homeForRole } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
-import { getAccountProfile } from "@/lib/account-profile";
+import { getCurrentAccount, homeForRole } from "@/backend/auth";
+import { createClient } from "@/backend/supabase/server";
+import { getAccountProfile } from "@/backend/account-profile";
 import {
   ProfileCard,
   ProfileRow,
   ProfileSummary,
-} from "@/components/profile-screen";
-import { Icon } from "@/components/icon";
-import { SignOutForm } from "@/app/sign-out-form";
-import { DoctorNav } from "../doctor-nav";
-import "@/app/secretary/secretary.css";
-import "../workspace.css";
+} from "@/frontend/components/profile-screen";
+import { Icon } from "@/frontend/components/icon";
+import { SignOutForm } from "@/frontend/auth/sign-out-form";
+import { DoctorNav } from "../../../frontend/doctor/doctor-nav";
+import "@/frontend/secretary/secretary.css";
+import "../../../frontend/doctor/workspace.css";
 
 export const instant = false;
 

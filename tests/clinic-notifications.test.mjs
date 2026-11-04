@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { clinicNotifications } from "../lib/clinic-notifications.ts";
+import { clinicNotifications } from "../shared/clinic-notifications.ts";
 
 const entry = (id, status, doctorOpened) => ({
   id,

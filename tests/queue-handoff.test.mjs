@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { handoffQueue } from "../lib/queue-handoff.ts";
+import { handoffQueue } from "../shared/queue-handoff.ts";
 
 const ready = id => ({ id, patientId: id, kind: "full_exam", status: "ready", measurements: { weight: "80" } });
 

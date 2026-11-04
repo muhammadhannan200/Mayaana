@@ -34,8 +34,10 @@ npm run audit:ui
 
 ## Project structure
 
-- `app/` — Next.js routes, screens, server actions, and global styles
-- `lib/` — application helpers and Supabase clients
+- `app/` — Next.js routes and global styles
+- `frontend/` — screens, shared UI, and the fictional demo
+- `backend/` — server actions, data access, and Supabase clients
+- `shared/` — types, validation, and helpers used by both sides
 - `supabase/migrations/` — database migration history
 - `tests/` — automated tests
 - `scripts/` — repository tooling

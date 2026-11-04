@@ -61,7 +61,7 @@ async function historyAt(completedAt) {
   };
   const load = (file, modules) => {
     const source = readFileSync(
-      new URL(`../../lib/${file}`, import.meta.url),
+      new URL(`../../backend/${file}`, import.meta.url),
       "utf8"
     );
     const compiled = ts.transpileModule(source, {
@@ -83,13 +83,13 @@ async function historyAt(completedAt) {
         Intl,
         Date,
       },
-      { filename: `lib/${file}` }
+      { filename: `backend/${file}` }
     );
     return exports;
   };
   const core = load("clinical-core.ts", {
     "./supabase/server": { createClient: async () => client },
-    "./queue-handoff": {
+    "../shared/queue-handoff": {
       cancelUnavailableMessage: "",
       doctorOccupiedMessage: "",
     },

@@ -1,5 +1,5 @@
-import { getAccountProfile } from "@/lib/account-profile";
-import { ClinicFlow } from "../clinic-flow";
+import { getAccountProfile } from "@/backend/account-profile";
+import { ClinicFlow } from "../../../frontend/secretary/clinic-flow";
 export const instant = false;
 export default async function Page() {
   return (
