@@ -154,7 +154,7 @@ for (const role of ["doctor", "secretary"] as const) {
     );
     await expect(page).toHaveURL(`/${role}`);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-      role === "doctor" ? "دور العيادة" : "دور اليوم"
+      role === "doctor" ? /الخير/ : "دور اليوم"
     );
     await expect
       .poll(() =>

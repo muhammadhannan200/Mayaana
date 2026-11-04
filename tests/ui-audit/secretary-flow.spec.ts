@@ -177,7 +177,9 @@ test("complete V1: secretary intake → measurements → handoff → doctor note
     path: info.outputPath("populated-patient-file.png"),
     fullPage: true,
   });
-  await doctor.getByRole("link", { name: "فتح زيارة اليوم", exact: true }).click();
+  await doctor
+    .getByRole("link", { name: "فتح زيارة اليوم", exact: true })
+    .click();
   await expect(doctor.getByLabel("ملاحظاتي")).toHaveValue(/نزول تدريجي جيد/);
   await doctor.getByRole("link", { name: "متابعة للبرنامج والموعد" }).click();
   await expect(doctor.locator(".visit-meal")).toHaveCount(5);
@@ -230,7 +232,9 @@ test("complete V1: secretary intake → measurements → handoff → doctor note
   await expect(
     page.getByRole("button", { name: "إضافة للدور", exact: true })
   ).toHaveCount(0);
-  await doctor.getByRole("link", { name: "فتح زيارة اليوم", exact: true }).click();
+  await doctor
+    .getByRole("link", { name: "فتح زيارة اليوم", exact: true })
+    .click();
   await expect(
     doctor.getByRole("heading", { name: "زيارة اليوم" })
   ).toBeVisible();
@@ -427,4 +431,20 @@ test("recovery, cancel, unknown demo route and staff guards remain functional", 
     await expect(page).toHaveURL(/\/$/);
     await expect(page.getByLabel("البريد الإلكتروني")).toBeVisible();
   }
+});
+
+test("notification bell lists clinic events and clears its badge", async ({
+  page,
+}) => {
+  await page.goto("/demo/doctor");
+  const bell = page.getByRole("button", { name: /الإشعارات/ });
+  await expect(bell).toHaveAccessibleName(/جديدة/);
+  await bell.click();
+  await expect(page.getByRole("region", { name: "الإشعارات" })).toContainText(
+    "جاهز للدخول"
+  );
+  await page.reload();
+  await expect(
+    page.getByRole("button", { name: /الإشعارات/ })
+  ).not.toHaveAccessibleName(/جديدة/);
 });
