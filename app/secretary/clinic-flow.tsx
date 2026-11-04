@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useState, type FormEvent } from "react";
+import { Suspense, useEffect, useState, type FormEvent } from "react";
 import { SignOutForm } from "@/app/sign-out-form";
 import {
   useDemoClinic,
@@ -15,6 +15,13 @@ import { DoctorVisit } from "@/app/doctor/visit-screen";
 import { measurementFields } from "./measurements/mock-visits";
 import "./secretary.css";
 import { PersistedFlow } from "./persisted-flow";
+import {
+  cancelUnavailableMessage,
+  doctorAvailableMessage,
+  doctorBusyMessage,
+  doctorOccupiedMessage,
+  handoffCancelMs,
+} from "@/lib/queue-handoff";
 import type {
   ClinicalOperations,
   ClinicalSnapshot,
@@ -35,6 +42,41 @@ export function ClinicFlow(props: { route: string; demo?: boolean }) {
 function DemoFlow({ route }: { route: string }) {
   const local = useDemoClinic();
   return <ClinicFlowView route={route} demo local={local} />;
+}
+
+// Display only: the database enforces the same window and the doctor-opened rule.
+function CancelHandoff({
+  entry,
+  disabled,
+  onCancel,
+}: {
+  entry: { handedOffAt?: string; doctorOpened?: boolean };
+  disabled?: boolean;
+  onCancel: () => void;
+}) {
+  const remaining = () =>
+    entry.handedOffAt
+      ? Math.ceil(
+          (Date.parse(entry.handedOffAt) + handoffCancelMs - Date.now()) / 1000
+        )
+      : 0;
+  const [seconds, setSeconds] = useState(remaining);
+  useEffect(() => {
+    const timer = setInterval(() => setSeconds(remaining()), 1000);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entry.handedOffAt]);
+  if (entry.doctorOpened || seconds <= 0) return null;
+  return (
+    <button
+      type="button"
+      className="secretary-outline"
+      disabled={disabled}
+      onClick={onCancel}
+    >
+      إلغاء الإدخال ({seconds} ث)
+    </button>
+  );
 }
 
 export function ClinicFlowView({
@@ -316,6 +358,22 @@ export function ClinicFlowView({
           </span>
         </header>
         <div className="secretary-content">
+          {error && (
+            <p className="secretary-error" role="alert">
+              {error}
+            </p>
+          )}
+          {current[0] ? (
+            <p className="intake-info" role="status">
+              {doctorBusyMessage(findPatient(current[0]).name)}
+            </p>
+          ) : (
+            completed.length > 0 && (
+              <p className="intake-info" role="status">
+                {doctorAvailableMessage}
+              </p>
+            )
+          )}
           {(params.has("added") ||
             params.has("measured") ||
             params.has("sent")) && (
@@ -380,20 +438,21 @@ export function ClinicFlowView({
                             className="secretary-primary"
                             disabled={operations?.pending}
                             onClick={async () => {
+                              if (current[0]) {
+                                setError(
+                                  doctorBusyMessage(findPatient(current[0]).name)
+                                );
+                                return;
+                              }
+                              setError("");
                               if (operations) {
                                 if (await operations.handoffToDoctor(e.id))
                                   go("secretary?sent=1");
                                 return;
                               }
-                              update((state) => ({
-                                ...state,
-                                queue: state.queue.map((item) =>
-                                  item.id === e.id && item.status === "ready"
-                                    ? { ...item, status: "with_doctor" }
-                                    : item
-                                ),
-                              }));
-                              go("secretary?sent=1");
+                              if (local!.handoff(e.id) === "occupied")
+                                setError(doctorOccupiedMessage);
+                              else go("secretary?sent=1");
                             }}
                           >
                             إدخال عند الطبيب
@@ -446,6 +505,19 @@ export function ClinicFlowView({
                   <li key={e.id} className="queue-card doctor-card">
                     <strong>{findPatient(e).name}</strong>
                     <span className="queue-status">عند الطبيب</span>
+                    <CancelHandoff
+                      entry={e}
+                      disabled={operations?.pending}
+                      onCancel={async () => {
+                        setError("");
+                        if (operations) {
+                          await operations.cancelHandoff(e.id);
+                          return;
+                        }
+                        if (!local!.cancelHandoff(e.id))
+                          setError(cancelUnavailableMessage);
+                      }}
+                    />
                   </li>
                 ))}
               </ul>
@@ -817,6 +889,12 @@ export function ClinicFlowView({
           )}
         </header>
         <div className="doctor-content">
+          {current.length > 1 && (
+            <p className="secretary-error" role="alert">
+              توجد زيارات نشطة متعارضة من بيانات سابقة. أكمل الزيارة الحالية
+              لتظهر الزيارة التالية.
+            </p>
+          )}
           {current[0] && (
             <section className="doctor-current">
               <p>عندك الآن</p>
@@ -839,26 +917,9 @@ export function ClinicFlowView({
               <small>في دور اليوم</small>
             </div>
           </div>
-          <section className="doctor-queue">
-            <h2>عند الطبيب ({current.length})</h2>
-            {current.length ? (
-              <ul>
-                {current.map((e) => (
-                  <li key={e.id}>
-                    <Link href={href(`doctor/patients/${e.patientId}`)}>
-                      <span>
-                        {findPatient(e).name}
-                        <small>{e.measurements.weight} كغ</small>
-                      </span>
-                      <span className="doctor-ready">عند الطبيب</span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="doctor-empty">لا يوجد مريض عند الطبيب الآن.</p>
-            )}
-          </section>
+          {!current[0] && (
+            <p className="doctor-empty">لا يوجد مريض عند الطبيب الآن.</p>
+          )}
           <section className="doctor-queue">
             <h2>الدور برّا ({waiting.length})</h2>
             <ol>
