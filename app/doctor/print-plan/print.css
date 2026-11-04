@@ -1,0 +1,140 @@
+.print-shell {
+  max-width: 210mm;
+  margin: 0 auto;
+  padding: 24px 16px;
+  color: #0f172a;
+}
+.print-controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.print-controls a,
+.print-controls button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 10px 16px;
+  border: 1px solid #0f766e;
+  border-radius: 12px;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  background: white;
+  color: #0f766e;
+}
+.print-controls button {
+  background: #0f766e;
+  color: white;
+}
+.print-controls a:hover {
+  background: #f0fdfa;
+}
+.print-controls button:hover {
+  background: #115e59;
+}
+.print-controls :focus-visible {
+  outline: 3px solid #0f766e;
+  outline-offset: 3px;
+}
+.print-document {
+  padding: clamp(16px, 4vw, 40px);
+  background: white;
+  overflow-wrap: anywhere;
+  line-height: 1.8;
+}
+.print-document h1 {
+  font-size: 26px;
+  margin: 0;
+}
+.print-clinic {
+  font-size: 18px;
+  margin: 4px 0 24px;
+}
+.print-details {
+  margin: 0;
+  display: grid;
+  gap: 12px;
+}
+.print-details dt {
+  color: #475569;
+}
+.print-details dd {
+  margin: 0;
+  font-weight: 600;
+}
+.print-document h2 {
+  font-size: 20px;
+  margin: 28px 0 8px;
+}
+.print-day {
+  border-top: 1px solid #e2e8f0;
+  margin-top: 24px;
+}
+.print-meal {
+  padding-block: 12px;
+}
+.print-meal h3 {
+  font-size: 16px;
+  margin: 0 0 4px;
+}
+.print-meal p {
+  white-space: pre-wrap;
+  margin: 0;
+}
+.print-appointment {
+  border-top: 1px solid #e2e8f0;
+  margin-top: 24px;
+}
+.print-appointment p {
+  margin: 0;
+}
+
+@page {
+  size: A4 portrait;
+  margin: 15mm;
+}
+@media print {
+  html,
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  body:has(.print-shell) nav,
+  body:has(.print-shell) button,
+  body:has(.print-shell) .print-controls {
+    display: none !important;
+  }
+  .print-shell {
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    direction: rtl;
+  }
+  .print-document {
+    padding: 0;
+    color: black;
+    font-size: 12pt;
+  }
+  .print-document header,
+  .print-appointment {
+    break-inside: avoid;
+  }
+  .print-document h2,
+  .print-document h3 {
+    break-after: avoid;
+  }
+  .print-day {
+    break-inside: auto;
+  }
+  .print-meal {
+    break-inside: avoid;
+  }
+  .print-document p {
+    orphans: 3;
+    widows: 3;
+  }
+}
