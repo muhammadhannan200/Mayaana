@@ -16,6 +16,8 @@ import { DoctorAgenda } from "@/app/doctor/agenda";
 import { measurementFields } from "@/lib/clinical-model";
 import "./secretary.css";
 import { PersistedFlow } from "./persisted-flow";
+import { DoctorNav, SecretaryNav, VisitOptions, VisitType } from "./clinic-ui";
+import "./persisted.css";
 import {
   cancelUnavailableMessage,
   doctorAvailableMessage,
@@ -335,11 +337,14 @@ export function ClinicFlowView({
       </Link>
     </header>
   );
-  const badge = (e: DemoEntry) => (
-    <span className={`visit-badge${e.kind === "full_exam" ? " full" : ""}`}>
-      {e.kind === "full_exam" ? "كشفية" : "مراجعة"}
-    </span>
-  );
+  const badge = (e: DemoEntry) =>
+    !demo ? (
+      <VisitType kind={e.kind} />
+    ) : (
+      <span className={`visit-badge${e.kind === "full_exam" ? " full" : ""}`}>
+        {e.kind === "full_exam" ? "كشفية" : "مراجعة"}
+      </span>
+    );
   let content: React.ReactNode;
 
   if (route === "secretary")
@@ -653,37 +658,47 @@ export function ClinicFlowView({
                 </p>
               ) : (
                 <>
-                  <h2 className="visit-title">نوع الزيارة</h2>
-                  <fieldset className="visit-options">
-                    <legend className="sr-only">نوع الزيارة</legend>
-                    {(["full_exam", "follow_up"] as const).map((value) => (
-                      <label
-                        key={value}
-                        className={visitKind === value ? "selected" : ""}
-                      >
-                        <input
-                          type="radio"
-                          name="visitType"
-                          checked={visitKind === value}
-                          disabled={
-                            selected.visits.length === 0 &&
-                            value === "follow_up"
-                          }
-                          onChange={() => setKind(value)}
-                        />
-                        <span>
-                          <strong>
-                            {value === "full_exam" ? "كشفية" : "مراجعة"}
-                          </strong>
-                          <small>
-                            {value === "full_exam"
-                              ? "وزن + قياس كامل للجسم (دهون، عضل، محيطات)"
-                              : "وزن فقط"}
-                          </small>
-                        </span>
-                      </label>
-                    ))}
-                  </fieldset>
+                  {!demo ? (
+                    <VisitOptions
+                      kind={visitKind}
+                      onChange={setKind}
+                      firstVisit={selected.visits.length === 0}
+                    />
+                  ) : (
+                    <>
+                      <h2 className="visit-title">نوع الزيارة</h2>
+                      <fieldset className="visit-options">
+                        <legend className="sr-only">نوع الزيارة</legend>
+                        {(["full_exam", "follow_up"] as const).map((value) => (
+                          <label
+                            key={value}
+                            className={visitKind === value ? "selected" : ""}
+                          >
+                            <input
+                              type="radio"
+                              name="visitType"
+                              checked={visitKind === value}
+                              disabled={
+                                selected.visits.length === 0 &&
+                                value === "follow_up"
+                              }
+                              onChange={() => setKind(value)}
+                            />
+                            <span>
+                              <strong>
+                                {value === "full_exam" ? "كشفية" : "مراجعة"}
+                              </strong>
+                              <small>
+                                {value === "full_exam"
+                                  ? "وزن + قياس كامل للجسم (دهون، عضل، محيطات)"
+                                  : "وزن فقط"}
+                              </small>
+                            </span>
+                          </label>
+                        ))}
+                      </fieldset>
+                    </>
+                  )}
                   <p className="intake-info">
                     <Icon name="info" size={18} />
                     {selected.visits.length === 0
@@ -870,9 +885,7 @@ export function ClinicFlowView({
               إعادة ضبط العرض التجريبي
             </button>
           )}
-          {!demo && (
-            <SignOutForm buttonClassName="secretary-primary signout" />
-          )}
+          {!demo && <SignOutForm buttonClassName="secretary-primary signout" />}
           <DemoNote demo={demo} href={href("doctor")} />
         </div>
       </>
@@ -960,10 +973,10 @@ export function ClinicFlowView({
         </div>
       </>
     );
-  else if (route === "doctor/patients")
+  else if (route === "doctor/patients" || (!demo && route === "doctor/search"))
     content = (
       <>
-        {subheader("المرضى", "doctor")}
+        {subheader(route === "doctor/search" ? "البحث" : "المرضى", "doctor")}
         <div className="secretary-content search-content doctor-patient-list">
           <label className="patient-search-input">
             <Icon name="search" size={20} />
@@ -1152,8 +1165,12 @@ export function ClinicFlowView({
     );
   }
   const showNav =
-    ["secretary", "secretary/patients", "secretary/account"].includes(route) ||
-    doctor;
+    [
+      "secretary",
+      "secretary/patients",
+      "secretary/account",
+      ...(!demo ? ["secretary/search"] : []),
+    ].includes(route) || doctor;
   return (
     <main className={doctor ? "doctor-shell" : "secretary-shell"} dir="rtl">
       <fieldset
@@ -1168,24 +1185,34 @@ export function ClinicFlowView({
       >
         {content}
       </fieldset>
-      {showNav && (
-        <nav className="secretary-nav" aria-label="التنقل الرئيسي">
-          {nav.map((item) => (
-            <Link
-              key={item.id}
-              className={`secretary-nav-item${active === item.id ? " active" : ""}`}
-              aria-current={active === item.id ? "page" : undefined}
-              href={href(item.path)}
-            >
-              <span className="secretary-nav-icon">
-                <Icon
-                  name={item.id as "queue" | "patients" | "search" | "account"}
-                />
-              </span>
-              {item.label}
-            </Link>
-          ))}
-        </nav>
+      {showNav && !demo ? (
+        doctor ? (
+          <DoctorNav route={route} />
+        ) : (
+          <SecretaryNav route={route} />
+        )
+      ) : (
+        showNav && (
+          <nav className="secretary-nav" aria-label="التنقل الرئيسي">
+            {nav.map((item) => (
+              <Link
+                key={item.id}
+                className={`secretary-nav-item${active === item.id ? " active" : ""}`}
+                aria-current={active === item.id ? "page" : undefined}
+                href={href(item.path)}
+              >
+                <span className="secretary-nav-icon">
+                  <Icon
+                    name={
+                      item.id as "queue" | "patients" | "search" | "account"
+                    }
+                  />
+                </span>
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+        )
       )}
     </main>
   );
