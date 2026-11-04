@@ -18,6 +18,7 @@ import { DoctorNav } from "@/app/doctor/doctor-nav";
 import { MeasurementScreen } from "./measurements/measurement-screen";
 import { DoctorVisit } from "@/app/doctor/visit-screen";
 import { DoctorHome } from "@/app/doctor/doctor-home";
+import { DoctorWeek } from "@/app/doctor/doctor-week";
 import { DoctorPatientList } from "@/app/doctor/patient-list";
 import { DoctorPatientRecord } from "@/app/doctor/patient-record";
 import { type PatientRecord, type QueueEntry } from "@/lib/clinical-model";
@@ -950,14 +951,24 @@ export function ClinicFlowView({
         current={current}
         waiting={waiting}
         completed={completed}
-        patientCount={patients.length}
-        queueCount={queue.length}
         findPatient={findPatient}
         href={href}
         agendaState={demo ? local : undefined}
+        demoToday={local?.today}
       >
         <DemoNote demo={demo} href={href("secretary")} secretary />
       </DoctorHome>
+    );
+  else if (route === "doctor/week")
+    content = (
+      <>
+        {subheader("مرضى هذا الأسبوع", "doctor")}
+        <DoctorWeek
+          demoState={demo ? local : undefined}
+          demoToday={local?.today}
+          href={href}
+        />
+      </>
     );
   else if (route === "doctor/patients" || route === "doctor/search")
     content = (

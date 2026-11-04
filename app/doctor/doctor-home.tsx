@@ -6,28 +6,27 @@ import { SignOutForm } from "@/app/sign-out-form";
 import type { PatientRecord, QueueEntry } from "@/lib/clinical-model";
 import type { DemoState } from "@/lib/demo-fixture";
 import { DoctorAgenda } from "./agenda";
+import { DoctorWeekStats } from "./doctor-week";
 
 export function DoctorHome({
   demo,
   current,
   waiting,
   completed,
-  patientCount,
-  queueCount,
   findPatient,
   href,
   agendaState,
+  demoToday,
   children,
 }: {
   demo: boolean;
   current: QueueEntry[];
   waiting: QueueEntry[];
   completed: QueueEntry[];
-  patientCount: number;
-  queueCount: number;
   findPatient: (entry: QueueEntry) => PatientRecord;
   href: (route: string) => string;
   agendaState?: DemoState;
+  demoToday?: string;
   children?: ReactNode;
 }) {
   return (
@@ -80,18 +79,11 @@ export function DoctorHome({
             </Link>
           </section>
         )}
-        <div className="doctor-stats">
-          <div>
-            <strong>{patientCount}</strong>
-            <span>{demo ? "إجمالي المرضى" : "الملفات المعروضة"}</span>
-            <small>{demo ? "ملفات تجريبية" : "ملفات العيادة"}</small>
-          </div>
-          <div>
-            <strong>{queueCount}</strong>
-            <span>مرضى اليوم</span>
-            <small>في دور اليوم</small>
-          </div>
-        </div>
+        <DoctorWeekStats
+          demoState={agendaState}
+          demoToday={demoToday}
+          href={href("doctor/week")}
+        />
         {!current[0] && (
           <p className="doctor-empty">لا يوجد مريض عند الطبيب الآن.</p>
         )}
