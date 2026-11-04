@@ -65,7 +65,7 @@ export const measurementFields: {
   unit: string;
   max: number;
 }[] = [
-  { key: "weight", label: "الوزن", unit: "كغ", max: 500 },
+  { key: "weight", label: "الوزن", unit: "كغ", max: 200 },
   { key: "fat", label: "نسبة الدهون", unit: "%", max: 100 },
   { key: "muscle", label: "الكتلة العضلية", unit: "كغ", max: 300 },
   { key: "visceral", label: "الدهون الحشوية", unit: "مستوى", max: 100 },
