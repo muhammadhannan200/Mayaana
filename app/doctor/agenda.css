@@ -27,7 +27,7 @@
   gap: 10px;
   min-width: 0;
 }
-.doctor-workspace .agenda-row .patient-avatar {
+.doctor-workspace .doctor-queue li.agenda-row > a > .patient-avatar {
   flex: none;
   width: 40px;
   height: 40px;
