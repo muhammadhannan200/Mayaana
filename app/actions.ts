@@ -2,10 +2,13 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { createClient as createAuthClient } from "@supabase/supabase-js";
 import type { AuthError } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createClient, isSupabaseConfigured } from "@/lib/supabase/server";
+import {
+  createClient,
+  createStatelessClient,
+  isSupabaseConfigured,
+} from "@/lib/supabase/server";
 import { accountForUser, homeForRole } from "@/lib/auth";
 import {
   validateLogin,
@@ -45,12 +48,11 @@ async function currentPasswordError(
   email: string | undefined,
   password: string
 ): Promise<FormResult> {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-  if (!url || !key || !email) return serviceError;
-  const { error } = await createAuthClient(url, key, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  }).auth.signInWithPassword({ email, password });
+  if (!email) return serviceError;
+  const { error } = await createStatelessClient().auth.signInWithPassword({
+    email,
+    password,
+  });
   if (!error) return null;
   return isServiceError(error) ? serviceError : changePasswordError;
 }

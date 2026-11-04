@@ -2,12 +2,23 @@ import "server-only";
 import { cookies } from "next/headers";
 import { connection } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { createClient as createBaseClient } from "@supabase/supabase-js";
 
 export function isSupabaseConfigured() {
   return Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL &&
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
   );
+}
+
+// For credential checks that must not touch the signed-in session cookies.
+export function createStatelessClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  if (!url || !key) throw new Error("Supabase public configuration is missing");
+  return createBaseClient(url, key, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
 }
 
 export async function createClient(options?: {
