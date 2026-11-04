@@ -282,6 +282,7 @@ for (const width of [320, 1280]) {
     await expect(page).toHaveURL("/doctor");
     expect(submissions).toBe(0);
     // Back neither submits the incomplete form nor changes the login credential.
+    await page.goto("/doctor/staff");
     await page.getByRole("button", { name: "تسجيل الخروج" }).click();
     await expect(page).toHaveURL("/");
     await login(page, "doctor");
@@ -522,16 +523,17 @@ test("failed sign-out is visible, does not claim success, and can be retried", a
   await expect(
     page.getByRole("heading", { name: /الخير/ })
   ).toBeVisible();
+  await page.goto("/doctor/staff");
   const failuresBefore = logoutFailures;
   failLogout = true;
   await page.getByRole("button", { name: "تسجيل الخروج" }).click();
   await expect(page.locator("p[role=alert]")).toHaveText(
     "تعذّر تسجيل الخروج. حاول مرة أخرى."
   );
-  await expect(page).toHaveURL("/doctor");
+  await expect(page).toHaveURL("/doctor/staff");
   expect(logoutFailures).toBeGreaterThan(failuresBefore);
   await page.reload();
-  await expect(page).toHaveURL("/doctor");
+  await expect(page).toHaveURL("/doctor/staff");
   failLogout = false;
   await page.getByRole("button", { name: "تسجيل الخروج" }).click();
   await expect(page).toHaveURL("/");
@@ -632,7 +634,9 @@ for (const role of ["first-doctor", "first-secretary"] as const) {
     await expect(page).toHaveURL(destination);
     await page.goto("/");
     await expect(page).toHaveURL(destination);
-    if (role === "first-secretary") await page.goto("/secretary/account");
+    await page.goto(
+      role === "first-secretary" ? "/secretary/account" : "/doctor/staff"
+    );
     await page.getByRole("button", { name: "تسجيل الخروج" }).click();
     await expect(page).toHaveURL("/");
     await login(page, role, password + "new");
@@ -664,6 +668,7 @@ test("doctor: wrong current password retains fields; corrected optional change t
   await current.fill(password);
   await page.getByRole("button", { name: "حفظ كلمة المرور", exact: true }).click();
   await expect(page).toHaveURL("/doctor");
+  await page.goto("/doctor/staff");
   await page.getByRole("button", { name: "تسجيل الخروج", exact: true }).click();
   await expect(page).toHaveURL("/");
   await login(page, "doctor", password);
