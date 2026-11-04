@@ -102,6 +102,7 @@ export function PatientEditForm({
           name="birthYear"
           inputMode="numeric"
           maxLength={4}
+          placeholder="اختياري"
           defaultValue={patient.birthYear}
           aria-invalid={!!fieldErrors.birthYear}
         />
