@@ -170,11 +170,14 @@ test("two independent sessions: intake, handoff, private draft, diet, appointmen
         .fill(value);
     // Lose the response AFTER the real transaction commits. Retrying must use
     // the original request identity, not fail stale or write measurements twice.
-    await secretary.route("**/secretary/measurements/full-exam*", async (route) => {
-      if (route.request().method() !== "POST") return route.continue();
-      await route.fetch();
-      await route.abort();
-    });
+    await secretary.route(
+      "**/secretary/measurements/full-exam*",
+      async (route) => {
+        if (route.request().method() !== "POST") return route.continue();
+        await route.fetch();
+        await route.abort();
+      }
+    );
     await secretary.getByRole("button", { name: /حفظ القياسات/ }).click();
     await expect(secretary.locator("p[role=alert]")).toContainText(
       "تعذّر الاتصال"
@@ -182,13 +185,23 @@ test("two independent sessions: intake, handoff, private draft, diet, appointmen
     await expect(
       secretary.getByRole("textbox", { name: "الوزن", exact: true })
     ).toHaveValue("٨٠");
-    const committed = await admin.from("daily_queue").select("revision,status").eq("patient_id",patientId).single();
-    expect(committed.error).toBeNull(); expect(committed.data).toMatchObject({revision:1,status:"ready"});
+    const committed = await admin
+      .from("daily_queue")
+      .select("revision,status")
+      .eq("patient_id", patientId)
+      .single();
+    expect(committed.error).toBeNull();
+    expect(committed.data).toMatchObject({ revision: 1, status: "ready" });
     await secretary.unrouteAll();
     await secretary.getByRole("button", { name: /حفظ القياسات/ }).click();
     await expect(secretary).toHaveURL(/measured=1/);
-    const retried = await admin.from("daily_queue").select("revision,status").eq("patient_id",patientId).single();
-    expect(retried.error).toBeNull(); expect(retried.data).toEqual(committed.data);
+    const retried = await admin
+      .from("daily_queue")
+      .select("revision,status")
+      .eq("patient_id", patientId)
+      .single();
+    expect(retried.error).toBeNull();
+    expect(retried.data).toEqual(committed.data);
     await secretary.reload();
     await expect(
       secretary.getByRole("button", { name: "إدخال عند الطبيب" })
@@ -196,7 +209,7 @@ test("two independent sessions: intake, handoff, private draft, diet, appointmen
     await surface(secretary);
     await secretary.getByRole("button", { name: "إدخال عند الطبيب" }).click();
     await expect(
-      doctor.locator(".doctor-queue").filter({ hasText: "عند الطبيب" })
+      doctor.locator(".doctor-current")
     ).toContainText(patientName, { timeout: 25_000 });
     await doctor.getByRole("link", { name: "فتح الملف", exact: true }).click();
     await expect(doctor.locator(".demo-measurements")).toContainText("80");
@@ -311,6 +324,197 @@ test("two independent sessions: intake, handoff, private draft, diet, appointmen
   }
 });
 
+test("competing Secretary sessions show a clear occupied conflict, refresh, and unblock after Doctor completion", async ({
+  browser,
+}, info) => {
+  const secretaryApi = createClient(
+    url,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    { auth: { persistSession: false } }
+  );
+  const doctorApi = createClient(
+    url,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    { auth: { persistSession: false } }
+  );
+  const contexts = await Promise.all(
+    [0, 1, 2].map(() =>
+      browser.newContext({
+        baseURL: "http://127.0.0.1:3103",
+        viewport: info.project.use.viewport,
+      })
+    )
+  );
+  const entries: { id: string; revision: number }[] = [];
+  const plan = [
+    {
+      id: randomUUID(),
+      meals: [
+        { id: randomUUID(), type: "فطور", description: "Synthetic meal" },
+      ],
+    },
+  ];
+  try {
+    for (const [api, email] of [
+      [secretaryApi, secretaryEmail],
+      [doctorApi, doctorEmail],
+    ] as const) {
+      const result = await api.auth.signInWithPassword({ email, password });
+      if (result.error) throw result.error;
+    }
+    for (let i = 0; i < 2; i++) {
+      const id = randomUUID();
+      const created = await secretaryApi.rpc("clinical_create_patient", {
+        p_id: id,
+        p_clinic: clinicId,
+        p_name: `مريض تنافس ${i}`,
+        p_phone: "+12025550125",
+        p_height: 170,
+        p_gender: "female",
+        p_birth_year: 1990,
+        p_goal: "نقص وزن",
+      });
+      if (created.error) throw created.error;
+      const queued = await secretaryApi.rpc("clinical_enqueue", {
+        p_clinic: clinicId,
+        p_patient: id,
+        p_kind: "full_exam",
+      });
+      if (queued.error) throw queued.error;
+      const measured = await secretaryApi.rpc("clinical_save_measurements", {
+        p_queue: queued.data.id,
+        p_revision: queued.data.revision,
+        p_values: {
+          weight: 80,
+          fat: 20,
+          muscle: 30,
+          visceral: 7,
+          bmr: 1600,
+          waist: 85,
+          arm: 30,
+          thigh: 50,
+          hip: 100,
+        },
+      });
+      if (measured.error) throw measured.error;
+      entries.push(measured.data);
+    }
+    const pages = await Promise.all(
+      contexts.map((context) => context.newPage())
+    );
+    for (const page of pages.slice(0, 2))
+      await login(page, secretaryEmail, "secretary");
+    await login(pages[2], doctorEmail, "doctor");
+    for (const [index, page] of pages.slice(0, 2).entries())
+      await expect(
+        page
+          .locator(".queue-card")
+          .filter({ hasText: `مريض تنافس ${index}` })
+          .getByRole("button", { name: "إدخال عند الطبيب" })
+      ).toBeEnabled();
+    // Hold both handoff POSTs until both UIs have submitted their independently
+    // loaded snapshots. Polling cannot turn this into a sequential-button test.
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let arrivals = 0;
+    for (const page of pages.slice(0, 2))
+      await page.route("**/secretary", async (route) => {
+        if (route.request().method() !== "POST") return route.continue();
+        if (++arrivals === 2) release();
+        await gate;
+        await route.continue();
+      });
+    await Promise.all(
+      pages.slice(0, 2).map((page, i) =>
+        page
+          .locator(".queue-card")
+          .filter({ hasText: `مريض تنافس ${i}` })
+          .getByRole("button", { name: "إدخال عند الطبيب" })
+          .click()
+      )
+    );
+    await expect
+      .poll(
+        async () =>
+          (
+            await secretaryApi
+              .from("daily_queue")
+              .select("id")
+              .eq("clinic_id", clinicId)
+              .eq("status", "with_doctor")
+          ).data?.length
+      )
+      .toBe(1);
+    const active = await secretaryApi
+      .from("daily_queue")
+      .select("id,revision")
+      .eq("clinic_id", clinicId)
+      .eq("status", "with_doctor")
+      .single();
+    if (active.error) throw active.error;
+    const loserIndex = entries.findIndex(
+      (entry) => entry.id !== active.data.id
+    );
+    const loserPage = pages[loserIndex];
+    await expect(loserPage.locator("p[role=alert]")).toContainText(
+      "يوجد مريض عند الطبيب حالياً"
+    );
+    await expect(
+      loserPage
+        .locator(".queue-card")
+        .filter({ hasText: `مريض تنافس ${loserIndex}` })
+        .getByRole("button")
+    ).toBeEnabled();
+    await pages[2].evaluate(() => window.dispatchEvent(new Event("focus")));
+    await expect(pages[2].locator(".doctor-current")).toBeVisible();
+    const finished = await doctorApi.rpc("clinical_finish", {
+      p_queue: active.data.id,
+      p_revision: active.data.revision,
+      p_request: randomUUID(),
+      p_notes: "Synthetic",
+      p_days: plan,
+      p_appointment: null,
+    });
+    if (finished.error) throw finished.error;
+    await loserPage.evaluate(() => window.dispatchEvent(new Event("focus")));
+    const retry = loserPage
+      .locator(".queue-card")
+      .filter({ hasText: `مريض تنافس ${loserIndex}` })
+      .getByRole("button");
+    await expect(retry).toBeEnabled();
+    await retry.click();
+    await expect(loserPage).toHaveURL(/sent=1/);
+    await pages[2].evaluate(() => window.dispatchEvent(new Event("focus")));
+    await expect(pages[2].locator(".doctor-current")).toContainText(
+      `مريض تنافس ${loserIndex}`
+    );
+  } finally {
+    for (const entry of entries) {
+      const result = await doctorApi
+        .from("daily_queue")
+        .select("revision,status")
+        .eq("id", entry.id)
+        .single();
+      if (result.data?.status === "with_doctor") {
+        const finished = await doctorApi.rpc("clinical_finish", {
+          p_queue: entry.id,
+          p_revision: result.data.revision,
+          p_request: randomUUID(),
+          p_notes: "Synthetic cleanup",
+          p_days: plan,
+          p_appointment: null,
+        });
+        if (finished.error) throw finished.error;
+      }
+    }
+    for (const context of contexts) await context.close();
+    await secretaryApi.auth.signOut();
+    await doctorApi.auth.signOut();
+  }
+});
+
 test("independent doctor sessions reject stale drafts and never present unsaved data as a completed record", async ({
   browser,
 }, info) => {
@@ -349,7 +553,17 @@ test("independent doctor sessions reject stale drafts and never present unsaved 
   queue = await rpc("clinical_save_measurements", {
     p_queue: queue.id,
     p_revision: queue.revision,
-    p_values: { weight: 80, fat: 20, muscle: 30, visceral: 7, bmr: 1600, waist: 85, arm: 30, thigh: 50, hip: 100 },
+    p_values: {
+      weight: 80,
+      fat: 20,
+      muscle: 30,
+      visceral: 7,
+      bmr: 1600,
+      waist: 85,
+      arm: 30,
+      thigh: 50,
+      hip: 100,
+    },
   });
   queue = await rpc("clinical_handoff", {
     p_queue: queue.id,
@@ -358,7 +572,10 @@ test("independent doctor sessions reject stale drafts and never present unsaved 
   });
   // Subsequent API completion must be a doctor operation, like both browser
   // sessions below. Do not reuse the secretary's intake session for finish.
-  const doctorSession = await api.auth.signInWithPassword({email:doctorEmail,password});
+  const doctorSession = await api.auth.signInWithPassword({
+    email: doctorEmail,
+    password,
+  });
   if (doctorSession.error) throw doctorSession.error;
   const contexts = await Promise.all([
     browser.newContext({

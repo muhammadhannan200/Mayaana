@@ -111,6 +111,13 @@ function VisitEditor({
   const [description, setDescription] = useState("");
   const plan = params.get("step") === "plan";
   const completed = entry?.status === "completed";
+  const needsOpen = entry?.status === "with_doctor" && !entry.doctorOpened;
+  useEffect(() => {
+    if (!needsOpen) return;
+    if (operations) void operations.openVisit(entryId);
+    else local?.openVisit(entryId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [needsOpen, entryId]);
   const [draft, setDraft] = useState<{
     visit: DemoVisit;
     revision: number;
