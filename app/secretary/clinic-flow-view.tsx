@@ -11,7 +11,7 @@ import { visitCountLabel } from "@/lib/arabic-count";
 import { DoctorNav } from "@/app/doctor/doctor-nav";
 import { MeasurementScreen } from "./measurements/measurement-screen";
 import { DoctorVisit } from "@/app/doctor/visit-screen";
-import { DoctorAgenda } from "@/app/doctor/agenda";
+import { DoctorHome } from "@/app/doctor/doctor-home";
 import {
   measurementFields,
   type PatientRecord,
@@ -889,123 +889,19 @@ export function ClinicFlowView({
     );
   else if (route === "doctor")
     content = (
-      <>
-        <header className="doctor-home-header">
-          <div>
-            <h1>{demo ? "صباح الخير دكتور" : "دور العيادة"}</h1>
-            <p>دور اليوم</p>
-          </div>
-          {!demo && (
-            <SignOutForm buttonClassName="doctor-bell">
-              <Icon name="account" />
-            </SignOutForm>
-          )}
-        </header>
-        <div className="doctor-content">
-          {current.length > 1 && (
-            <p className="secretary-error" role="alert">
-              توجد زيارات نشطة متعارضة من بيانات سابقة. أكمل الزيارة الحالية
-              لتظهر الزيارة التالية.
-            </p>
-          )}
-          {current[0] && (
-            <section className="doctor-current">
-              <p className="doctor-current-label">
-                <Image
-                  src="/rashaqa/doctor-door.svg"
-                  width={18}
-                  height={18}
-                  alt=""
-                  unoptimized
-                />
-                عندك الآن
-              </p>
-              <div className="doctor-current-summary">
-                <h2>{findPatient(current[0]).name}</h2>
-                <p>
-                  {current[0].kind === "full_exam" ? "كشفية" : "مراجعة"} ·
-                  الزيارة {findPatient(current[0]).visits.length + 1}
-                  {current[0].measurements.weight && (
-                    <>
-                      {" "}
-                      · الوزن <bdi>{current[0].measurements.weight} كغ</bdi>
-                    </>
-                  )}
-                </p>
-              </div>
-              <Link href={href(`doctor/patients/${current[0].patientId}`)}>
-                فتح الملف
-              </Link>
-            </section>
-          )}
-          <div className="doctor-stats">
-            <div>
-              <strong>{patients.length}</strong>
-              <span>{demo ? "إجمالي المرضى" : "الملفات المعروضة"}</span>
-              <small>{demo ? "ملفات تجريبية" : "ملفات العيادة"}</small>
-            </div>
-            <div>
-              <strong>{queue.length}</strong>
-              <span>مرضى اليوم</span>
-              <small>في دور اليوم</small>
-            </div>
-          </div>
-          {!current[0] && (
-            <p className="doctor-empty">لا يوجد مريض عند الطبيب الآن.</p>
-          )}
-          <section className="doctor-queue">
-            <h2>الدور برّا ({waiting.length})</h2>
-            <ol>
-              {waiting.map((e, i) => (
-                <li key={e.id}>
-                  <span className="doctor-order">{i + 1}</span>
-                  <span className="doctor-queue-person">
-                    {findPatient(e).name}
-                    <small>
-                      {e.kind === "full_exam" ? "كشفية" : "مراجعة"}
-                      {e.arrivalTime && (
-                        <>
-                          {" "}
-                          · وصل <bdi>{e.arrivalTime}</bdi>
-                        </>
-                      )}
-                    </small>
-                  </span>
-                  <span
-                    className={
-                      e.status === "ready" ? "doctor-ready" : "doctor-waiting"
-                    }
-                  >
-                    {e.status === "ready" ? (
-                      <Icon name="check" size={14} />
-                    ) : (
-                      <span className="doctor-clock" aria-hidden="true" />
-                    )}
-                    {e.status === "ready" ? "جاهز للدخول" : "بانتظار القياس"}
-                  </span>
-                </li>
-              ))}
-            </ol>
-          </section>
-          {completed.length > 0 && (
-            <section className="doctor-queue">
-              <h2>الزيارات المكتملة ({completed.length})</h2>
-              <ul>
-                {completed.map((e) => (
-                  <li key={e.id}>
-                    <Link href={href(`doctor/visits/${e.id}`)}>
-                      <span>{findPatient(e).name}</span>
-                      <span className="doctor-ready">اكتملت الزيارة</span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-          <DoctorAgenda demoState={demo ? local : undefined} />
-          <DemoNote demo={demo} href={href("secretary")} secretary />
-        </div>
-      </>
+      <DoctorHome
+        demo={demo}
+        current={current}
+        waiting={waiting}
+        completed={completed}
+        patientCount={patients.length}
+        queueCount={queue.length}
+        findPatient={findPatient}
+        href={href}
+        agendaState={demo ? local : undefined}
+      >
+        <DemoNote demo={demo} href={href("secretary")} secretary />
+      </DoctorHome>
     );
   else if (route === "doctor/patients" || route === "doctor/search")
     content = (
