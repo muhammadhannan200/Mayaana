@@ -76,6 +76,15 @@
   height: auto;
   overflow: visible;
 }
+.progress-chart .progress-grid {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+.progress-chart .progress-date {
+  fill: #475569;
+  font-size: 10px;
+  font-weight: 400;
+}
 .progress-chart polyline {
   fill: none;
   stroke: var(--brand);
@@ -198,7 +207,7 @@
 }
 .record-menu {
   position: relative;
-  margin-inline-start: auto;
+  margin-right: auto;
 }
 .record-menu summary {
   display: grid;

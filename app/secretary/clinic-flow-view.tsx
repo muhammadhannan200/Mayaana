@@ -370,6 +370,7 @@ export function ClinicFlowView({
     <header
       className={`secretary-subheader${doctor ? " doctor-record-header" : ""}`}
     >
+      {menu}
       {doctor ? (
         <div>
           <h1>{title}</h1>
@@ -378,7 +379,6 @@ export function ClinicFlowView({
       ) : (
         <h1>{title}</h1>
       )}
-      {menu}
       <Link href={href(back)} aria-label="العودة">
         <Icon name={doctor ? "arrow" : "close"} />
       </Link>
