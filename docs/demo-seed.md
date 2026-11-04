@@ -21,10 +21,11 @@ This is independent of the browser-local `/demo` fixtures; none are imported.
 
 ## Configuration and deliberate writes
 
-Node 24 and installed npm dependencies are required for writes. The owner must
-separately prepare a **disposable local Supabase database** with this repository's
-checked-in migrations. This script does not deploy migrations or reset databases.
-Do not target production or any real clinic. Hosted URLs are explicitly refused.
+Node 24 and installed npm dependencies are required for writes. The target must
+already have this repository's migrations. This script does not deploy migrations
+or reset databases. Allowed targets are a loopback Supabase stack, or the owner's
+demo project `aisrzeazbnycpdtuadnh` over HTTPS with `SEED_CONFIRM_PROJECT_REF` set
+to that ref. Every other hosted URL is refused, and it must never hold real patients.
 
 Supply these through the process environment, never `.env.local` or CLI secrets:
 

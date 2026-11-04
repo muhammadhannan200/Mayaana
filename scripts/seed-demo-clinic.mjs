@@ -141,19 +141,22 @@ async function main() {
   };
   const url = new URL(required("NEXT_PUBLIC_SUPABASE_URL"));
   const local = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
+  // The only hosted target is the owner's demo project, and only with HTTPS.
+  const demoProject = "aisrzeazbnycpdtuadnh";
+  const hosted =
+    url.protocol === "https:" && url.hostname === `${demoProject}.supabase.co`;
   check(
-    local &&
-      ["http:", "https:"].includes(url.protocol) &&
+    (hosted || (local && ["http:", "https:"].includes(url.protocol))) &&
       !url.username &&
       !url.password &&
       url.pathname === "/" &&
       !url.search &&
       !url.hash,
-    "Writes are restricted to a loopback disposable Supabase URL. Hosted projects are refused."
+    "Writes are restricted to a loopback Supabase URL or the approved demo project."
   );
   check(
-    required("SEED_CONFIRM_PROJECT_REF") === url.hostname,
-    "SEED_CONFIRM_PROJECT_REF must exactly match the local URL hostname."
+    required("SEED_CONFIRM_PROJECT_REF") === (hosted ? demoProject : url.hostname),
+    "SEED_CONFIRM_PROJECT_REF must match the demo project ref or local hostname."
   );
   const passwords = Object.fromEntries(
     ROLES.map((role) => [role, required(`SEED_${role.toUpperCase()}_PASSWORD`)])
