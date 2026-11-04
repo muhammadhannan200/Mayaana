@@ -441,21 +441,20 @@ export function ClinicFlowView({
                       <div className="queue-person">
                         <strong>{findPatient(e).name}</strong>
                         <span>
-                          {e.status === "ready"
-                            ? "جاهز للدخول"
-                            : Object.keys(e.measurements).length
-                              ? "القياسات غير مكتملة"
-                              : "بانتظار القياس"}{" "}
-                          {demo && (
-                            <> · الزيارة {findPatient(e).visits.length + 1}</>
-                          )}
                           {e.arrivalTime && (
                             <>
-                              {" "}
-                              · <bdi>{e.arrivalTime}</bdi>
+                              {findPatient(e).gender === "female"
+                                ? "وصلت"
+                                : "وصل"}{" "}
+                              <bdi>{e.arrivalTime}</bdi> ·{" "}
                             </>
                           )}
+                          الزيارة {findPatient(e).visits.length + 1}
                         </span>
+                        {e.status === "waiting" &&
+                          Object.keys(e.measurements).length > 0 && (
+                            <span>القياسات غير مكتملة</span>
+                          )}
                       </div>
                       {badge(e)}
                     </div>
@@ -628,7 +627,7 @@ export function ClinicFlowView({
                         <bdi>{p.phone}</bdi> ·{" "}
                         {p.visits.length
                           ? `عدد الزيارات ${p.visits.length}`
-                          : "ملف جديد"}
+                          : "زيارة أولى"}
                       </small>
                     </span>
                     <Icon name="arrow" size={18} />
@@ -880,7 +879,7 @@ export function ClinicFlowView({
               name="birthYear"
               inputMode="numeric"
               maxLength={4}
-              placeholder="مثال: 1990"
+              placeholder="اختياري"
               aria-invalid={!!fieldErrors.birthYear}
             />
             <FieldError message={fieldErrors.birthYear} />
