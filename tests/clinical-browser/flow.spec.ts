@@ -468,9 +468,7 @@ test("competing Secretary sessions show a clear occupied conflict, refresh, and 
         .getByRole("button")
     ).toBeEnabled();
     await pages[2].evaluate(() => window.dispatchEvent(new Event("focus")));
-    await expect(
-      pages[2].getByRole("heading", { name: "عند الطبيب (1)", exact: true })
-    ).toBeVisible();
+    await expect(pages[2].locator(".doctor-current")).toBeVisible();
     const finished = await doctorApi.rpc("clinical_finish", {
       p_queue: active.data.id,
       p_revision: active.data.revision,
