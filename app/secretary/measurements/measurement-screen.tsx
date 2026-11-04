@@ -2,14 +2,16 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { Icon } from "../components";
+import { Icon } from "@/components/icon";
+import {
+  measurementFields,
+  type MeasurementKey,
+  type VisitMeasurement,
+} from "@/lib/clinical-model";
 import {
   followUpFixture,
   fullExamFixture,
-  measurementFields,
-  type MeasurementKey,
   type MockVisit,
-  type VisitMeasurement,
 } from "./mock-visits";
 import "./measurements.css";
 

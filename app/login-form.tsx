@@ -36,34 +36,6 @@ function EmailIcon() {
   );
 }
 
-function LockIcon() {
-  return (
-    <svg
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden="true"
-    >
-      <rect
-        x="4.5"
-        y="10"
-        width="15"
-        height="11"
-        rx="2"
-        stroke="currentColor"
-        strokeWidth="1.8"
-      />
-      <path
-        d="M8 10V7a4 4 0 0 1 8 0v3"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
 export function LoginForm({ configured }: { configured: boolean }) {
   const {
     formRef,
@@ -166,9 +138,7 @@ export function LoginForm({ configured }: { configured: boolean }) {
                   aria-describedby={
                     errors.password ? "password-error" : undefined
                   }
-                >
-                  <LockIcon />
-                </PasswordInput>
+                />
                 <FieldError id="password-error" error={errors.password} />
               </div>
             </div>

@@ -140,28 +140,40 @@ test.beforeAll(async () => {
   ).actor;
 });
 
+test.afterEach(async () => {
+  // Do not leave a consultation occupying the shared fixture clinic for the
+  // next test. Complete through the real Doctor RPC, never reset queue status.
+  const active = await doctor.db
+    .from("daily_queue")
+    .select("id,revision")
+    .eq("clinic_id", clinic)
+    .eq("status", "with_doctor");
+  expect(active.error).toBeNull();
+  for (const entry of active.data ?? []) {
+    const result = await doctor.db.rpc("clinical_finish", {
+      p_queue: entry.id,
+      p_revision: entry.revision,
+      p_request: randomUUID(),
+      p_notes: "Synthetic test completion",
+      p_appointment: null,
+      p_days: [
+        {
+          id: randomUUID(),
+          meals: [
+            { id: randomUUID(), type: "فطور", description: "Synthetic meal" },
+          ],
+        },
+      ],
+    });
+    expect(result.error).toBeNull();
+  }
+});
+
 test.afterAll(async () => {
-  // Only the disposable local database is reachable; the runner also discards it.
-  for (const id of clinics) {
-    for (const table of [
-      "visit_measurements",
-      "visits",
-      "daily_queue",
-      "patients",
-      "clinic_staff",
-    ]) {
-      expect(
-        (await admin.from(table).delete().eq("clinic_id", id)).error
-      ).toBeNull();
-    }
-    expect(
-      (await admin.from("clinics").delete().eq("id", id)).error
-    ).toBeNull();
-  }
-  for (const a of actors) {
-    await a.db.auth.signOut();
-    expect((await admin.auth.admin.deleteUser(a.id)).error).toBeNull();
-  }
+  // Completed clinical records are immutable, even to admin clients. Sign out
+  // and let the guarded runner destroy its disposable local stack; do not
+  // disable production guards simply to delete synthetic completed records.
+  for (const actor of actors) await actor.db.auth.signOut();
 });
 
 test("patient and enqueue retries retain one patient, dated queue entry and visit", async () => {
@@ -468,9 +480,7 @@ test("two independent browser sessions see the persisted Secretary to Doctor han
         : route.continue()
     );
     await s.getByRole("button", { name: "حفظ ومتابعة الإضافة للدور" }).click();
-    await expect(s.locator("p[role=alert]")).toContainText(
-      "تعذّر الاتصال"
-    );
+    await expect(s.locator("p[role=alert]")).toContainText("تعذّر الاتصال");
     await expect(s.getByLabel("الاسم الكامل *", { exact: true })).toHaveValue(
       name
     );
@@ -508,14 +518,17 @@ test("two independent browser sessions see the persisted Secretary to Doctor han
       ).error
     ).toBeNull();
     await s.getByRole("button", { name: "حفظ القياسات وتجهيز للدخول" }).click();
-    await expect(s.locator("p[role=alert]")).toContainText(
-      "تغيّرت البيانات"
-    );
+    await expect(s.locator("p[role=alert]")).toContainText("تغيّرت البيانات");
     await expect(
       s.getByRole("textbox", { name: "الوزن", exact: true })
     ).toHaveValue("74.8");
     s.once("dialog", (dialog) => dialog.accept());
-    await s.getByRole("button", { name: "تحميل النسخة المحفوظة وإلغاء التعديلات", exact: true }).click();
+    await s
+      .getByRole("button", {
+        name: "تحميل النسخة المحفوظة وإلغاء التعديلات",
+        exact: true,
+      })
+      .click();
     await expect(
       s.getByRole("textbox", { name: "الوزن", exact: true })
     ).toHaveValue("74.8");
@@ -530,8 +543,12 @@ test("two independent browser sessions see the persisted Secretary to Doctor han
     // No shared storage state, context or localStorage synchronization.
     // The clinical foundation retains the persisted handoff but presents it in
     // the doctor's queue, then opens the read-only patient/measurement profile.
-    const doctorPatient = d.locator(".doctor-queue").getByRole("link", { name: new RegExp(name) });
-    await expect(doctorPatient).toBeVisible({ timeout: 15000 });
+    await expect(d.locator(".doctor-current")).toContainText(name, {
+      timeout: 15000,
+    });
+    const doctorPatient = d
+      .locator(".doctor-current")
+      .getByRole("link", { name: "فتح الملف", exact: true });
     await doctorPatient.click();
     const storedPatient = await secretary.db
       .from("patients")
@@ -547,7 +564,9 @@ test("two independent browser sessions see the persisted Secretary to Doctor han
     await expect(d).toHaveURL(
       new RegExp(`/doctor/patients/${storedPatient.data!.id}$`)
     );
-    await expect(d.getByRole("link", { name: "زيارة اليوم", exact: true })).toHaveAttribute("href", `/doctor/visits/${storedVisit.data!.queue_id}`);
+    await expect(
+      d.getByRole("link", { name: "زيارة اليوم", exact: true })
+    ).toHaveAttribute("href", `/doctor/visits/${storedVisit.data!.queue_id}`);
     await expect(d.getByRole("heading", { name })).toBeVisible();
     await expect(d.locator(".demo-measurements")).toContainText("74.8");
     expect((await new AxeBuilder({ page: d }).analyze()).violations).toEqual(

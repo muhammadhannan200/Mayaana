@@ -77,3 +77,13 @@ test("public login fits within the viewport without horizontal overflow", async 
   );
   expect(geometry.controlsOutsideViewport).toEqual([]);
 });
+
+test("the eye button shows and hides the password", async ({ page }) => {
+  await page.goto("/");
+  const password = page.getByLabel("كلمة المرور", { exact: true });
+  await expect(password).toHaveAttribute("type", "password");
+  await page.getByRole("button", { name: "إظهار كلمة المرور" }).click();
+  await expect(password).toHaveAttribute("type", "text");
+  await page.getByRole("button", { name: "إخفاء كلمة المرور" }).click();
+  await expect(password).toHaveAttribute("type", "password");
+});

@@ -10,7 +10,7 @@ import type {
   ClinicalResult,
   ClinicalSnapshot,
 } from "@/lib/clinical-types";
-import { ClinicFlowView } from "./clinic-flow";
+import { ClinicFlowView } from "./clinic-flow-view";
 
 const networkError: ClinicalFailure = {
   ok: false,
@@ -110,6 +110,9 @@ export function PersistedFlow({ route }: { route: string }) {
       const result = await operation();
       if (!result.ok) {
         setError(result);
+        // A competing handoff may have filled the slot since this snapshot.
+        // Refresh occupancy without discarding unsaved form/visit drafts.
+        if (result.kind === "conflict") await refresh();
         return false;
       }
       setMessage("تم الحفظ في العيادة.");
@@ -144,6 +147,13 @@ export function PersistedFlow({ route }: { route: string }) {
       write(() =>
         actions.handoffToDoctor(id, revision(id), requestId(`handoff:${id}`))
       ),
+    cancelHandoff: (id) =>
+      write(() => actions.cancelHandoff(id, revision(id))),
+    openVisit: async (id) => {
+      // Best effort: failure only leaves the short cancel window open, and the
+      // server still rejects cancellation once notes or a diet exist.
+      await actions.openVisit(id).catch(() => undefined);
+    },
     saveDoctorDraft: (id, version, draft) =>
       write(() => actions.saveDoctorDraft(id, version, draft)),
     finishVisit: (id, version, draft) =>
@@ -208,13 +218,13 @@ export function PersistedFlow({ route }: { route: string }) {
   );
   if (!snapshot)
     return (
-      <main className="secretary-shell recovery" dir="rtl">
+      <main className="secretary-shell recovery persisted-clinic" dir="rtl">
         <h1>العيادة</h1>
         {error ? status : <p role="status">جارٍ تحميل بيانات العيادة…</p>}
       </main>
     );
   return (
-    <>
+    <div className="persisted-clinic">
       {status}
       <ClinicFlowView
         route={route}
@@ -243,6 +253,6 @@ export function PersistedFlow({ route }: { route: string }) {
           )}
         </div>
       )}
-    </>
+    </div>
   );
 }

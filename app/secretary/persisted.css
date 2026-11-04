@@ -1,0 +1,98 @@
+/* Live-only Batch 1 parity. The public fictional demo keeps its current UI. */
+.persisted-clinic .secretary-outline {
+  min-height: 50px;
+  padding: 12px 20px;
+  gap: 8px;
+  color: #0f172a;
+  border-color: #e2e8f0;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 700;
+  white-space: normal;
+  text-align: center;
+}
+.persisted-clinic .secretary-outline:hover {
+  background: #f1f5f9;
+}
+.persisted-clinic .secretary-outline:focus-visible,
+.persisted-clinic .secretary-nav-item:focus-visible,
+.persisted-clinic .visit-options input:focus-visible {
+  outline: 2px solid #0f766e;
+  outline-offset: 3px;
+}
+.persisted-clinic .secretary-outline:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.persisted-clinic .visit-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  border-radius: 9999px;
+  color: #475569;
+  background: #f1f5f9;
+}
+.persisted-clinic .visit-badge.full {
+  color: #0369a1;
+  background: #f0f9ff;
+}
+.persisted-clinic .secretary-nav {
+  align-items: center;
+  padding: 4px 16px max(16px, env(safe-area-inset-bottom));
+}
+.persisted-clinic .secretary-nav-item {
+  width: 80px;
+  min-width: 0;
+  min-height: 56px;
+  justify-content: center;
+  gap: 4px;
+  line-height: 16px;
+  color: #64748b;
+}
+.persisted-clinic .secretary-nav-item.active {
+  color: #0f172a;
+}
+.persisted-clinic .secretary-nav-item img {
+  flex: none;
+}
+.persisted-clinic .visit-options legend {
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 28px;
+  margin-bottom: 12px;
+}
+.persisted-clinic .visit-options label {
+  min-height: 74px;
+  padding: 16px;
+}
+.persisted-clinic .visit-options label.selected {
+  border-color: #14b8a6;
+  background: #f0fdfa;
+}
+.persisted-clinic .visit-options input {
+  width: 22px;
+  height: 22px;
+  appearance: none;
+  border: 2px solid #e2e8f0;
+  border-radius: 50%;
+  margin: 0;
+  padding: 0;
+}
+.persisted-clinic .visit-options input:checked {
+  border-color: #14b8a6;
+  background: #14b8a6;
+}
+.persisted-clinic .visit-options label:has(input:disabled) {
+  cursor: not-allowed;
+}
+.persisted-clinic .visit-options strong {
+  line-height: 24px;
+}
+.persisted-clinic .visit-options small {
+  margin: 0;
+  line-height: 16px;
+}

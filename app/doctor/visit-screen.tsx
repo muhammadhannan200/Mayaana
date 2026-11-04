@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { useDemoClinic, type DemoVisit } from "@/lib/demo-clinic";
-import { Icon } from "@/app/secretary/components";
-import { measurementFields } from "@/app/secretary/measurements/mock-visits";
+import { useDemoClinic } from "@/lib/demo-clinic";
+import { measurementFields, type VisitDraft } from "@/lib/clinical-model";
+import { damascusDate } from "@/lib/doctor-agenda";
+import { Icon } from "@/components/icon";
 import "./visit.css";
 import type {
   ClinicalOperations,
@@ -111,19 +112,32 @@ function VisitEditor({
   const [description, setDescription] = useState("");
   const plan = params.get("step") === "plan";
   const completed = entry?.status === "completed";
+  const needsOpen = entry?.status === "with_doctor" && !entry.doctorOpened;
+  useEffect(() => {
+    if (!needsOpen) return;
+    if (operations) void operations.openVisit(entryId);
+    else local?.openVisit(entryId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [needsOpen, entryId]);
   const [draft, setDraft] = useState<{
-    visit: DemoVisit;
+    visit: VisitDraft;
     revision: number;
   } | null>(null);
-  const visit: DemoVisit = (!demo && !completed && draft?.visit) ||
+  const visit: VisitDraft = (!demo && !completed && draft?.visit) ||
     entry?.visit || {
       notes: "",
       days: [],
       appointment: "",
     };
-  const appointment =
-    visit.appointment ||
-    dateAfter(Math.max(1, visit.days.length), clinical?.serviceDate);
+  function appointmentOn(date?: string) {
+    return (
+      visit.appointment ||
+      (completed ? "" : dateAfter(Math.max(1, visit.days.length), date))
+    );
+  }
+  const appointment = appointmentOn(
+    demo ? local!.today : clinical?.serviceDate
+  );
   const meals = visit.days.reduce((sum, day) => sum + day.meals.length, 0);
   const visitHref = href(`/visits/${entryId}`);
   const revision = (entry as ClinicEntry | undefined)?.revision ?? 0;
@@ -153,7 +167,7 @@ function VisitEditor({
     };
   }, [demo, draft, editing, description]);
 
-  function save(change: (current: DemoVisit) => DemoVisit) {
+  function save(change: (current: VisitDraft) => VisitDraft) {
     if (operations) {
       if (completed || operations.pending) return;
       setDraft((current) => ({
@@ -220,6 +234,15 @@ function VisitEditor({
       }
       return;
     }
+    // A suspended tab or open confirmation can cross midnight before timers or
+    // resume events run. Recheck demo dates at the final local write boundary.
+    const today = local!.currentDate();
+    const completedAppointment = appointmentOn(today);
+    if (completedAppointment <= dateAfter(0, today)) {
+      setReview(false);
+      setError("اختر موعد مراجعة بعد اليوم.");
+      return;
+    }
     const completedAt = new Date().toISOString();
     update((state) => {
       const active = state.queue.find((item) => item.id === entryId);
@@ -231,7 +254,11 @@ function VisitEditor({
             ? {
                 ...item,
                 status: "completed",
-                visit: { ...visit, appointment, completedAt },
+                visit: {
+                  ...visit,
+                  appointment: completedAppointment,
+                  completedAt,
+                },
               }
             : item
         ),
@@ -244,6 +271,8 @@ function VisitEditor({
                     id: entryId,
                     number: record.visits.length + 1,
                     date: new Date(completedAt).toLocaleDateString("ar-SY"),
+                    serviceDate: damascusDate(new Date(completedAt)),
+                    appointment: completedAppointment,
                     detailDate: "زيارة مكتملة · العرض التجريبي",
                     kind: active.kind,
                     measurements: { ...active.measurements },
@@ -456,14 +485,14 @@ function VisitEditor({
       <section className="visit-appointment">
         <h2>موعد المراجعة القادمة</h2>
         {completed ? (
-          <p>{appointment}</p>
+          <p>{appointment || "لم يُحدّد موعد متابعة"}</p>
         ) : (
           <label className="secretary-field">
             تاريخ الموعد
             <input
               type="date"
               disabled={operations?.pending}
-              min={dateAfter(1, clinical?.serviceDate)}
+              min={dateAfter(1, demo ? local!.today : clinical?.serviceDate)}
               value={appointment}
               onChange={(event) =>
                 save((current) => ({
@@ -474,11 +503,13 @@ function VisitEditor({
             />
           </label>
         )}
-        <small>
-          {visit.appointment
-            ? "موعد مخصص لهذه الزيارة"
-            : "يُحسب تلقائياً: اليوم التالي لنهاية البرنامج"}
-        </small>
+        {(!completed || visit.appointment) && (
+          <small>
+            {visit.appointment
+              ? "موعد مخصص لهذه الزيارة"
+              : "يُحسب تلقائياً: اليوم التالي لنهاية البرنامج"}
+          </small>
+        )}
       </section>
     </section>
   );
@@ -660,6 +691,13 @@ function VisitEditor({
         )}
       </fieldset>
       <footer className="visit-actionbar">
+        {completed && (
+          // Start a fresh document: client navigation retains hidden visit
+          // markup (including notes) in Next's mounted route cache.
+          <a className="secretary-outline" href={`${visitHref}/print`}>
+            طباعة البرنامج
+          </a>
+        )}
         {completed ? (
           <Link className="secretary-primary" href={href("")}>
             العودة للرئيسية
@@ -686,7 +724,11 @@ function VisitEditor({
                 );
                 return;
               }
-              if (appointment <= dateAfter(0, clinical?.serviceDate)) {
+              const date = demo ? local!.currentDate() : clinical?.serviceDate;
+              const currentAppointment = demo
+                ? appointmentOn(date)
+                : appointment;
+              if (currentAppointment <= dateAfter(0, date)) {
                 setError("اختر موعد مراجعة بعد اليوم.");
                 return;
               }
