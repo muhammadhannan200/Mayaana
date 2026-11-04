@@ -9,6 +9,7 @@ import { dayCountLabel, mealCountLabel } from "@/shared/arabic-count";
 import { measurementFields, type VisitDraft } from "@/shared/clinical-model";
 import { damascusDate } from "@/shared/doctor-agenda";
 import { Icon } from "@/frontend/components/icon";
+import { VisitAttachments } from "./visit-attachments";
 import "./visit.css";
 import type {
   ClinicalOperations,
@@ -692,6 +693,11 @@ function VisitEditor({
                 }
               />
             </section>
+            <VisitAttachments
+              entry={entryId}
+              demo={demo}
+              readOnly={completed}
+            />
           </>
         )}
         {(plan || completed) && diet}
