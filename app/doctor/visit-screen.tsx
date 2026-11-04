@@ -691,6 +691,13 @@ function VisitEditor({
         )}
       </fieldset>
       <footer className="visit-actionbar">
+        {completed && (
+          // Start a fresh document: client navigation retains hidden visit
+          // markup (including notes) in Next's mounted route cache.
+          <a className="secretary-outline" href={`${visitHref}/print`}>
+            طباعة البرنامج
+          </a>
+        )}
         {completed ? (
           <Link className="secretary-primary" href={href("")}>
             العودة للرئيسية

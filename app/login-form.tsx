@@ -33,30 +33,22 @@ function EmailIcon() {
   );
 }
 
-function LockIcon() {
+function EyeIcon({ hidden }: { hidden: boolean }) {
   return (
     <svg
       width="20"
       height="20"
       viewBox="0 0 24 24"
       fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
       aria-hidden="true"
     >
-      <rect
-        x="4.5"
-        y="10"
-        width="15"
-        height="11"
-        rx="2"
-        stroke="currentColor"
-        strokeWidth="1.8"
-      />
-      <path
-        d="M8 10V7a4 4 0 0 1 8 0v3"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-      />
+      <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" />
+      <circle cx="12" cy="12" r="3" />
+      {hidden && <path d="M4 4l16 16" />}
     </svg>
   );
 }
@@ -65,6 +57,7 @@ export function LoginForm({ configured }: { configured: boolean }) {
   const [state, action, pending] = useActionState(signIn, null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   return (
     <main className="auth-shell">
@@ -118,11 +111,19 @@ export function LoginForm({ configured }: { configured: boolean }) {
               <div className="field">
                 <label htmlFor="password">كلمة المرور</label>
                 <div className="input-wrap">
-                  <LockIcon />
+                  <button
+                    type="button"
+                    className="password-toggle"
+                    aria-label={showPassword ? "إخفاء كلمة السر" : "إظهار كلمة السر"}
+                    aria-pressed={showPassword}
+                    onClick={() => setShowPassword((shown) => !shown)}
+                  >
+                    <EyeIcon hidden={showPassword} />
+                  </button>
                   <input
                     id="password"
                     name="password"
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     autoComplete="current-password"
                     placeholder="••••••••"
                     value={password}
