@@ -1,3 +1,4 @@
+import Link from "next/link";
 import Image from "next/image";
 import { AppNav, type AppNavTab } from "@/frontend/components/app-nav";
 import type { ClinicEntry } from "@/shared/clinical-types";
@@ -70,5 +71,25 @@ export function VisitOptions({
         </label>
       ))}
     </fieldset>
+  );
+}
+
+export function DemoNote({
+  demo,
+  href,
+  secretary = false,
+}: {
+  demo: boolean;
+  href: string;
+  secretary?: boolean;
+}) {
+  if (!demo) return null;
+  return (
+    <p className="demo-flow-note">
+      عرض تجريبي · بيانات خيالية في هذا المتصفح فقط.
+      {demo && (
+        <Link href={href}>{secretary ? "عرض السكرتيرة" : "عرض الطبيب"}</Link>
+      )}
+    </p>
   );
 }
