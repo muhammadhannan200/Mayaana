@@ -1,17 +1,22 @@
 "use client";
 
 import { Suspense } from "react";
+import type { AccountProfile } from "@/lib/account-profile";
 import { useDemoClinic } from "@/lib/demo-clinic";
 import { ClinicFlowView } from "./clinic-flow-view";
 import { PersistedFlow } from "./persisted-flow";
 
-export function ClinicFlow(props: { route: string; demo?: boolean }) {
+export function ClinicFlow(props: {
+  route: string;
+  demo?: boolean;
+  profile?: AccountProfile | null;
+}) {
   return (
     <Suspense fallback={<p className="secretary-muted">جارٍ تحميل العرض…</p>}>
       {props.demo ? (
         <DemoFlow route={props.route} />
       ) : (
-        <PersistedFlow route={props.route} />
+        <PersistedFlow route={props.route} profile={props.profile} />
       )}
     </Suspense>
   );
