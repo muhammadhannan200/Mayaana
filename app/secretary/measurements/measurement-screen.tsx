@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { Icon } from "../components";
+import { Icon } from "@/components/icon";
 import {
   measurementFields,
   type MeasurementKey,

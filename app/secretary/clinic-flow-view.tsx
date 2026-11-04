@@ -5,7 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import { SignOutForm } from "@/app/sign-out-form";
 import type { useDemoClinic } from "@/lib/demo-clinic";
-import { Icon } from "./components";
+import { Icon } from "@/components/icon";
+import { DoctorNav } from "@/app/doctor/doctor-nav";
 import { MeasurementScreen } from "./measurements/measurement-screen";
 import { DoctorVisit } from "@/app/doctor/visit-screen";
 import { DoctorAgenda } from "@/app/doctor/agenda";
@@ -15,7 +16,7 @@ import {
   type QueueEntry,
 } from "@/lib/clinical-model";
 import "./secretary.css";
-import { DoctorNav, SecretaryNav, VisitOptions, VisitType } from "./clinic-ui";
+import { SecretaryNav, VisitOptions, VisitType } from "./clinic-ui";
 import "./persisted.css";
 import {
   cancelUnavailableMessage,
