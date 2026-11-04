@@ -5,7 +5,7 @@ const notes = "ملاحظات خيالية محفوظة للاختبار";
 
 async function openVisit(
   page: Page,
-  appointment: string,
+  followUpDate: string,
   status: "completed" | "with_doctor" = "completed"
 ) {
   const errors: string[] = [];
@@ -19,7 +19,7 @@ async function openVisit(
       writes.push(request.url());
   });
   await page.addInitScript(
-    ({ entryId, appointment, status, notes }) => {
+    ({ entryId, followUpDate, status, notes }) => {
       if (localStorage.getItem("mayanaa-demo-v1:public")) return;
       localStorage.setItem(
         "mayanaa-demo-v1:public",
@@ -45,7 +45,7 @@ async function openVisit(
               measurements: { weight: "65" },
               visit: {
                 notes,
-                appointment,
+                appointment: followUpDate,
                 completedAt:
                   status === "completed" ? "2026-10-10T21:30:00Z" : undefined,
                 days: [
@@ -66,7 +66,7 @@ async function openVisit(
         })
       );
     },
-    { entryId, appointment, status, notes }
+    { entryId, followUpDate, status, notes }
   );
   await page.goto(
     `/demo/doctor/visits/${entryId}${status === "with_doctor" ? "?step=plan" : ""}`

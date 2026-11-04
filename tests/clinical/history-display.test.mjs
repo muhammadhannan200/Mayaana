@@ -78,6 +78,11 @@ async function historyAt(completedAt) {
         if (name === "server-only") return {};
         if (name === "./supabase/server")
           return { createClient: async () => client };
+        if (name === "./queue-handoff")
+          return {
+            cancelUnavailableMessage: "",
+            doctorOccupiedMessage: "",
+          };
         if (name === "./auth")
           return {
             accountForUser: async () => ({
