@@ -359,7 +359,7 @@ test("first visits still require full examination", async ({ page }) => {
   ]);
 });
 
-test("master multi-patient queue behavior and handoff revision identity remain intact", async ({
+test("the server decides a handoff and receives its revision identity", async ({
   page,
 }) => {
   await mount(page, "secretary", {
@@ -379,6 +379,7 @@ test("master multi-patient queue behavior and handoff revision identity remain i
   await expect(
     page.getByRole("heading", { name: "عند الطبيب (2)" })
   ).toBeVisible();
+  await expect(page.getByText("الطبيب مع").first()).toBeVisible();
 });
 
 test("failed handoff retains queue and conflict recovery instead of success", async ({

@@ -9,6 +9,7 @@ import type {
   ScreenRequest,
 } from "./clinical-types";
 import type { DemoVisit } from "./demo-clinic";
+import { cancelUnavailableMessage, doctorOccupiedMessage } from "./queue-handoff";
 import type {
   MockVisit,
   VisitMeasurement,
@@ -28,6 +29,22 @@ const invalid = () => {
   throw { code: "22023" };
 };
 function failure(error: unknown): ClinicalFailure {
+  if (
+    error &&
+    typeof error === "object" &&
+    "code" in error &&
+    error.code === "PT409" &&
+    "details" in error &&
+    error.details === "clinic_occupied"
+  )
+    return { ok: false, kind: "conflict", message: doctorOccupiedMessage };
+  if (
+    error &&
+    typeof error === "object" &&
+    "details" in error &&
+    error.details === "cancel_unavailable"
+  )
+    return { ok: false, kind: "conflict", message: cancelUnavailableMessage };
   const code =
     error && typeof error === "object" && "code" in error
       ? String(error.code)
@@ -162,13 +179,16 @@ export async function getClinicScreen(
     if (patientsResult.error) throw patientsResult.error;
     let queueQuery = client
       .from("daily_queue")
-      .select("id,patient_id,visit_type,status,arrived_at,queue_date,revision")
+      .select(
+        "id,patient_id,visit_type,status,arrived_at,queue_date,revision,handed_off_at"
+      )
       .eq("clinic_id", clinic)
       .order("arrived_at")
       .limit(501);
-    queueQuery = input.entry
-      ? queueQuery.or(`queue_date.eq.${date},id.eq.${input.entry}`)
-      : queueQuery.eq("queue_date", date);
+    // Unfinished visits from earlier days still occupy the clinic's single slot.
+    queueQuery = queueQuery.or(
+      `queue_date.eq.${date},status.eq.with_doctor${input.entry ? `,id.eq.${input.entry}` : ""}`
+    );
     const queueResult = await queueQuery;
     if (queueResult.error) throw queueResult.error;
     if (queueResult.data.length > 500)
@@ -201,7 +221,9 @@ export async function getClinicScreen(
         (batch) =>
           client
             .from("visits")
-            .select("id,patient_id,queue_entry_id,completed_at,created_at")
+            .select(
+              "id,patient_id,queue_entry_id,completed_at,created_at,doctor_opened_at"
+            )
             .eq("clinic_id", clinic)
             .in("queue_entry_id", batch)
             .order("created_at", { ascending: false })
@@ -211,7 +233,9 @@ export async function getClinicScreen(
     if (detailPatient) {
       const history = await client
         .from("visits")
-        .select("id,patient_id,queue_entry_id,completed_at,created_at")
+        .select(
+          "id,patient_id,queue_entry_id,completed_at,created_at,doctor_opened_at"
+        )
         .eq("clinic_id", clinic)
         .eq("patient_id", detailPatient)
         .not("completed_at", "is", null)
@@ -259,6 +283,8 @@ export async function getClinicScreen(
         status: row.status as "waiting" | "ready" | "with_doctor" | "completed",
         revision: row.revision as number,
         visitId: v?.id as string | undefined,
+        handedOffAt: (row.handed_off_at as string | null) ?? undefined,
+        doctorOpened: !!v?.doctor_opened_at,
         arrivalTime: new Intl.DateTimeFormat("en-GB", {
           timeZone: "Asia/Damascus",
           hour: "2-digit",
@@ -429,6 +455,21 @@ export async function handoffToDoctor(
     p_revision: revision,
     p_request: request,
   });
+}
+export async function cancelHandoff(
+  entry: string,
+  revision: number
+): Promise<ClinicalResult<null>> {
+  if (!validId(entry) || !Number.isInteger(revision))
+    return failure({ code: "22023" });
+  return mutate("clinical_cancel_handoff", {
+    p_queue: entry,
+    p_revision: revision,
+  });
+}
+export async function openVisit(entry: string): Promise<ClinicalResult<null>> {
+  if (!validId(entry)) return failure({ code: "22023" });
+  return mutate("clinical_open_visit", { p_queue: entry }, true);
 }
 function validDraft(entry: string, revision: number, draft: DemoVisit) {
   return (

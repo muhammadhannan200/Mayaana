@@ -1,4 +1,4 @@
-import { test, before } from "node:test";
+import { test, before, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
@@ -32,6 +32,38 @@ function fault(file) {
 const create = (id = patientId, clinic = clinics[0]) => ({ p_id: id, p_clinic: clinic, p_name: "Synthetic patient", p_phone: "+12025550101", p_height: 170, p_gender: "female", p_birth_year: 1990, p_goal: "نقص وزن" });
 const tableNames = ["patients", "daily_queue", "visits", "visit_measurements", "visit_private_notes", "diet_plans", "appointments"];
 
+function tomorrowServiceDate(now = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Damascus", year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(now);
+  const value = type => Number(parts.find(part => part.type === type).value);
+  // UTC calendar arithmetic handles rollover without using the machine timezone.
+  return new Date(Date.UTC(value("year"), value("month") - 1, value("day") + 1)).toISOString().slice(0,10);
+}
+
+// Tests share staff fixtures, not active consultations. Release slots through
+// the actual completion transaction rather than bypassing lifecycle guards.
+afterEach(async () => {
+  for (const [index, doctor] of [staff.doctor, staff.otherDoctor].entries()) {
+    if (!doctor) continue;
+    const rows = await doctor.from("daily_queue").select("id,revision").eq("clinic_id", clinics[index]).eq("status", "with_doctor");
+    assert.ifError(rows.error);
+    for (const row of rows.data) await complete(doctor, row);
+  }
+});
+
+const complete = (doctor, entry) => rpc(doctor, "clinical_finish", {
+  p_queue: entry.id, p_revision: entry.revision, p_request: randomUUID(),
+  p_notes: "Synthetic completion", p_days: days, p_appointment: null,
+});
+
+async function readyVisit(client = staff.secretary, clinic = clinics[0]) {
+  const patient = await rpc(client, "clinical_create_patient", create(randomUUID(), clinic));
+  const entry = await rpc(client, "clinical_enqueue", { p_clinic: clinic, p_patient: patient, p_kind: "full_exam" });
+  return rpc(client, "clinical_save_measurements", { p_queue: entry.id, p_revision: entry.revision, p_values: measurements });
+}
+const handoffArgs = entry => ({ p_queue: entry.id, p_revision: entry.revision, p_request: randomUUID() });
+
 // Each doctor scenario establishes its own legal transition sequence. A failed
 // handoff-injection test must not masquerade as a doctor/finish RPC failure.
 async function doctorVisit() {
@@ -46,7 +78,7 @@ async function doctorVisit() {
 }
 
 before(async () => {
-  for (const name of ["doctor", "otherDoctor", "secretary", "inactive", "firstUse"]) {
+  for (const name of ["doctor", "otherDoctor", "secretary", "otherSecretary", "inactive", "firstUse"]) {
     const email = `${randomUUID()}@clinical.example.test`;
     const password = randomUUID();
     const user = await admin.auth.admin.createUser({ email, password, email_confirm: true });
@@ -55,7 +87,7 @@ before(async () => {
       const clinic = await admin.from("clinics").insert({ name: "Synthetic isolated clinic", doctor_user_id: user.data.user.id }).select("id").single();
       assert.ifError(clinic.error); clinics.push(clinic.data.id);
     }
-    assert.ifError((await admin.from("clinic_staff").insert({ user_id: user.data.user.id, clinic_id: name === "otherDoctor" ? clinics[1] : clinics[0], role: name === "doctor" || name === "otherDoctor" ? "doctor" : "secretary", login_email: email, display_name: name, active: name !== "inactive", must_change_password: name === "firstUse" })).error);
+    assert.ifError((await admin.from("clinic_staff").insert({ user_id: user.data.user.id, clinic_id: name.startsWith("other") ? clinics[1] : clinics[0], role: name === "doctor" || name === "otherDoctor" ? "doctor" : "secretary", login_email: email, display_name: name, active: name !== "inactive", must_change_password: name === "firstUse" })).error);
     const client = createClient(url, anonKey, options);
     assert.ifError((await client.auth.signInWithPassword({ email, password })).error);
     staff[name] = client;
@@ -162,10 +194,27 @@ test("doctor-only drafts and private notes isolation, including direct writes", 
   const notes = await staff.doctor.from("visit_private_notes").select("notes").eq("visit_id", visitId).single(); assert.equal(notes.data.notes, args.p_notes);
 });
 
+test("handoff can be cancelled for one minute until the doctor opens or saves the visit", async () => {
+  const sent = await rpc(staff.secretary, "clinical_handoff", handoffArgs(await readyVisit()));
+  await denied(staff.otherDoctor.rpc("clinical_cancel_handoff", { p_queue: sent.id, p_revision: sent.revision }));
+  await denied(staff.secretary.rpc("clinical_open_visit", { p_queue: sent.id }));
+  const cancelled = await rpc(staff.secretary, "clinical_cancel_handoff", { p_queue: sent.id, p_revision: sent.revision });
+  assert.equal(cancelled.status, "ready"); assert.equal(cancelled.handed_off_at, null);
+  const visit = await staff.secretary.from("visits").select("started_at").eq("queue_entry_id", sent.id).single();
+  assert.ifError(visit.error); assert.equal(visit.data.started_at, null);
+
+  const again = await rpc(staff.secretary, "clinical_handoff", handoffArgs(cancelled));
+  assert.equal(again.status, "with_doctor");
+  await rpc(staff.doctor, "clinical_open_visit", { p_queue: again.id });
+  await rpc(staff.doctor, "clinical_open_visit", { p_queue: again.id });
+  const blocked = await denied(staff.secretary.rpc("clinical_cancel_handoff", { p_queue: again.id, p_revision: again.revision }));
+  assert.equal(blocked.code, "PT409"); assert.equal(blocked.details, "cancel_unavailable");
+});
+
 test("failed completion leaves no partial notes, plan, appointment or completed state", async () => {
   let {queue,visitId} = await doctorVisit();
   queue=await rpc(staff.doctor,"clinical_save_doctor_draft",{p_queue:queue.id,p_revision:queue.revision,p_notes:"Synthetic private note",p_days:days,p_appointment:null});
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0,10);
+  const tomorrow = tomorrowServiceDate();
   const args = { p_queue: queue.id, p_revision: queue.revision, p_request: randomUUID(), p_notes: "Must roll back", p_days: [], p_appointment: tomorrow };
   await denied(staff.doctor.rpc("clinical_finish", args));
   await denied(staff.doctor.rpc("clinical_finish", { ...args, p_days: days, p_appointment: "2000-01-01" }));
@@ -185,7 +234,7 @@ test("failed completion leaves no partial notes, plan, appointment or completed 
 
 test("finish is atomic, retry-safe, visible across sessions and immutable", async () => {
   let {queue,visitId} = await doctorVisit();
-  const args = { p_queue: queue.id, p_revision: queue.revision, p_request: randomUUID(), p_notes: "Final private note", p_days: days, p_appointment: new Date(Date.now()+86400000).toISOString().slice(0,10) };
+  const args = { p_queue: queue.id, p_revision: queue.revision, p_request: randomUUID(), p_notes: "Final private note", p_days: days, p_appointment: tomorrowServiceDate() };
   const [first, retry] = await Promise.all([rpc(staff.doctor, "clinical_finish", args), rpc(staff.doctor, "clinical_finish", args)]);
   assert.deepEqual(first,retry); queue = first; assert.equal(queue.status, "completed");
   const secretary = await staff.secretary.from("daily_queue").select("status").eq("id", queue.id).single(); assert.equal(secretary.data.status,"completed");
@@ -196,4 +245,74 @@ test("finish is atomic, retry-safe, visible across sessions and immutable", asyn
   const visits = await staff.doctor.from("visits").select("completed_at").eq("id",visitId).single(); assert.ok(visits.data.completed_at);
   const notes = await staff.secretary.from("visit_private_notes").select("*"); assert.deepEqual(notes.data,[]);
   const appointment = await staff.secretary.from("appointments").select("appointment_date").eq("originating_visit_id",visitId).single(); assert.equal(appointment.data.appointment_date,args.p_appointment);
+});
+
+test("one active patient per clinic: sequential conflict, legacy RPC, completion and delayed retries", async () => {
+  const first = await readyVisit(), second = await readyVisit();
+  const args = handoffArgs(first), blockedArgs = handoffArgs(second);
+  const active = await rpc(staff.secretary, "clinical_handoff", args);
+  const blocked = await denied(staff.secretary.rpc("clinical_handoff", blockedArgs));
+  assert.equal(blocked.code, "PT409"); assert.equal(blocked.details, "clinic_occupied");
+  const legacy = await denied(staff.secretary.rpc("clinical_handoff", { p_entry: second.id, p_revision: second.revision }));
+  assert.equal(legacy.code, "PT409"); assert.equal(legacy.details, "clinic_occupied");
+  assert.deepEqual(await rpc(staff.secretary, "clinical_handoff", args), active);
+  const unchanged = await staff.secretary.from("daily_queue").select("*").eq("id", second.id).single();
+  assert.ifError(unchanged.error); assert.deepEqual(unchanged.data, second);
+  const visit = await staff.doctor.from("visits").select("started_at,revision").eq("queue_id", second.id).single();
+  assert.ifError(visit.error); assert.equal(visit.data.started_at, null);
+  const finished = await complete(staff.doctor, active);
+  const next = await rpc(staff.secretary, "clinical_handoff", blockedArgs);
+  assert.equal(next.status, "with_doctor");
+  assert.deepEqual(await rpc(staff.secretary, "clinical_handoff", args), finished, "A delayed acknowledged request must not reopen the completed visit");
+});
+
+test("simultaneous different-patient handoffs commit exactly one consultation and roll back the loser", async () => {
+  const entries = await Promise.all([readyVisit(), readyVisit()]);
+  const requests = entries.map(handoffArgs);
+  const results = await Promise.all(requests.map(args => staff.secretary.rpc("clinical_handoff", args)));
+  assert.equal(results.filter(result => !result.error).length, 1);
+  const loser = results.findIndex(result => result.error);
+  assert.equal(results[loser].error.code, "PT409"); assert.equal(results[loser].error.details, "clinic_occupied");
+  const winner = results.find(result => !result.error).data;
+  const rows = await staff.secretary.from("daily_queue").select("id,status,revision").eq("clinic_id", clinics[0]).eq("status", "with_doctor");
+  assert.ifError(rows.error); assert.equal(rows.data.length, 1); assert.equal(rows.data[0].id, winner.id);
+  const unchanged = await staff.secretary.from("daily_queue").select("*").eq("id", entries[loser].id).single();
+  assert.ifError(unchanged.error); assert.deepEqual(unchanged.data, entries[loser]);
+  const visit = await staff.doctor.from("visits").select("started_at").eq("queue_id", entries[loser].id).single();
+  assert.ifError(visit.error); assert.equal(visit.data.started_at, null);
+  await complete(staff.doctor, winner);
+  assert.equal((await rpc(staff.secretary, "clinical_handoff", requests[loser])).status, "with_doctor");
+});
+
+test("clinic slots are independent, including simultaneous handoffs", async () => {
+  const entries = await Promise.all([readyVisit(), readyVisit(staff.otherSecretary, clinics[1])]);
+  const results = await Promise.all(entries.map((entry, index) => rpc(index ? staff.otherSecretary : staff.secretary, "clinical_handoff", handoffArgs(entry))));
+  assert.ok(results.every(result => result.status === "with_doctor"));
+  const hidden = await staff.otherDoctor.from("daily_queue").select("id").eq("id", entries[0].id);
+  assert.ifError(hidden.error); assert.deepEqual(hidden.data, []);
+});
+
+test("the unique slot also rejects privileged direct inserts, regardless of service date", async () => {
+  const first = await readyVisit();
+  await rpc(staff.secretary, "clinical_handoff", handoffArgs(first));
+  const patient = await rpc(staff.secretary, "clinical_create_patient", create(randomUUID()));
+  const error = await denied(admin.from("daily_queue").insert({ clinic_id: clinics[0], patient_id: patient, visit_type: "full_exam", status: "with_doctor", queue_date: "2000-01-01" }));
+  assert.equal(error.code, "23505"); assert.match(error.message, /daily_queue_one_with_doctor_per_clinic/);
+});
+
+test("an overnight active consultation still blocks handoff and can be completed only by its Doctor", async () => {
+  const first = await readyVisit(), second = await readyVisit();
+  const active = await rpc(staff.secretary, "clinical_handoff", handoffArgs(first));
+  // Simulate midnight on this exact synthetic row, retaining all measurements
+  // and timestamps. Do not alter the clock or any other fixture's records.
+  const user = await staff.doctor.auth.getUser(); assert.ifError(user.error);
+  const sql = `do $$ begin perform set_config('request.jwt.claim.sub','${user.data.user.id}',true); update public.daily_queue set queue_date=queue_date-1,revision=revision+1 where id='${active.id}'; end $$;`;
+  const result = spawnSync(process.platform === "win32" ? "supabase.exe" : "supabase", ["db", "query", "--local", sql, "--workdir", process.env.CLINICAL_TEST_WORKDIR], { env: process.env, encoding: "utf8" });
+  assert.equal(result.status, 0, result.stderr);
+  const overnight = await staff.doctor.from("daily_queue").select("*").eq("id", active.id).single(); assert.ifError(overnight.error);
+  const conflict = await denied(staff.secretary.rpc("clinical_handoff", handoffArgs(second)));
+  assert.equal(conflict.details, "clinic_occupied");
+  await denied(staff.secretary.rpc("clinical_finish", { p_queue: active.id, p_revision: overnight.data.revision, p_request: randomUUID(), p_notes: "Not allowed", p_days: days, p_appointment: null }));
+  assert.equal((await complete(staff.doctor, overnight.data)).status, "completed");
+  assert.equal((await rpc(staff.secretary, "clinical_handoff", handoffArgs(second))).status, "with_doctor");
 });

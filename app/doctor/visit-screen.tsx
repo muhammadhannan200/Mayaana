@@ -111,6 +111,13 @@ function VisitEditor({
   const [description, setDescription] = useState("");
   const plan = params.get("step") === "plan";
   const completed = entry?.status === "completed";
+  const needsOpen = entry?.status === "with_doctor" && !entry.doctorOpened;
+  useEffect(() => {
+    if (!needsOpen) return;
+    if (operations) void operations.openVisit(entryId);
+    else local?.openVisit(entryId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [needsOpen, entryId]);
   const [draft, setDraft] = useState<{
     visit: DemoVisit;
     revision: number;
@@ -121,9 +128,12 @@ function VisitEditor({
       days: [],
       appointment: "",
     };
-  const appointment =
-    visit.appointment ||
-    dateAfter(Math.max(1, visit.days.length), clinical?.serviceDate);
+  function appointmentOn(date?: string) {
+    return visit.appointment || dateAfter(Math.max(1, visit.days.length), date);
+  }
+  const appointment = appointmentOn(
+    demo ? local!.today : clinical?.serviceDate
+  );
   const meals = visit.days.reduce((sum, day) => sum + day.meals.length, 0);
   const visitHref = href(`/visits/${entryId}`);
   const revision = (entry as ClinicEntry | undefined)?.revision ?? 0;
@@ -220,6 +230,15 @@ function VisitEditor({
       }
       return;
     }
+    // A suspended tab or open confirmation can cross midnight before timers or
+    // resume events run. Recheck demo dates at the final local write boundary.
+    const today = local!.currentDate();
+    const completedAppointment = appointmentOn(today);
+    if (completedAppointment <= dateAfter(0, today)) {
+      setReview(false);
+      setError("اختر موعد مراجعة بعد اليوم.");
+      return;
+    }
     const completedAt = new Date().toISOString();
     update((state) => {
       const active = state.queue.find((item) => item.id === entryId);
@@ -231,7 +250,11 @@ function VisitEditor({
             ? {
                 ...item,
                 status: "completed",
-                visit: { ...visit, appointment, completedAt },
+                visit: {
+                  ...visit,
+                  appointment: completedAppointment,
+                  completedAt,
+                },
               }
             : item
         ),
@@ -463,7 +486,7 @@ function VisitEditor({
             <input
               type="date"
               disabled={operations?.pending}
-              min={dateAfter(1, clinical?.serviceDate)}
+              min={dateAfter(1, demo ? local!.today : clinical?.serviceDate)}
               value={appointment}
               onChange={(event) =>
                 save((current) => ({
@@ -686,7 +709,11 @@ function VisitEditor({
                 );
                 return;
               }
-              if (appointment <= dateAfter(0, clinical?.serviceDate)) {
+              const date = demo ? local!.currentDate() : clinical?.serviceDate;
+              const currentAppointment = demo
+                ? appointmentOn(date)
+                : appointment;
+              if (currentAppointment <= dateAfter(0, date)) {
                 setError("اختر موعد مراجعة بعد اليوم.");
                 return;
               }
