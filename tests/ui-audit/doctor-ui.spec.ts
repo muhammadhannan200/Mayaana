@@ -108,6 +108,9 @@ test("D3 matches the patient-row type scale and preserves filtering, empty state
   ).toBeVisible();
   await search.fill("نور");
   await expect(page.locator(".patient-result")).toHaveCount(1);
+  await page.getByRole("button", { name: /^زيادة وزن/ }).click();
+  await expect(page.locator(".patient-result")).toHaveCount(0);
+  await page.getByRole("button", { name: /^الكل/ }).click();
   await page.getByRole("link", { name: /نور الحسن/ }).click();
   await expect(page).toHaveURL(/\/demo\/doctor\/patients\/demo-noor$/);
 });
@@ -196,4 +199,17 @@ test("week stat opens this week's patients with type filters", async ({
   );
   await page.getByRole("button", { name: /^كشفية/ }).click();
   await expect(page.locator(".doctor-week li").first()).toContainText("كشفية");
+});
+
+test("patient record tabs show progress and visits", async ({ page }) => {
+  await page.goto("/demo/doctor/patients/demo-reem");
+  await page.getByRole("tab", { name: "التطور" }).click();
+  await expect(page.getByRole("img", { name: /الوزن \(كغ\)/ })).toBeVisible();
+  await page.getByRole("button", { name: "الدهون" }).click();
+  await expect(page.getByRole("button", { name: "الدهون" })).toHaveAttribute(
+    "aria-pressed",
+    "true"
+  );
+  await page.getByRole("tab", { name: "الزيارات" }).click();
+  await expect(page.locator(".record-visits li")).toHaveCount(2);
 });
