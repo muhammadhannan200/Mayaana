@@ -6,10 +6,18 @@ const send = "إدخال عند الطبيب";
 
 async function finishFeaturedVisit(page: import("@playwright/test").Page) {
   await page.goto("/demo/doctor/visits/demo-featured?step=plan");
-  await page.getByRole("button", { name: "إنهاء الزيارة", exact: true }).click();
-  await page
-    .getByRole("button", { name: "حفظ وإنهاء الزيارة", exact: true })
-    .click();
+  const save = page.getByRole("button", {
+    name: "حفظ وإنهاء الزيارة",
+    exact: true,
+  });
+  // The first click can land before hydration on a slow server.
+  await expect(async () => {
+    await page
+      .getByRole("button", { name: "إنهاء الزيارة", exact: true })
+      .click();
+    await expect(save).toBeVisible({ timeout: 2000 });
+  }).toPass({ timeout: 30000 });
+  await save.click();
   await expect(page.getByRole("status").first()).toContainText("اكتملت الزيارة");
 }
 

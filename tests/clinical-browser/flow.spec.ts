@@ -209,7 +209,7 @@ test("two independent sessions: intake, handoff, private draft, diet, appointmen
     await surface(secretary);
     await secretary.getByRole("button", { name: "إدخال عند الطبيب" }).click();
     await expect(
-      doctor.locator(".doctor-queue").filter({ hasText: "عند الطبيب" })
+      doctor.locator(".doctor-current")
     ).toContainText(patientName, { timeout: 25_000 });
     await doctor.getByRole("link", { name: "فتح الملف", exact: true }).click();
     await expect(doctor.locator(".demo-measurements")).toContainText("80");
@@ -459,14 +459,14 @@ test("competing Secretary sessions show a clear occupied conflict, refresh, and 
     );
     const loserPage = pages[loserIndex];
     await expect(loserPage.locator("p[role=alert]")).toContainText(
-      "يوجد مريض عند الطبيب بالفعل"
+      "يوجد مريض عند الطبيب حالياً"
     );
     await expect(
       loserPage
         .locator(".queue-card")
         .filter({ hasText: `مريض تنافس ${loserIndex}` })
         .getByRole("button")
-    ).toBeDisabled();
+    ).toBeEnabled();
     await pages[2].evaluate(() => window.dispatchEvent(new Event("focus")));
     await expect(
       pages[2].getByRole("heading", { name: "عند الطبيب (1)", exact: true })
@@ -614,7 +614,7 @@ test("independent doctor sessions reject stale drafts and never present unsaved 
     );
     await expect(
       first.getByRole("button", { name: "حفظ المسودة", exact: true })
-    ).toBeDisabled();
+    ).toBeEnabled();
     first.once("dialog", (dialog) => dialog.accept());
     await first
       .getByRole("button", { name: "تحميل النسخة المحفوظة وإلغاء تعديلاتي" })

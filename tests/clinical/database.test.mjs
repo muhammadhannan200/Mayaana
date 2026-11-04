@@ -78,7 +78,7 @@ async function doctorVisit() {
 }
 
 before(async () => {
-  for (const name of ["doctor", "otherDoctor", "secretary", "inactive", "firstUse"]) {
+  for (const name of ["doctor", "otherDoctor", "secretary", "otherSecretary", "inactive", "firstUse"]) {
     const email = `${randomUUID()}@clinical.example.test`;
     const password = randomUUID();
     const user = await admin.auth.admin.createUser({ email, password, email_confirm: true });
@@ -87,7 +87,7 @@ before(async () => {
       const clinic = await admin.from("clinics").insert({ name: "Synthetic isolated clinic", doctor_user_id: user.data.user.id }).select("id").single();
       assert.ifError(clinic.error); clinics.push(clinic.data.id);
     }
-    assert.ifError((await admin.from("clinic_staff").insert({ user_id: user.data.user.id, clinic_id: name === "otherDoctor" ? clinics[1] : clinics[0], role: name === "doctor" || name === "otherDoctor" ? "doctor" : "secretary", login_email: email, display_name: name, active: name !== "inactive", must_change_password: name === "firstUse" })).error);
+    assert.ifError((await admin.from("clinic_staff").insert({ user_id: user.data.user.id, clinic_id: name.startsWith("other") ? clinics[1] : clinics[0], role: name === "doctor" || name === "otherDoctor" ? "doctor" : "secretary", login_email: email, display_name: name, active: name !== "inactive", must_change_password: name === "firstUse" })).error);
     const client = createClient(url, anonKey, options);
     assert.ifError((await client.auth.signInWithPassword({ email, password })).error);
     staff[name] = client;
@@ -285,8 +285,8 @@ test("simultaneous different-patient handoffs commit exactly one consultation an
 });
 
 test("clinic slots are independent, including simultaneous handoffs", async () => {
-  const entries = await Promise.all([readyVisit(), readyVisit(staff.otherDoctor, clinics[1])]);
-  const results = await Promise.all(entries.map((entry, index) => rpc(index ? staff.otherDoctor : staff.secretary, "clinical_handoff", handoffArgs(entry))));
+  const entries = await Promise.all([readyVisit(), readyVisit(staff.otherSecretary, clinics[1])]);
+  const results = await Promise.all(entries.map((entry, index) => rpc(index ? staff.otherSecretary : staff.secretary, "clinical_handoff", handoffArgs(entry))));
   assert.ok(results.every(result => result.status === "with_doctor"));
   const hidden = await staff.otherDoctor.from("daily_queue").select("id").eq("id", entries[0].id);
   assert.ifError(hidden.error); assert.deepEqual(hidden.data, []);

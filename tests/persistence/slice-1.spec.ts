@@ -543,10 +543,12 @@ test("two independent browser sessions see the persisted Secretary to Doctor han
     // No shared storage state, context or localStorage synchronization.
     // The clinical foundation retains the persisted handoff but presents it in
     // the doctor's queue, then opens the read-only patient/measurement profile.
+    await expect(d.locator(".doctor-current")).toContainText(name, {
+      timeout: 15000,
+    });
     const doctorPatient = d
-      .locator(".doctor-queue")
-      .getByRole("link", { name: new RegExp(name) });
-    await expect(doctorPatient).toBeVisible({ timeout: 15000 });
+      .locator(".doctor-current")
+      .getByRole("link", { name: "فتح الملف", exact: true });
     await doctorPatient.click();
     const storedPatient = await secretary.db
       .from("patients")
