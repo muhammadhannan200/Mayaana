@@ -14,8 +14,10 @@ import {
   parsePatientFields,
   type PatientFieldErrors,
 } from "@/lib/patient-validation";
-import { FieldError } from "./field-error";
 import { SecretaryAccount } from "./account-screen";
+import { ConfirmQueueScreen } from "./confirm-queue-screen";
+import { NewPatientScreen } from "./new-patient-screen";
+import { PatientSearchScreen } from "./patient-search-screen";
 import { PatientEditForm } from "./patient-edit-form";
 import { PatientFile } from "./patient-file";
 import { DoctorNav } from "@/app/doctor/doctor-nav";
@@ -27,7 +29,7 @@ import { DoctorPatientList } from "@/app/doctor/patient-list";
 import { DoctorPatientRecord, PatientMenu } from "@/app/doctor/patient-record";
 import { type PatientRecord, type QueueEntry } from "@/lib/clinical-model";
 import "./secretary.css";
-import { SecretaryNav, VisitOptions, VisitType } from "./clinic-ui";
+import { SecretaryNav, VisitType } from "./clinic-ui";
 import "./persisted.css";
 import "@/app/doctor/workspace.css";
 import {
@@ -606,197 +608,34 @@ export function ClinicFlowView({
               ? "البحث"
               : "المرضى"
         )}
-        <div
-          className={`secretary-content search-content${
-            route.endsWith("add") ? " add-to-queue" : ""
-          }`}
-        >
-          <label className="patient-search-input">
-            <Icon name="search" size={20} />
-            <input
-              aria-label="اسم المريض أو رقم هاتفه"
-              value={term}
-              onChange={(e) => {
-                setTerm(e.target.value);
-                operations?.search(e.target.value);
-              }}
-              placeholder="ابحث بالاسم أو رقم الهاتف"
-              maxLength={80}
-            />
-          </label>
-          <section className="patient-results" aria-live="polite">
-            {showResults && <h2>نتائج البحث ({results.length})</h2>}
-            <ul className="patient-result-list">
-              {results.map((p) => (
-                <li key={p.id}>
-                  <Link
-                    className="patient-result patient-result-link"
-                    href={href(
-                      route === "secretary/patients"
-                        ? `secretary/patients/${p.id}`
-                        : `secretary/confirm?patient=${p.id}`
-                    )}
-                  >
-                    <span className="patient-avatar">{p.name[0]}</span>
-                    <span>
-                      <strong>{p.name}</strong>
-                      <small>
-                        <bdi>{p.phone}</bdi> ·{" "}
-                        {p.visits.length
-                          ? `عدد الزيارات ${p.visits.length}`
-                          : "زيارة أولى"}
-                      </small>
-                    </span>
-                    <Icon name="arrow" size={18} />
-                  </Link>
-                </li>
-              ))}
-            </ul>
-            {showResults && !results.length && (
-              <div className="queue-empty">
-                <Icon name="search" size={32} />
-                <h3>لا توجد نتائج</h3>
-                <p>جرّب اسماً أو رقم هاتف آخر، أو افتح ملفاً جديداً.</p>
-              </div>
-            )}
-          </section>
-          <div className="create-patient-link">
-            <strong>ما لقيت المريض؟</strong>
-            <p>إذا أول مرة يزور العيادة، افتح له ملف جديد.</p>
-            <Link
-              className="secretary-outline"
-              href={href("secretary/patients/new")}
-            >
-              <Icon name="plus" size={18} />
-              فتح ملف مريض جديد
-            </Link>
-          </div>
-        </div>
+        <PatientSearchScreen
+          route={route}
+          term={term}
+          onTerm={(value) => {
+            setTerm(value);
+            operations?.search(value);
+          }}
+          showResults={showResults}
+          results={results}
+          href={href}
+        />
       </>
     );
   else if (route === "secretary/confirm")
     content = (
       <>
         {subheader("إضافة للدور", "secretary/add")}
-        <div className="secretary-content">
-          {selected ? (
-            <>
-              <section className="confirm-patient">
-                <div className="patient-result-link">
-                  <span className="patient-avatar">{selected.name[0]}</span>
-                  <div>
-                    <h2>{selected.name}</h2>
-                    <p>
-                      <bdi>{selected.phone}</bdi> · الهدف: {selected.goal}
-                    </p>
-                  </div>
-                </div>
-                <div className="confirm-stats">
-                  <div>
-                    <strong>{selected.visits.length}</strong>
-                    <small>عدد الزيارات</small>
-                  </div>
-                  <div>
-                    <strong>{selected.visits[0]?.date ?? "—"}</strong>
-                    <small>آخر زيارة</small>
-                  </div>
-                  <div>
-                    <strong>
-                      {selected.visits[0]?.measurements.weight ?? "—"}
-                    </strong>
-                    <small>آخر وزن</small>
-                  </div>
-                </div>
-              </section>
-              {queue.some((e) => e.patientId === selected.id) ? (
-                <p className="secretary-success">
-                  المريض موجود في دور اليوم بالفعل.
-                </p>
-              ) : (
-                <>
-                  {!demo ? (
-                    <VisitOptions
-                      kind={visitKind}
-                      onChange={setKind}
-                      firstVisit={selected.visits.length === 0}
-                    />
-                  ) : (
-                    <>
-                      <h2 className="visit-title">نوع الزيارة</h2>
-                      <fieldset className="visit-options">
-                        <legend className="sr-only">نوع الزيارة</legend>
-                        {(["full_exam", "follow_up"] as const).map((value) => (
-                          <label
-                            key={value}
-                            className={visitKind === value ? "selected" : ""}
-                          >
-                            <input
-                              type="radio"
-                              name="visitType"
-                              checked={visitKind === value}
-                              disabled={
-                                selected.visits.length === 0 &&
-                                value === "follow_up"
-                              }
-                              onChange={() => setKind(value)}
-                            />
-                            <span>
-                              <strong>
-                                {value === "full_exam" ? "كشفية" : "مراجعة"}
-                              </strong>
-                              <small>
-                                {value === "full_exam"
-                                  ? "وزن + قياس كامل للجسم (دهون، عضل، محيطات)"
-                                  : "وزن فقط"}
-                              </small>
-                            </span>
-                          </label>
-                        ))}
-                      </fieldset>
-                    </>
-                  )}
-                  <p className="intake-info">
-                    <Icon name="info" size={18} />
-                    {selected.visits.length === 0
-                      ? "أول زيارة تُسجّل كشفية مع قياس كامل."
-                      : "اختر نوع الزيارة حسب المطلوب اليوم."}
-                  </p>
-                </>
-              )}
-              <div className="intake-actionbar">
-                {queue.some((e) => e.patientId === selected.id) ? (
-                  <Link className="secretary-primary" href={href("secretary")}>
-                    العودة للدور
-                  </Link>
-                ) : (
-                  <button
-                    className="secretary-primary"
-                    disabled={operations?.pending}
-                    onClick={() =>
-                      enqueue(
-                        selected.id,
-                        selected.visits.length === 0 ? "full_exam" : kind
-                      )
-                    }
-                  >
-                    <Icon name="check" size={20} />
-                    إضافة للدور
-                  </button>
-                )}
-              </div>
-            </>
-          ) : (
-            <>
-              <p>اختر ملف المريض أولاً.</p>
-              <Link
-                className="secretary-primary"
-                href={href("secretary/search")}
-              >
-                البحث عن مريض
-              </Link>
-            </>
-          )}
-        </div>
+        <ConfirmQueueScreen
+          selected={selected}
+          queued={queue.some((e) => e.patientId === selected?.id)}
+          demo={demo}
+          kind={kind}
+          visitKind={visitKind}
+          onKind={setKind}
+          pending={operations?.pending}
+          href={href}
+          onEnqueue={enqueue}
+        />
       </>
     );
   else if (filePatient && route.endsWith("/edit"))
@@ -825,120 +664,18 @@ export function ClinicFlowView({
     content = (
       <>
         {subheader("ملف مريض جديد", "secretary/add")}
-        <form
-          className="secretary-content new-patient-form"
+        <NewPatientScreen
+          name={name}
+          onName={setName}
+          goal={goal}
+          onGoal={setGoal}
+          error={error}
+          fieldErrors={fieldErrors}
+          patients={patients}
+          pending={operations?.pending}
+          href={href}
           onSubmit={createPatient}
-          noValidate
-        >
-          <label className="secretary-field">
-            الاسم الكامل *
-            <input
-              required
-              minLength={2}
-              maxLength={160}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              autoComplete="off"
-              aria-invalid={!!fieldErrors.name}
-            />
-            <FieldError message={fieldErrors.name} />
-          </label>
-          {name.trim().length > 1 &&
-            patients.some((p) => p.name.includes(name.trim())) && (
-              <div className="similar-patient">
-                <strong>يوجد مريض باسم مشابه</strong>
-                <p>هل هو نفس الشخص؟ أضفه للدور بدل فتح ملف جديد.</p>
-                <Link
-                  href={href(
-                    `secretary/add?q=${encodeURIComponent(name.trim())}`
-                  )}
-                >
-                  عرض الملفات المشابهة
-                </Link>
-              </div>
-            )}
-          <label className="secretary-field">
-            رقم الهاتف *
-            <input
-              name="phone"
-              type="tel"
-              required
-              maxLength={20}
-              dir="ltr"
-              placeholder="09XX XXX XXX"
-              aria-invalid={!!fieldErrors.phone}
-            />
-            <FieldError message={fieldErrors.phone} />
-          </label>
-          <div className="intake-two-columns">
-            <label className="secretary-field">
-              الطول *
-              <input
-                name="height"
-                inputMode="decimal"
-                required
-                placeholder="مثال: 165 سم"
-                aria-invalid={!!fieldErrors.height}
-              />
-              <FieldError message={fieldErrors.height} />
-            </label>
-            <label className="secretary-field">
-              الجنس
-              <select name="gender">
-                <option value="female">أنثى</option>
-                <option value="male">ذكر</option>
-              </select>
-            </label>
-          </div>
-          <label className="secretary-field">
-            سنة الميلاد
-            <input
-              name="birthYear"
-              inputMode="numeric"
-              maxLength={4}
-              placeholder="اختياري"
-              aria-invalid={!!fieldErrors.birthYear}
-            />
-            <FieldError message={fieldErrors.birthYear} />
-          </label>
-          <fieldset className="goal-options">
-            <legend>هدف المتابعة</legend>
-            {["نقص وزن", "زيادة وزن"].map((value) => (
-              <label key={value} className={goal === value ? "selected" : ""}>
-                <input
-                  type="radio"
-                  name="goal"
-                  checked={goal === value}
-                  onChange={() => setGoal(value)}
-                />
-                <Icon name="down" />
-                <span>{value}</span>
-              </label>
-            ))}
-          </fieldset>
-          <p className="intake-info">
-            <Icon name="info" size={18} />
-            أول زيارة تُسجّل كشفية مع قياس كامل.
-          </p>
-          {error && (
-            <p className="secretary-error" role="alert">
-              {error}
-            </p>
-          )}
-          <div className="intake-actionbar">
-            <button
-              className="secretary-primary"
-              type="submit"
-              disabled={operations?.pending}
-            >
-              <Icon name="check" size={20} />
-              حفظ ومتابعة الإضافة للدور
-            </button>
-            <Link className="secretary-outline" href={href("secretary/search")}>
-              إلغاء
-            </Link>
-          </div>
-        </form>
+        />
       </>
     );
   else if (route === "secretary/account")
