@@ -12,7 +12,7 @@ export type DemoPatient = {
   gender: string;
   birthYear: string;
   goal: string;
-  visits: MockVisit[];
+  visits: (MockVisit & { appointment?: string; serviceDate?: string })[];
 };
 export type DemoEntry = {
   id: string;
