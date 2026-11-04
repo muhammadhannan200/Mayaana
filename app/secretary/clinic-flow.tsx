@@ -1005,7 +1005,10 @@ export function ClinicFlowView({
                     <div>
                       <dt>العمر التقريبي</dt>
                       <dd>
-                        {new Date().getFullYear() - Number(record.birthYear)}{" "}
+                        {(demo
+                          ? Number(local!.today.slice(0, 4))
+                          : new Date().getFullYear()) -
+                          Number(record.birthYear)}{" "}
                         سنة
                       </dd>
                     </div>
