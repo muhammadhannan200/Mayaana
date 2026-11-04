@@ -70,6 +70,13 @@ test("Doctor Home agenda uses fictional browser-local records, RTL, dates and pa
   const call = overdue.locator(".agenda-call");
   await expect(call).toHaveCSS("width", "44px");
   await expect(call).toHaveCSS("height", "44px");
+  const circle = await call.boundingBox();
+  const icon = await call.locator("svg").boundingBox();
+  expect(circle?.width).toBe(44);
+  expect(circle?.height).toBe(44);
+  expect(
+    Math.abs(icon!.x + icon!.width / 2 - (circle!.x + circle!.width / 2))
+  ).toBeLessThan(1);
   const person = await overdue.locator(".agenda-person").boundingBox();
   expect(person?.width).toBeGreaterThan(60);
   await expect(
