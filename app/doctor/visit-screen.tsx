@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useDemoClinic } from "@/lib/demo-clinic";
+import { dayCountLabel, mealCountLabel } from "@/lib/arabic-count";
 import { measurementFields, type VisitDraft } from "@/lib/clinical-model";
 import { damascusDate } from "@/lib/doctor-agenda";
 import { Icon } from "@/components/icon";
@@ -316,7 +317,7 @@ function VisitEditor({
         <div>
           <h2>البرنامج الغذائي</h2>
           <small>
-            {visit.days.length} أيام · {meals} وجبات
+            {dayCountLabel(visit.days.length)} · {mealCountLabel(meals)}
           </small>
         </div>
       </div>
@@ -759,7 +760,7 @@ function VisitEditor({
             <div>
               <dt>البرنامج الغذائي</dt>
               <dd>
-                {visit.days.length} أيام · {meals} وجبات
+                {dayCountLabel(visit.days.length)} · {mealCountLabel(meals)}
               </dd>
             </div>
             <div>
