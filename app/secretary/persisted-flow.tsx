@@ -110,6 +110,9 @@ export function PersistedFlow({ route }: { route: string }) {
       const result = await operation();
       if (!result.ok) {
         setError(result);
+        // A competing handoff may have filled the slot since this snapshot.
+        // Refresh occupancy without discarding unsaved form/visit drafts.
+        if (result.kind === "conflict") await refresh();
         return false;
       }
       setMessage("تم الحفظ في العيادة.");
@@ -144,6 +147,13 @@ export function PersistedFlow({ route }: { route: string }) {
       write(() =>
         actions.handoffToDoctor(id, revision(id), requestId(`handoff:${id}`))
       ),
+    cancelHandoff: (id) =>
+      write(() => actions.cancelHandoff(id, revision(id))),
+    openVisit: async (id) => {
+      // Best effort: failure only leaves the short cancel window open, and the
+      // server still rejects cancellation once notes or a diet exist.
+      await actions.openVisit(id).catch(() => undefined);
+    },
     saveDoctorDraft: (id, version, draft) =>
       write(() => actions.saveDoctorDraft(id, version, draft)),
     finishVisit: (id, version, draft) =>

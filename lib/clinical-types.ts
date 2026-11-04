@@ -38,6 +38,8 @@ export type ClinicalOperations = {
     revision?: number
   ) => Promise<boolean>;
   handoffToDoctor: (entry: string) => Promise<boolean>;
+  cancelHandoff: (entry: string) => Promise<boolean>;
+  openVisit: (entry: string) => Promise<void>;
   saveDoctorDraft: (
     entry: string,
     revision: number,

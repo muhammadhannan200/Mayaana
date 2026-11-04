@@ -9,6 +9,7 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "seed:demo": "node scripts/seed-demo-clinic.mjs",
+    "test:single-active": "node --test tests/queue-handoff.test.mjs tests/queue-handoff-boundary.test.mjs",
     "test:clinical": "node scripts/test-clinical.mjs",
     "test:clinical:browser": "node scripts/test-clinical.mjs --browser",
     "test:auth": "node scripts/test-auth.mjs",
