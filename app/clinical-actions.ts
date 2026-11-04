@@ -30,6 +30,12 @@ export async function handoffToDoctor(
 ) {
   return clinical.handoffToDoctor(entry, revision, request);
 }
+export async function cancelHandoff(entry: string, revision: number) {
+  return clinical.cancelHandoff(entry, revision);
+}
+export async function openVisit(entry: string) {
+  return clinical.openVisit(entry);
+}
 export async function saveDoctorDraft(
   entry: string,
   revision: number,

@@ -21,8 +21,10 @@ jobs:
       - run: npm ci
         env:
           HUSKY: "0"
+      - run: npm run test:single-active
       - run: npx next typegen
       - run: npm run typecheck
       - run: npm run lint
       - run: node --test tests/print-plan/privacy.test.mjs
+      - run: node --test tests/clinical/history-display.test.mjs
       - run: npm run build
