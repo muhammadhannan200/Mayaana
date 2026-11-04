@@ -2,7 +2,9 @@ import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { Icon } from "@/components/icon";
-import { SignOutForm } from "@/app/sign-out-form";
+import { NotificationBell } from "@/components/notification-bell";
+import type { ClinicNotification } from "@/lib/clinic-notifications";
+import { greeting, longDate } from "@/lib/clinic-dates";
 import type { PatientRecord, QueueEntry } from "@/lib/clinical-model";
 import type { DemoState } from "@/lib/demo-fixture";
 import { DoctorAgenda } from "./agenda";
@@ -17,6 +19,8 @@ export function DoctorHome({
   href,
   agendaState,
   demoToday,
+  doctorName,
+  notifications,
   children,
 }: {
   demo: boolean;
@@ -27,20 +31,26 @@ export function DoctorHome({
   href: (route: string) => string;
   agendaState?: DemoState;
   demoToday?: string;
+  doctorName?: string;
+  notifications: ClinicNotification[];
   children?: ReactNode;
 }) {
   return (
     <>
       <header className="doctor-home-header">
         <div>
-          <h1>{demo ? "صباح الخير دكتور" : "دور العيادة"}</h1>
-          <p>دور اليوم</p>
+          <h1>{demo ? "صباح الخير دكتور" : greeting(doctorName)}</h1>
+          <p>
+            {longDate(
+              demoToday ? new Date(`${demoToday}T12:00:00Z`) : undefined
+            )}
+          </p>
         </div>
-        {!demo && (
-          <SignOutForm buttonClassName="doctor-bell">
-            <Icon name="account" />
-          </SignOutForm>
-        )}
+        <NotificationBell
+          items={notifications}
+          scope="doctor"
+          className="doctor-bell"
+        />
       </header>
       <div className="doctor-content">
         {current.length > 1 && (

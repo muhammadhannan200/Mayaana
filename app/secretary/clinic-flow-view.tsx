@@ -5,7 +5,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import type { useDemoClinic } from "@/lib/demo-clinic";
 import { Icon } from "@/components/icon";
+import { NotificationBell } from "@/components/notification-bell";
 import { Toast } from "@/components/toast";
+import { clinicNotifications } from "@/lib/clinic-notifications";
+import { longDate } from "@/lib/clinic-dates";
 import type { AccountProfile } from "@/lib/account-profile";
 import {
   parsePatientFields,
@@ -111,6 +114,12 @@ export function ClinicFlowView({
   const entry = queue.find((e) => e.id === params.get("entry"));
   const patient = patients.find((p) => p.id === entry?.patientId);
   const go = (path: string) => router.push(href(path));
+  const notifications = clinicNotifications(
+    route.startsWith("doctor") ? "doctor" : "secretary",
+    queue,
+    (entry) =>
+      patients.find((item) => item.id === entry.patientId)?.name ?? "مريض"
+  );
   const fileMatch = /^secretary\/patients\/([^/]+)(?:\/edit)?$/.exec(route);
   const filePatient =
     fileMatch && fileMatch[1] !== "new"
@@ -392,14 +401,16 @@ export function ClinicFlowView({
           <div>
             <h1>دور اليوم</h1>
             <p>
-              {demo
-                ? "عرض تجريبي · جميع البيانات خيالية"
-                : "العيادة · دور اليوم"}
+              {longDate(
+                local?.today ? new Date(`${local.today}T12:00:00Z`) : undefined
+              )}
             </p>
           </div>
-          <span className="secretary-bell">
-            <Icon name="bell" />
-          </span>
+          <NotificationBell
+            items={notifications}
+            scope="secretary"
+            className="secretary-bell"
+          />
         </header>
         <div className="secretary-content">
           {error && (
@@ -969,6 +980,8 @@ export function ClinicFlowView({
         href={href}
         agendaState={demo ? local : undefined}
         demoToday={local?.today}
+        doctorName={profile?.name}
+        notifications={notifications}
       >
         <DemoNote demo={demo} href={href("secretary")} secretary />
       </DoctorHome>

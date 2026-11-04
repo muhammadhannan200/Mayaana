@@ -218,7 +218,7 @@ for (const role of ["doctor", "secretary"] as const) {
     await expect(page).toHaveURL(`/${role}`);
     await expect(
       page.getByRole("heading", {
-        name: role === "doctor" ? "دور العيادة" : "دور اليوم",
+        name: role === "doctor" ? /الخير/ : "دور اليوم",
         exact: true,
       })
     ).toBeVisible();
@@ -226,7 +226,7 @@ for (const role of ["doctor", "secretary"] as const) {
     await expect(page).toHaveURL(`/${role}`);
     await page.goto(role === "doctor" ? "/secretary" : "/doctor");
     await expect(page).toHaveURL(`/${role}`);
-    if (role === "secretary") await page.goto("/secretary/account");
+    await page.goto(role === "doctor" ? "/doctor/staff" : "/secretary/account");
     await page.getByRole("button", { name: "تسجيل الخروج" }).click();
     await expect(page).toHaveURL("/");
     await page.goBack();
@@ -520,7 +520,7 @@ test("failed sign-out is visible, does not claim success, and can be retried", a
   await login(page, "doctor");
   await expect(page).toHaveURL("/doctor");
   await expect(
-    page.getByRole("heading", { name: "دور العيادة", exact: true })
+    page.getByRole("heading", { name: /الخير/ })
   ).toBeVisible();
   const failuresBefore = logoutFailures;
   failLogout = true;
