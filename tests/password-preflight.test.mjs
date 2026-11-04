@@ -49,6 +49,8 @@ function harness() {
     staffFailure: null,
     updates: [],
     activations: [],
+    verified: [],
+    currentPasswordError: null,
     lookups: 0,
     logs: [],
   };
@@ -90,6 +92,14 @@ function harness() {
         return client;
       },
       isSupabaseConfigured: () => true,
+      createStatelessClient: () => ({
+        auth: {
+          signInWithPassword: async ({ password }) => {
+            state.verified.push(password);
+            return { error: state.currentPasswordError ?? null };
+          },
+        },
+      }),
     },
     "@/lib/supabase/admin": {
       createAdminClient: () => ({
@@ -257,6 +267,18 @@ test("optional doctor cannot omit current password to bypass server validation",
   });
   assert.deepEqual(state.updates, []);
   assert.deepEqual(state.activations, []);
+});
+
+test("wrong current password is rejected before any update", async () => {
+  const { state, changePassword } = harness();
+  const data = form();
+  state.staff.must_change_password = false;
+  state.currentPasswordError = { status: 400, code: "invalid_credentials" };
+  const result = await changePassword(null, data);
+  assert.equal(result.kind, "service");
+  assert.match(result.error, /تعذّر تغيير كلمة المرور/);
+  assert.deepEqual(state.verified, ["Synthetic-current-password!"]);
+  assert.deepEqual(state.updates, []);
 });
 
 test("field validation still precedes preflight and does not echo input", async () => {
