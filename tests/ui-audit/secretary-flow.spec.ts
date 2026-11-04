@@ -215,11 +215,10 @@ test("complete V1: secretary intake → measurements → handoff → doctor note
   await expect(
     page.locator(".doctor-card").filter({ hasText: "ريم الخطيب" })
   ).toBeVisible();
-  await expect(
-    doctor.locator(".doctor-current")
-  ).toContainText("ريم الخطيب");
+  await expect(doctor.locator(".doctor-current")).toContainText("ريم الخطيب");
   await doctor.getByRole("link", { name: "فتح الملف", exact: true }).click();
   await expect(doctor.locator(".demo-measurements")).toContainText("64.5");
+  await doctor.getByRole("tab", { name: "الزيارات" }).click();
   await expect(doctor.locator(".demo-visit-history")).toContainText("68.2");
   await doctor.reload();
   await expect(doctor.locator(".demo-measurements")).toContainText("64.5");
@@ -393,9 +392,7 @@ test("new patient: E2 → S4 → S3 → S6 validates all fields and shares ident
     .getByRole("button", { name: "إدخال عند الطبيب" })
     .click();
   await page.getByRole("link", { name: "عرض الطبيب" }).click();
-  await expect(
-    page.locator(".doctor-current")
-  ).toContainText("هبة أحمد");
+  await expect(page.locator(".doctor-current")).toContainText("هبة أحمد");
   await page.getByRole("link", { name: "فتح الملف", exact: true }).click();
   await expect(page.locator(".demo-measurements > div")).toHaveCount(9);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("هبة أحمد");

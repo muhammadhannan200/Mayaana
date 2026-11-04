@@ -111,6 +111,7 @@ for (const [label, instant, today, previous, appointment, tomorrow] of [
   }) => {
     await clock(page, instant);
     await page.goto("/demo/doctor/patients/demo-noor");
+    await page.getByRole("tab", { name: "الزيارات" }).click();
     await expect(page.locator(".demo-visit-history")).toContainText(previous);
     await expect(page.locator(".demo-patient-info")).toContainText(
       `${Number(today.slice(0, 4)) - 1994} سنة`
@@ -167,6 +168,7 @@ for (const storage of [
       { key, storage }
     );
     await page.goto("/demo/doctor/patients/demo-noor");
+    await page.getByRole("tab", { name: "الزيارات" }).click();
     await expect(page.locator(".demo-visit-history")).toContainText(
       "2024-02-15"
     );
@@ -223,10 +225,12 @@ test("valid storage wins; notes autosave survives reload/navigation; reset synch
     page.locator(".patient-result").filter({ hasText: "سامر درويش" })
   ).toContainText("2024-12-18");
   await page.getByRole("link", { name: /نور الحسن/ }).click();
+  await page.getByRole("tab", { name: "الزيارات" }).click();
   await expect(page.locator(".demo-visit-history")).toContainText("2024-12-18");
   await page.goBack();
   await expect(page).toHaveURL(/\/doctor\/patients$/);
   await page.goForward();
+  await page.getByRole("tab", { name: "الزيارات" }).click();
   await expect(page.locator(".demo-visit-history")).toContainText("2024-12-18");
 });
 
@@ -241,6 +245,7 @@ test.describe("same timezone across midnight", () => {
       page.locator(".patient-result").filter({ hasText: "مريم العلي" })
     ).toContainText("2024-02-29");
     await page.goto("/demo/doctor/patients/demo-noor");
+    await page.getByRole("tab", { name: "الزيارات" }).click();
     await expect(page.locator(".demo-visit-history")).toContainText(
       "2024-02-15"
     );

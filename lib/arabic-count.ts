@@ -41,3 +41,8 @@ export const visitCountLabel = (count: number) =>
         few: (n) => `${n} زيارات سابقة`,
         many: (n) => `${n} زيارة سابقة`,
       });
+
+export function arabicVisitSummary(change: number, visits: number) {
+  const direction = change < 0 ? "نزول" : change > 0 ? "زيادة" : "ثبات";
+  return `${direction} ${Math.abs(change).toFixed(1)} كغ · ${visitCountLabel(visits)}`;
+}
