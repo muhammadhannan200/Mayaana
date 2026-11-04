@@ -1,38 +1,20 @@
+import type {
+  DietDay,
+  DietMeal,
+  PatientRecord,
+  QueueEntry,
+  VisitDraft,
+} from "./clinical-model";
 import {
   followUpFixture,
   type MockVisit,
-  type VisitMeasurement,
 } from "@/app/secretary/measurements/mock-visits";
 
-export type DemoPatient = {
-  id: string;
-  name: string;
-  phone: string;
-  height: string;
-  gender: string;
-  birthYear: string;
-  goal: string;
-  visits: (MockVisit & { appointment?: string; serviceDate?: string })[];
-};
-export type DemoEntry = {
-  id: string;
-  patientId: string;
-  kind: "follow_up" | "full_exam";
-  status: "waiting" | "ready" | "with_doctor" | "completed";
-  measurements: VisitMeasurement;
-  arrivalTime?: string;
-  handedOffAt?: string;
-  doctorOpened?: boolean;
-  visit?: DemoVisit;
-};
-export type DemoMeal = { id: string; type: string; description: string };
-export type DemoDay = { id: string; meals: DemoMeal[] };
-export type DemoVisit = {
-  notes: string;
-  days: DemoDay[];
-  appointment: string;
-  completedAt?: string;
-};
+export type DemoPatient = PatientRecord;
+export type DemoEntry = QueueEntry;
+export type DemoMeal = DietMeal;
+export type DemoDay = DietDay;
+export type DemoVisit = VisitDraft;
 export type DemoState = { patients: DemoPatient[]; queue: DemoEntry[] };
 
 // Calendar arithmetic on an explicit date, not the machine's clock/timezone.

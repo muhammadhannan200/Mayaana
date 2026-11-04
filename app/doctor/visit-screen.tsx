@@ -3,10 +3,10 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { useDemoClinic, type DemoVisit } from "@/lib/demo-clinic";
+import { useDemoClinic } from "@/lib/demo-clinic";
+import { measurementFields, type VisitDraft } from "@/lib/clinical-model";
 import { damascusDate } from "@/lib/doctor-agenda";
 import { Icon } from "@/app/secretary/components";
-import { measurementFields } from "@/app/secretary/measurements/mock-visits";
 import "./visit.css";
 import type {
   ClinicalOperations,
@@ -120,10 +120,10 @@ function VisitEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [needsOpen, entryId]);
   const [draft, setDraft] = useState<{
-    visit: DemoVisit;
+    visit: VisitDraft;
     revision: number;
   } | null>(null);
-  const visit: DemoVisit = (!demo && !completed && draft?.visit) ||
+  const visit: VisitDraft = (!demo && !completed && draft?.visit) ||
     entry?.visit || {
       notes: "",
       days: [],
@@ -167,7 +167,7 @@ function VisitEditor({
     };
   }, [demo, draft, editing, description]);
 
-  function save(change: (current: DemoVisit) => DemoVisit) {
+  function save(change: (current: VisitDraft) => VisitDraft) {
     if (operations) {
       if (completed || operations.pending) return;
       setDraft((current) => ({

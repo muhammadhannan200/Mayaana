@@ -26,16 +26,15 @@ not remove it. Type-only imports are excluded from the runtime graph.
 
 ## Production/demo coupling
 
-The baseline report has 11 production-to-demo/fixture import declarations:
+Production clinical contracts and measurement metadata now live in
+`lib/clinical-model.ts` (ARCH-04), which has no React, route or demo imports.
+The remaining production-to-demo import declarations are:
 
-| Production caller                                   | Imported owner                          | Evidence                                                |
-| --------------------------------------------------- | --------------------------------------- | ------------------------------------------------------- |
-| `app/clinical-actions.ts`                           | `lib/demo-clinic.tsx`, `mock-visits.ts` | `DemoVisit`, `VisitMeasurement` contracts               |
-| `app/doctor/visit-screen.tsx`                       | `lib/demo-clinic.tsx`, `mock-visits.ts` | Demo hook/type and measurement metadata                 |
-| `app/secretary/clinic-flow.tsx`                     | `lib/demo-clinic.tsx`, `mock-visits.ts` | Demo hook/contracts and measurement metadata            |
-| `app/secretary/measurements/measurement-screen.tsx` | `mock-visits.ts`                        | Types, metadata and fictional preview defaults          |
-| `lib/clinical-types.ts`                             | `lib/demo-clinic.tsx`, `mock-visits.ts` | Production contracts derive from demo/fixture contracts |
-| `lib/clinical.ts`                                   | `lib/demo-clinic.tsx`, `mock-visits.ts` | Doctor draft and history/measurement contracts          |
+| Production caller                                   | Imported owner        | Evidence                                   |
+| --------------------------------------------------- | --------------------- | ------------------------------------------ |
+| `app/doctor/visit-screen.tsx`                       | `lib/demo-clinic.tsx` | Demo hook                                  |
+| `app/secretary/clinic-flow.tsx`                     | `lib/demo-clinic.tsx` | Demo hook and `Demo*` type aliases         |
+| `app/secretary/measurements/measurement-screen.tsx` | `mock-visits.ts`      | Fictional preview defaults and `MockVisit` |
 
 `mock-visits.ts` above means
 `app/secretary/measurements/mock-visits.ts`. A mixed declaration can have a
@@ -48,14 +47,12 @@ server-only/RPC safeguards remain unchanged.
 
 ## Wrong-direction and cross-role imports
 
-- Three `lib/` callers depend on route-owned `mock-visits.ts`:
-  `clinical-types.ts`, `clinical.ts`, and `demo-clinic.tsx`.
-- `lib/clinical-types.ts` directly depends on `app/`. No direct React import
-  is present in that file, but its contracts also derive from a client-marked
-  demo module. Neutral model extraction is deferred.
+- `lib/demo-fixture.ts` depends on route-owned `mock-visits.ts` for fictional
+  fixtures only. `lib/clinical-types.ts` and `lib/clinical.ts` no longer depend
+  on `app/` or on demo modules.
 - Six Doctor-to-Secretary import declarations are reported: four Doctor
   route pages import `clinic-flow.tsx`; `visit-screen.tsx` imports the
-  Secretary icon module and measurement metadata/fixtures module.
+  Secretary icon module.
 - Doctor home and patient-record rendering also reside inside
   `clinic-flow.tsx`; the path report points to this shared ownership problem,
   not an authorization finding.
