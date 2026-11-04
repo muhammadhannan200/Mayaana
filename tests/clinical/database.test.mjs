@@ -63,6 +63,10 @@ async function readyVisit(client = staff.secretary, clinic = clinics[0]) {
   const entry = await rpc(client, "clinical_enqueue", { p_clinic: clinic, p_patient: patient, p_kind: "full_exam" });
   return rpc(client, "clinical_save_measurements", { p_queue: entry.id, p_revision: entry.revision, p_values: measurements });
 }
+async function attachmentVisit() {
+  const entry = await rpc(staff.secretary, "clinical_handoff", handoffArgs(await readyVisit()));
+  return { entry };
+}
 const handoffArgs = entry => ({ p_queue: entry.id, p_revision: entry.revision, p_request: randomUUID() });
 
 // Each doctor scenario establishes its own legal transition sequence. A failed
@@ -398,6 +402,25 @@ test("a waiting patient can be removed with a reason and added again the same da
   const sent = await rpc(staff.secretary, "clinical_handoff", handoffArgs(await readyVisit()));
   await denied(staff.secretary.rpc("clinical_remove_from_queue", { p_queue: sent.id, p_revision: sent.revision, p_reason: "other" }));
   await rpc(staff.secretary, "clinical_cancel_handoff", { p_queue: sent.id, p_revision: sent.revision });
+});
+
+test("visit attachments are doctor-only and freeze when the visit finishes", async () => {
+  const { entry } = await attachmentVisit();
+  const args = { p_queue: entry.id, p_name: "fictional-lab.pdf", p_mime: "application/pdf", p_size: 1024 };
+  await denied(staff.secretary.rpc("clinical_add_attachment", args));
+  await denied(staff.otherDoctor.rpc("clinical_add_attachment", args));
+  await denied(staff.doctor.rpc("clinical_add_attachment", { ...args, p_mime: "text/html" }));
+  const added = await rpc(staff.doctor, "clinical_add_attachment", args);
+  assert.ok(added.storage_path.startsWith(`${clinics[0]}/`));
+  await rpc(staff.doctor, "clinical_confirm_attachment", { p_queue: entry.id, p_attachment: added.id });
+  const hidden = await staff.secretary.from("visit_attachments").select("id").eq("id", added.id);
+  assert.deepEqual(hidden.data, []);
+  const seen = await staff.doctor.from("visit_attachments").select("id").eq("id", added.id).single();
+  assert.equal(seen.data.id, added.id);
+  await staff.doctor.from("visit_attachments").delete().eq("id", added.id);
+  const kept = await staff.doctor.from("visit_attachments").select("id").eq("id", added.id).single();
+  assert.equal(kept.data.id, added.id);
+  assert.equal(await rpc(staff.doctor, "clinical_delete_attachment", { p_queue: entry.id, p_attachment: added.id }), added.storage_path);
 });
 
 test("handoff can be cancelled for one minute until the doctor opens or saves the visit", async () => {

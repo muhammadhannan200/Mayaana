@@ -218,3 +218,30 @@ test("patient record tabs show progress and visits", async ({ page }) => {
   await page.getByRole("tab", { name: "الزيارات" }).click();
   await expect(page.locator(".record-visits li")).toHaveCount(2);
 });
+
+test("the doctor can attach and remove a file on a visit", async ({ page }) => {
+  await page.goto("/demo/doctor/visits/demo-featured");
+  await expect(
+    page.getByRole("heading", { name: "المرفقات (0)" })
+  ).toBeVisible();
+  await page.getByLabel("اختيار مرفق").setInputFiles({
+    name: "تحليل-خيالي.pdf",
+    mimeType: "application/pdf",
+    buffer: Buffer.from("fictional"),
+  });
+  await expect(
+    page.getByRole("heading", { name: "المرفقات (1)" })
+  ).toBeVisible();
+  await page.getByRole("button", { name: /حذف تحليل-خيالي/ }).click();
+  await expect(
+    page.getByRole("heading", { name: "المرفقات (0)" })
+  ).toBeVisible();
+  await page.getByLabel("اختيار مرفق").setInputFiles({
+    name: "fictional.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("fictional"),
+  });
+  await expect(page.locator(".visit-attachments [role=alert]")).toContainText(
+    "صورة أو PDF"
+  );
+});
