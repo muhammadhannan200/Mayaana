@@ -18,6 +18,7 @@ import {
   handoffCancelMs,
 } from "@/shared/queue-handoff";
 import { DemoNote } from "./clinic-ui";
+import { QueuePatientCard } from "./queue-patient-card";
 
 type QueueScreenProps = {
   demo?: boolean;
@@ -55,6 +56,7 @@ export function QueueScreen({
   findPatient,
   badge,
 }: QueueScreenProps) {
+  const [removedToast, setRemovedToast] = useState("");
   return (
     <>
       <header className="secretary-header">
@@ -90,6 +92,12 @@ export function QueueScreen({
           )
         )}
         {queueToast && <Toast key={queueToast} message={queueToast} />}
+        {removedToast && (
+          <Toast
+            key={removedToast}
+            message={`تمت إزالة ${removedToast} من الدور.`}
+          />
+        )}
         <div className="queue-totals">
           <div>
             <strong>{waiting.length}</strong>
@@ -135,7 +143,26 @@ export function QueueScreen({
           {waiting.length ? (
             <ol className="queue-list">
               {waiting.map((e, i) => (
-                <li className="queue-card" key={e.id}>
+                <QueuePatientCard
+                  key={e.id}
+                  patientName={findPatient(e).name}
+                  queueNumber={i + 1}
+                  pending={operations?.pending}
+                  onRemove={async (reason) => {
+                    setError("");
+                    if (operations) {
+                      const removed = await operations.removeFromQueue(
+                        e.id,
+                        reason
+                      );
+                      if (removed) setRemovedToast(findPatient(e).name);
+                      return removed;
+                    }
+                    setRemovedToast(findPatient(e).name);
+                    local!.removeFromQueue(e.id);
+                    return true;
+                  }}
+                >
                   <div className="queue-card-top">
                     <span className="queue-number">
                       <small>دور</small>
@@ -210,7 +237,7 @@ export function QueueScreen({
                       </Link>
                     )}
                   </div>
-                </li>
+                </QueuePatientCard>
               ))}
             </ol>
           ) : (

@@ -4,6 +4,7 @@ export { normalizeClinicalNumber } from "./clinical-core";
 export { getClinicScreen } from "./clinical-screen";
 export {
   cancelHandoff,
+  removeFromQueue,
   createPatient,
   enqueuePatient,
   finishVisit,

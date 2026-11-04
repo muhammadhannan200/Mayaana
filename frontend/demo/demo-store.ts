@@ -190,6 +190,16 @@ export function createDemoStore(scope: string) {
       });
       return outcome;
     },
+    removeFromQueue(id: string) {
+      update((current) => ({
+        ...current,
+        queue: current.queue.filter(
+          (item) =>
+            item.id !== id ||
+            (item.status !== "waiting" && item.status !== "ready")
+        ),
+      }));
+    },
     cancelHandoff(id: string) {
       let cancelled = false;
       update((current) => {

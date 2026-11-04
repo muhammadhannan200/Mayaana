@@ -448,3 +448,32 @@ test("notification bell lists clinic events and clears its badge", async ({
     page.getByRole("button", { name: /الإشعارات/ })
   ).not.toHaveAccessibleName(/جديدة/);
 });
+
+test("a long press opens removal and the patient leaves the queue", async ({
+  page,
+}) => {
+  await page.goto("/demo/secretary");
+  const card = page.locator(".queue-action-card").first();
+  await expect(card).toBeVisible();
+  const name = await card.locator(".queue-person strong").innerText();
+  await expect(async () => {
+    await card.locator(".queue-card-top").dispatchEvent("pointerdown", {
+      pointerType: "touch",
+      pointerId: 7,
+      isPrimary: true,
+      button: 0,
+      bubbles: true,
+    });
+    await expect(page.getByRole("dialog")).toBeVisible({ timeout: 1000 });
+  }).toPass({ timeout: 15000 });
+  const sheet = page.getByRole("dialog");
+  await expect(sheet.getByRole("heading")).toContainText(name);
+  await expect(sheet.getByRole("radio")).toHaveCount(3);
+  await sheet.getByText("أُضيف بالخطأ").click();
+  await sheet.getByRole("button", { name: "إزالة من الدور" }).click();
+  await expect(sheet).toBeHidden();
+  await expect(page.locator(".app-toast")).toContainText("تمت إزالة");
+  await expect(
+    page.locator(".queue-action-card strong", { hasText: name })
+  ).toHaveCount(0);
+});

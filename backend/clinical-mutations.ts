@@ -1,6 +1,10 @@
 import "server-only";
 import type { VisitDraft, VisitMeasurement } from "../shared/clinical-model";
-import type { ClinicalResult, PatientInput } from "../shared/clinical-types";
+import type {
+  ClinicalResult,
+  PatientInput,
+  QueueRemovalReason,
+} from "../shared/clinical-types";
 import {
   attempt,
   failure,
@@ -146,6 +150,23 @@ export async function cancelHandoff(
   return mutate("clinical_cancel_handoff", {
     p_queue: entry,
     p_revision: revision,
+  });
+}
+export async function removeFromQueue(
+  entry: string,
+  revision: number,
+  reason: QueueRemovalReason
+): Promise<ClinicalResult<null>> {
+  if (
+    !validId(entry) ||
+    !Number.isInteger(revision) ||
+    !["left_clinic", "added_by_mistake", "other"].includes(reason)
+  )
+    return failure({ code: "22023" });
+  return mutate("clinical_remove_from_queue", {
+    p_queue: entry,
+    p_revision: revision,
+    p_reason: reason,
   });
 }
 export async function openVisit(entry: string): Promise<ClinicalResult<null>> {

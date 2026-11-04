@@ -1,0 +1,139 @@
+.queue-action-card .queue-card-top {
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+/* Touch uses the long press. Keyboards and mice reach the same sheet here. */
+.queue-actions-trigger:not(:focus-visible) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+@media (hover: hover) and (pointer: fine) and (min-width: 700px) {
+  .queue-actions-trigger:not(:focus-visible) {
+    position: static;
+    width: 100%;
+    height: auto;
+    min-height: 44px;
+    padding: 8px 12px;
+    clip-path: none;
+  }
+}
+.queue-actions-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: #fff;
+  color: #475569;
+  font-size: 12px;
+}
+.queue-actions-trigger:hover {
+  background: #f1f5f9;
+}
+.removal-sheet {
+  position: fixed;
+  inset: auto 0 0;
+  width: min(100%, 390px);
+  max-width: 100%;
+  max-height: calc(100dvh - 16px);
+  min-height: 293px;
+  margin: 0 auto;
+  padding: 20px 20px max(20px, env(safe-area-inset-bottom));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 0;
+  border-radius: 24px 24px 0 0;
+  background: #fff;
+  color: #0f172a;
+}
+.removal-sheet::backdrop {
+  background: rgb(5 8 20 / 55%);
+}
+.removal-sheet h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 28px;
+  overflow-wrap: anywhere;
+}
+.removal-reasons {
+  min-inline-size: 0;
+  padding: 0;
+  margin: 21px 0 0;
+  border: 0;
+}
+.removal-reasons legend {
+  padding: 0;
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 28px;
+}
+.removal-reasons > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.removal-reasons label {
+  position: relative;
+}
+.removal-reasons input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+.removal-reasons span {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 9999px;
+  color: #475569;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.removal-reasons input:checked + span {
+  color: #b91c1c;
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+.removal-submit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 48px;
+  margin-top: 33px;
+  padding: 12px 20px;
+  border: 0;
+  border-radius: 12px;
+  background: #fef2f2;
+  color: #b91c1c;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 700;
+}
+.removal-sheet button:focus-visible,
+.removal-reasons input:focus-visible + span {
+  outline: 3px solid #0f766e;
+  outline-offset: 3px;
+}
+@media (forced-colors: active) {
+  .removal-reasons input:checked + span {
+    outline: 2px solid Highlight;
+  }
+}

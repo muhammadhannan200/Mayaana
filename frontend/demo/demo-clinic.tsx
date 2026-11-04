@@ -47,6 +47,7 @@ export function useDemoClinic() {
     update: store.update,
     handoff: store.handoff,
     cancelHandoff: store.cancelHandoff,
+    removeFromQueue: store.removeFromQueue,
     openVisit: store.openVisit,
     reset: store.reset,
     currentDate: store.currentDate,

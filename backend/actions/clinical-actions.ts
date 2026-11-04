@@ -2,7 +2,11 @@
 
 // These explicit server functions always reauthenticate; layouts are not a write guard.
 import * as clinical from "@/backend/clinical";
-import type { PatientInput, ScreenRequest } from "@/shared/clinical-types";
+import type {
+  PatientInput,
+  QueueRemovalReason,
+  ScreenRequest,
+} from "@/shared/clinical-types";
 import type { VisitDraft, VisitMeasurement } from "@/shared/clinical-model";
 
 export async function getClinicScreen(input: ScreenRequest) {
@@ -32,6 +36,14 @@ export async function handoffToDoctor(
 ) {
   return clinical.handoffToDoctor(entry, revision, request);
 }
+export async function removeFromQueue(
+  entry: string,
+  revision: number,
+  reason: QueueRemovalReason
+) {
+  return clinical.removeFromQueue(entry, revision, reason);
+}
+
 export async function cancelHandoff(entry: string, revision: number) {
   return clinical.cancelHandoff(entry, revision);
 }
