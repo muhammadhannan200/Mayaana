@@ -217,9 +217,9 @@ test("two independent sessions: intake, handoff, private draft, diet, appointmen
     ).toBeVisible();
     await surface(secretary);
     await secretary.getByRole("button", { name: "إدخال عند الطبيب" }).click();
-    await expect(
-      doctor.locator(".doctor-current")
-    ).toContainText(patientName, { timeout: 25_000 });
+    await expect(doctor.locator(".doctor-current")).toContainText(patientName, {
+      timeout: 25_000,
+    });
     await doctor.getByRole("link", { name: "فتح الملف", exact: true }).click();
     await expect(doctor.locator(".patient-progress")).toContainText("80");
     await doctor
@@ -474,7 +474,7 @@ test("competing Secretary sessions show a clear occupied conflict, refresh, and 
       loserPage
         .locator(".queue-card")
         .filter({ hasText: `مريض تنافس ${loserIndex}` })
-        .getByRole("button")
+        .getByRole("button", { name: "إدخال عند الطبيب" })
     ).toBeEnabled();
     await pages[2].evaluate(() => window.dispatchEvent(new Event("focus")));
     await expect(pages[2].locator(".doctor-current")).toBeVisible();
@@ -491,7 +491,7 @@ test("competing Secretary sessions show a clear occupied conflict, refresh, and 
     const retry = loserPage
       .locator(".queue-card")
       .filter({ hasText: `مريض تنافس ${loserIndex}` })
-      .getByRole("button");
+      .getByRole("button", { name: "إدخال عند الطبيب" });
     await expect(retry).toBeEnabled();
     await retry.click();
     await expect(loserPage).toHaveURL(/sent=1/);

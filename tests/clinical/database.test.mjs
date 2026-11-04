@@ -380,6 +380,26 @@ test("doctor-only drafts and private notes isolation, including direct writes", 
   const notes = await staff.doctor.from("visit_private_notes").select("notes").eq("visit_id", visitId).single(); assert.equal(notes.data.notes, args.p_notes);
 });
 
+test("a waiting patient can be removed with a reason and added again the same day", async () => {
+  const ready = await readyVisit();
+  const args = { p_queue: ready.id, p_revision: ready.revision, p_reason: "added_by_mistake" };
+  await denied(staff.otherDoctor.rpc("clinical_remove_from_queue", args));
+  await denied(staff.secretary.rpc("clinical_remove_from_queue", { ...args, p_reason: "unknown" }));
+  await denied(staff.secretary.rpc("clinical_remove_from_queue", { ...args, p_revision: ready.revision + 1 }));
+  await rpc(staff.secretary, "clinical_remove_from_queue", args);
+  const queue = await staff.secretary.from("daily_queue").select("id").eq("id", ready.id);
+  assert.deepEqual(queue.data, []);
+  const visit = await staff.secretary.from("visits").select("id").eq("queue_entry_id", ready.id);
+  assert.deepEqual(visit.data, []);
+  const removal = await staff.secretary.from("queue_removals").select("reason").eq("patient_id", ready.patient_id).single();
+  assert.equal(removal.data.reason, "added_by_mistake");
+  const again = await rpc(staff.secretary, "clinical_enqueue", { p_clinic: clinics[0], p_patient: ready.patient_id, p_kind: "full_exam" });
+  assert.equal(again.status, "waiting");
+  const sent = await rpc(staff.secretary, "clinical_handoff", handoffArgs(await readyVisit()));
+  await denied(staff.secretary.rpc("clinical_remove_from_queue", { p_queue: sent.id, p_revision: sent.revision, p_reason: "other" }));
+  await rpc(staff.secretary, "clinical_cancel_handoff", { p_queue: sent.id, p_revision: sent.revision });
+});
+
 test("handoff can be cancelled for one minute until the doctor opens or saves the visit", async () => {
   const sent = await rpc(staff.secretary, "clinical_handoff", handoffArgs(await readyVisit()));
   await denied(staff.otherDoctor.rpc("clinical_cancel_handoff", { p_queue: sent.id, p_revision: sent.revision }));

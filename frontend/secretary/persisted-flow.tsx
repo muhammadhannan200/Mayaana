@@ -11,7 +11,10 @@ import type {
   ClinicalSnapshot,
 } from "@/shared/clinical-types";
 import type { AccountProfile } from "@/backend/account-profile";
-import { readCachedSnapshot, writeCachedSnapshot } from "@/shared/clinical-cache";
+import {
+  readCachedSnapshot,
+  writeCachedSnapshot,
+} from "@/shared/clinical-cache";
 import { ClinicFlowView } from "./clinic-flow-view";
 
 const networkError: ClinicalFailure = {
@@ -173,6 +176,8 @@ export function PersistedFlow({
         actions.handoffToDoctor(id, revision(id), requestId(`handoff:${id}`))
       ),
     cancelHandoff: (id) => write(() => actions.cancelHandoff(id, revision(id))),
+    removeFromQueue: (id, reason) =>
+      write(() => actions.removeFromQueue(id, revision(id), reason)),
     openVisit: async (id) => {
       // Best effort: failure only leaves the short cancel window open, and the
       // server still rejects cancellation once notes or a diet exist.

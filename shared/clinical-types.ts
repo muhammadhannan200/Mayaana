@@ -43,6 +43,10 @@ export type ClinicalOperations = {
   ) => Promise<boolean>;
   handoffToDoctor: (entry: string) => Promise<boolean>;
   cancelHandoff: (entry: string) => Promise<boolean>;
+  removeFromQueue: (
+    entry: string,
+    reason: QueueRemovalReason
+  ) => Promise<boolean>;
   openVisit: (entry: string) => Promise<void>;
   saveDoctorDraft: (
     entry: string,
@@ -57,3 +61,5 @@ export type ClinicalOperations = {
   search: (term: string) => void;
   nextPage: () => void;
 };
+
+export type QueueRemovalReason = "left_clinic" | "added_by_mistake" | "other";
