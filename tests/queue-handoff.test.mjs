@@ -26,3 +26,13 @@ test("separate demo scopes have independent slots; unready and unknown entries c
   assert.equal(handoffQueue([{ ...ready("a"), status: "waiting" }], "a").outcome, "unavailable");
   assert.equal(handoffQueue([], "missing").outcome, "unavailable");
 });
+
+test("neutral handoff contract preserves caller-owned fields without Demo fixtures", () => {
+  const metadata = { revision: 7, request: "synthetic-request" };
+  const queue = [{ id: "a", status: "ready", metadata }, { id: "b", status: "waiting", metadata }];
+  const next = handoffQueue(queue, "a");
+  assert.equal(next.outcome, "sent");
+  assert.equal(queue[0].status, "ready", "The source snapshot stays immutable");
+  assert.equal(next.queue[0].metadata, metadata);
+  assert.equal(next.queue[1], queue[1]);
+});

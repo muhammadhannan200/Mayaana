@@ -35,6 +35,12 @@ export function ClinicFlow(props: { route: string; demo?: boolean }) {
 
 function DemoFlow({ route }: { route: string }) {
   const local = useDemoClinic();
+  if (!local.ready)
+    return (
+      <main className="secretary-shell" dir="rtl">
+        <p className="secretary-muted" role="status">جارٍ تحميل العرض…</p>
+      </main>
+    );
   return <ClinicFlowView route={route} demo local={local} />;
 }
 
@@ -57,7 +63,6 @@ export function ClinicFlowView({
     (() => {
       throw new Error("Authenticated data requires a clinical operation");
     });
-  const reset = local?.reset ?? (() => {});
   const router = useRouter();
   const params = useSearchParams();
   const href = (path: string) => `${demo ? "/demo" : ""}/${path}`;
@@ -210,7 +215,8 @@ export function ClinicFlowView({
                 update((state) => ({
                   ...state,
                   queue: state.queue.map((e) =>
-                    e.id === entry.id
+                    e.id === entry.id &&
+                    (e.status === "waiting" || e.status === "ready")
                       ? { ...e, measurements, status: "waiting" }
                       : e
                   ),
@@ -242,7 +248,10 @@ export function ClinicFlowView({
           await update((state) => ({
             ...state,
             queue: state.queue.map((e) =>
-              e.id === entry.id ? { ...e, measurements, status: "ready" } : e
+              e.id === entry.id &&
+              (e.status === "waiting" || e.status === "ready")
+                ? { ...e, measurements, status: "ready" }
+                : e
             ),
           }));
           go("secretary?measured=1");
@@ -811,6 +820,9 @@ export function ClinicFlowView({
           <Link className="secretary-outline" href={href("secretary")}>
             العودة للدور
           </Link>
+          {demo && error && (
+            <p className="secretary-error" role="alert">{error}</p>
+          )}
           {demo && (
             <button
               className="secretary-outline"
@@ -820,8 +832,13 @@ export function ClinicFlowView({
                     "إعادة بيانات العرض الخيالية؟ ستُحذف تعديلات العرض في هذا المتصفح فقط."
                   )
                 ) {
-                  await reset();
-                  go("secretary");
+                  if ((await local!.reset()) === "reset") {
+                    setError("");
+                    go("secretary");
+                  } else
+                    setError(
+                      "لم تكتمل إعادة الضبط في التخزين المشترك. أُعيد العرض في ذاكرة هذا التبويب فقط؛ قد تبقى بعض المسودات القديمة. أعد تحميل الصفحة لاستعادة البيانات المحفوظة قبل المحاولة مجدداً."
+                    );
                 }
               }}
             >

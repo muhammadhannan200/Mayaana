@@ -280,7 +280,7 @@ test("an overnight active consultation still blocks handoff and can be completed
   // Simulate midnight on this exact synthetic row, retaining all measurements
   // and timestamps. Do not alter the clock or any other fixture's records.
   const user = await staff.doctor.auth.getUser(); assert.ifError(user.error);
-  const sql = `begin; select set_config('request.jwt.claim.sub','${user.data.user.id}',true); update public.daily_queue set queue_date=queue_date-1,revision=revision+1 where id='${active.id}'; commit;`;
+  const sql = `do $$ begin perform set_config('request.jwt.claim.sub','${user.data.user.id}',true); update public.daily_queue set queue_date=queue_date-1,revision=revision+1 where id='${active.id}'; end $$;`;
   const result = spawnSync(process.platform === "win32" ? "supabase.exe" : "supabase", ["db", "query", "--local", sql, "--workdir", process.env.CLINICAL_TEST_WORKDIR], { env: process.env, encoding: "utf8" });
   assert.equal(result.status, 0, result.stderr);
   const overnight = await staff.doctor.from("daily_queue").select("*").eq("id", active.id).single(); assert.ifError(overnight.error);

@@ -11,7 +11,17 @@ import {
   type MockVisit,
   type VisitMeasurement,
 } from "@/app/secretary/measurements/mock-visits";
-import { handoffQueue, type DemoHandoffOutcome } from "./queue-handoff";
+import { handoffQueue, type QueueHandoffOutcome } from "./queue-handoff";
+
+type DemoHandoffOutcome =
+  QueueHandoffOutcome | "unsupported" | "storage_unavailable";
+type DemoVisitSaveOutcome = "saved" | "local_only" | "conflict" | "unavailable";
+type DemoCompletionOutcome =
+  | "completed"
+  | "conflict"
+  | "validation"
+  | "unavailable"
+  | "storage_unavailable";
 
 export type DemoPatient = {
   id: string;
@@ -277,9 +287,24 @@ function createStore(scope: string) {
   const draftPrefix = `mayanaa-demo-visit-v1:${scope}:`;
   let state = initial;
   let loaded = false;
+  // Sticky for this store lifetime. Never flush a disconnected snapshot on
+  // recovery: another tab may have committed a handoff while we were isolated.
+  // A reload creates a new store and reads disk, abandoning fallback queue edits.
   let memoryOnly = false;
   const listeners = new Set<() => void>();
-  function read() {
+  const localDrafts = new Map<string, { visit: DemoVisit; saving: boolean }>();
+  function overlayLocalDrafts() {
+    let changed = false;
+    const queue = state.queue.map((entry) => {
+      const local = localDrafts.get(entry.id);
+      if (!local || entry.status !== "with_doctor" || entry.visit === local.visit)
+        return entry;
+      changed = true;
+      return { ...entry, visit: local.visit };
+    });
+    if (changed) state = { ...state, queue };
+  }
+  function read(includeLocal = true) {
     if (!loaded && typeof window !== "undefined" && !memoryOnly) {
       loaded = true;
       try {
@@ -306,8 +331,8 @@ function createStore(scope: string) {
             )
           )
             state = parsed;
-        }
-        // Drafts have separate keys so synchronous note autosave cannot
+        } else state = initial;
+        // Drafts have separate keys so note autosave cannot
         // overwrite a concurrently committed queue transition or completion.
         state = {
           ...state,
@@ -328,21 +353,24 @@ function createStore(scope: string) {
         /* Keep in-memory edits rather than re-reading stale disk data. */
       }
     }
+    if (includeLocal) overlayLocalDrafts();
     return state;
   }
-  function mutate<T>(
+  async function mutate<T>(
     change: (current: State) => { next: State; result: T },
-    requireStorage = false
+    requireStorage = false,
+    persistState = true
   ): Promise<T> {
-    const apply = () => {
+    const apply = (locked: boolean) => {
+      if (!locked) memoryOnly = true;
       // A storage event can arrive after a competing tab acquires the lock.
       // Re-read under the lock before queue writes, including completion/reset.
       loaded = false;
-      const current = read();
+      const current = read(false);
       if (requireStorage && memoryOnly)
         throw new Error("Demo storage unavailable");
       const { next, result } = change(current);
-      if (next !== current) {
+      if (persistState && next !== current && !memoryOnly) {
         try {
           localStorage.setItem(key, JSON.stringify(next));
         } catch {
@@ -352,16 +380,31 @@ function createStore(scope: string) {
         }
       }
       state = next;
+      overlayLocalDrafts();
       listeners.forEach((fn) => fn());
       return result;
     };
-    return navigator.locks
-      ? navigator.locks.request(key, apply)
-      : Promise.resolve(apply());
+    // Even non-handoff whole-store writes require the lock. If acquiring it
+    // fails, retain best-effort edits in this tab only; never publish them later.
+    let entered = false;
+    try {
+      if (navigator.locks)
+        return await navigator.locks.request(key, () => {
+          entered = true;
+          return apply(true);
+        });
+    } catch (error) {
+      // Do not replay a callback that ran and failed (including storage writes).
+      if (entered || requireStorage) throw error;
+    }
+    return apply(false);
   }
   return {
     read,
-    server: () => initial,
+    // Browser-local data (including relative seed dates) is not a server
+    // snapshot. Use the same loading state on the server and first hydration
+    // render, even across midnight, time zones or a long-lived server module.
+    server: () => null,
     subscribe(listener: () => void) {
       listeners.add(listener);
       const sync = (event: StorageEvent) => {
@@ -389,37 +432,144 @@ function createStore(scope: string) {
         result: undefined,
       }));
     },
-    saveVisit(id: string, change: (visit: DemoVisit) => DemoVisit) {
-      loaded = false;
-      const entry = read().queue.find((item) => item.id === id);
-      if (entry?.status !== "with_doctor") return;
-      const visit = change(
-        entry.visit ?? { notes: "", days: [], appointment: "" }
-      );
-      try {
-        localStorage.setItem(`${draftPrefix}${id}`, JSON.stringify(visit));
-      } catch {
-        memoryOnly = true;
-      }
-      state = {
-        ...state,
-        queue: state.queue.map((item) =>
-          item.id === id ? { ...item, visit } : item
-        ),
-      };
-      listeners.forEach((fn) => fn());
+    localDraft(id: string) {
+      return localDrafts.get(id)?.visit;
     },
-    reset() {
-      return mutate(() => {
+    isSavingVisit(id: string) {
+      return localDrafts.get(id)?.saving ?? false;
+    },
+    async saveVisit(
+      id: string,
+      change: (visit: DemoVisit) => DemoVisit,
+      expected: DemoVisit
+    ): Promise<DemoVisitSaveOutcome> {
+      // Capture input synchronously, but never publish it without the queue's
+      // lock. The local overlay keeps rapid typing responsive while it waits.
+      const base = JSON.stringify(expected);
+      const local = {
+        visit: structuredClone(change(structuredClone(expected))),
+        saving: true,
+      };
+      localDrafts.set(id, local);
+      overlayLocalDrafts();
+      listeners.forEach((fn) => fn());
+      const result = await mutate<DemoVisitSaveOutcome>((current) => {
+        const entry = current.queue.find((item) => item.id === id);
+        if (entry?.status !== "with_doctor")
+          return { next: current, result: "unavailable" };
+        const visit = entry.visit ?? { notes: "", days: [], appointment: "" };
+        if (JSON.stringify(visit) !== base) {
+          memoryOnly = true;
+          return { next: current, result: "conflict" };
+        }
         try {
-          for (const draftKey of Object.keys(localStorage))
-            if (draftKey.startsWith(draftPrefix))
-              localStorage.removeItem(draftKey);
+          localStorage.setItem(`${draftPrefix}${id}`, JSON.stringify(local.visit));
+        } catch (error) {
+          // Isolate before releasing the lock, not in a later promise handler.
+          memoryOnly = true;
+          throw error;
+        }
+        return {
+          next: {
+            ...current,
+            queue: current.queue.map((item) =>
+              item.id === id ? { ...item, visit: local.visit } : item
+            ),
+          },
+          result: "saved",
+        };
+      }, true, false).catch(() => {
+        memoryOnly = true;
+        return "local_only" as const;
+      });
+      if (localDrafts.get(id) === local) {
+        if (result === "saved") localDrafts.delete(id);
+        else local.saving = false;
+      }
+      overlayLocalDrafts();
+      // Runtime pending/recovery metadata changed, not the persisted schema.
+      state = { ...state };
+      listeners.forEach((fn) => fn());
+      return result;
+    },
+    completeVisit(
+      id: string,
+      expected: DemoVisit,
+      appointment: string
+    ): Promise<DemoCompletionOutcome> {
+      if (!navigator.locks) return Promise.resolve("storage_unavailable");
+      const base = JSON.stringify(expected);
+      return mutate<DemoCompletionOutcome>((current) => {
+        const active = current.queue.find((entry) => entry.id === id);
+        if (active?.status !== "with_doctor")
+          return { next: current, result: "unavailable" };
+        const visit = active.visit ?? { notes: "", days: [], appointment: "" };
+        // The lock may have been queued while another tab autosaved this visit.
+        // Compare after the authoritative reread; never complete captured data.
+        if (JSON.stringify(visit) !== base)
+          return { next: current, result: "conflict" };
+        const now = new Date();
+        const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+        if (
+          !visit.days.length ||
+          visit.days.some((day) => !day.meals.length) ||
+          !/^\d{4}-\d{2}-\d{2}$/.test(appointment) ||
+          appointment <= today
+        )
+          return { next: current, result: "validation" };
+        const completedAt = now.toISOString();
+        return {
+          result: "completed",
+          next: {
+            ...current,
+            queue: current.queue.map((entry) =>
+              entry.id === id
+                ? {
+                    ...entry,
+                    status: "completed",
+                    visit: { ...visit, appointment, completedAt },
+                  }
+                : entry
+            ),
+            patients: current.patients.map((patient) =>
+              patient.id === active.patientId
+                ? {
+                    ...patient,
+                    visits: [
+                      {
+                        id,
+                        number: patient.visits.length + 1,
+                        date: now.toLocaleDateString("ar-SY"),
+                        detailDate: "زيارة مكتملة · العرض التجريبي",
+                        kind: active.kind,
+                        measurements: { ...active.measurements },
+                      },
+                      ...patient.visits,
+                    ],
+                  }
+                : patient
+            ),
+          },
+        };
+      }, true).catch(() => "storage_unavailable" as const);
+    },
+    async reset(): Promise<"reset" | "local_only"> {
+      await mutate(() => {
+        localDrafts.clear();
+        try {
+          if (!memoryOnly)
+            for (const draftKey of Object.keys(localStorage))
+              if (draftKey.startsWith(draftPrefix))
+                localStorage.removeItem(draftKey);
         } catch {
-          /* Keep the existing memory-only reset fallback. */
+          // Cleanup may be partial. Never publish a fresh seed while surviving
+          // draft keys could attach to it; keep this reset isolated until reload.
+          memoryOnly = true;
         }
         return { next: initial, result: undefined };
       });
+      // mutate also isolates failed main-document writes and unavailable locks.
+      return memoryOnly ? "local_only" : "reset";
     },
     handoff(id: string): Promise<DemoHandoffOutcome> {
       // Do not pretend cross-tab atomicity is available on insecure/old browsers.
@@ -461,10 +611,14 @@ export function useDemoClinic() {
   if (!store) throw new Error("DemoClinicProvider is required");
   const state = useSyncExternalStore(store.subscribe, store.read, store.server);
   return {
-    ...state,
+    ...(state ?? { patients: [], queue: [] }),
+    ready: state !== null,
     update: store.update,
     handoff: store.handoff,
     saveVisit: store.saveVisit,
+    localDraft: store.localDraft,
+    isSavingVisit: store.isSavingVisit,
+    completeVisit: store.completeVisit,
     reset: store.reset,
   };
 }

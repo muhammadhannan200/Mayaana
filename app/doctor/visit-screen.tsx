@@ -91,11 +91,6 @@ function VisitEditor({
   local?: ReturnType<typeof useDemoClinic>;
 }) {
   const { patients, queue } = clinical ?? local!;
-  const update: ReturnType<typeof useDemoClinic>["update"] =
-    local?.update ??
-    (() => {
-      throw new Error("Authenticated visits require clinical operations");
-    });
   const params = useSearchParams();
   const router = useRouter();
   const prefix = demo ? "/demo" : "";
@@ -104,6 +99,8 @@ function VisitEditor({
   const patient = patients.find((item) => item.id === entry?.patientId);
   const [review, setReview] = useState(false);
   const [error, setError] = useState("");
+  const [failedCompletionDraft, setFailedCompletionDraft] =
+    useState<DemoVisit | null>(null);
   const [editing, setEditing] = useState<{ day: string; meal?: string } | null>(
     null
   );
@@ -128,8 +125,15 @@ function VisitEditor({
   const visitHref = href(`/visits/${entryId}`);
   const revision = (entry as ClinicEntry | undefined)?.revision ?? 0;
   const stale = !!draft && draft.revision !== revision;
+  const hasLocalDraft = demo && !!local!.localDraft(entryId);
+  const savingVisit = demo && local!.isSavingVisit(entryId);
   useEffect(() => {
-    if (demo || (!draft && !(editing && description.trim()))) return;
+    if (
+      demo
+        ? !hasLocalDraft && !failedCompletionDraft
+        : !draft && !(editing && description.trim())
+    )
+      return;
     const unload = (event: BeforeUnloadEvent) => {
       event.preventDefault();
     };
@@ -151,9 +155,9 @@ function VisitEditor({
       window.removeEventListener("beforeunload", unload);
       document.removeEventListener("click", leave, true);
     };
-  }, [demo, draft, editing, description]);
+  }, [demo, draft, editing, description, hasLocalDraft, failedCompletionDraft]);
 
-  function save(change: (current: DemoVisit) => DemoVisit) {
+  async function save(change: (current: DemoVisit) => DemoVisit) {
     if (operations) {
       if (completed || operations.pending) return;
       setDraft((current) => ({
@@ -163,8 +167,19 @@ function VisitEditor({
       setError("");
       return;
     }
-    local!.saveVisit(entryId, change);
-    setError("");
+    const result = await local!.saveVisit(entryId, change, visit);
+    if (result === "saved" && local!.localDraft(entryId)) return;
+    if (result !== "saved")
+      setFailedCompletionDraft(local!.localDraft(entryId) ?? null);
+    setError(
+      result === "saved"
+        ? ""
+        : result === "conflict"
+          ? "تغيّرت المسودة في تبويب آخر. لم تُستبدل النسخة المحفوظة. تعديلاتك في ذاكرة هذا التبويب فقط؛ انسخها قبل إعادة التحميل."
+          : result === "local_only"
+            ? "لم تُحفظ تعديلاتك في التخزين المشترك. هي في ذاكرة هذا التبويب فقط؛ انسخها قبل إعادة التحميل لاستعادة النسخة المحفوظة."
+            : "لم تعد الزيارة متاحة للتعديل. حدّث الصفحة لعرض النسخة المحفوظة."
+    );
   }
 
   function saveMeal(event: FormEvent) {
@@ -208,44 +223,38 @@ function VisitEditor({
       }
       return;
     }
-    const completedAt = new Date().toISOString();
-    await update((state) => {
-      const active = state.queue.find((item) => item.id === entryId);
-      if (!active || active.status !== "with_doctor") return state;
-      return {
-        ...state,
-        queue: state.queue.map((item) =>
-          item.id === entryId
-            ? {
-                ...item,
-                status: "completed",
-                visit: { ...visit, appointment, completedAt },
-              }
-            : item
-        ),
-        patients: state.patients.map((record) =>
-          record.id === active.patientId
-            ? {
-                ...record,
-                visits: [
-                  {
-                    id: entryId,
-                    number: record.visits.length + 1,
-                    date: new Date(completedAt).toLocaleDateString("ar-SY"),
-                    detailDate: "زيارة مكتملة · العرض التجريبي",
-                    kind: active.kind,
-                    measurements: { ...active.measurements },
-                  },
-                  ...record.visits,
-                ],
-              }
-            : record
-        ),
-      };
-    });
+    const result = await local!.completeVisit(entryId, visit, appointment);
+    if (result !== "completed") {
+      setFailedCompletionDraft({ ...visit, appointment });
+      setError(
+        result === "conflict"
+          ? "تغيّرت المسودة أثناء انتظار الإنهاء. لم تُنهَ الزيارة ولم تُستبدل النسخة المحفوظة. راجع النسخة الحالية؛ مسودة المحاولة محفوظة أدناه للنسخ قبل إعادة التحميل."
+          : result === "validation"
+            ? "تحقق من البرنامج الغذائي واختر موعد مراجعة بعد اليوم. لم تُنهَ الزيارة؛ مسودة المحاولة محفوظة أدناه."
+            : result === "unavailable"
+              ? "لم تعد الزيارة متاحة للإنهاء. لم تُحفظ هذه المحاولة؛ مسودتها محفوظة أدناه."
+              : "تعذّر تأكيد حفظ وإنهاء الزيارة. لم تُنهَ الزيارة؛ انسخ مسودة المحاولة أدناه قبل إعادة التحميل."
+      );
+      return;
+    }
+    setFailedCompletionDraft(null);
+    setError("");
     setReview(false);
     router.replace(visitHref);
   }
+
+  const recoveryDraft = (demo && local!.localDraft(entryId)) || failedCompletionDraft;
+  const completionRecovery = recoveryDraft && (
+    <details>
+      <summary>مسودة محلية غير محفوظة</summary>
+      <p>هذه النسخة في ذاكرة التبويب فقط؛ انسخها قبل المغادرة أو إعادة التحميل.</p>
+      <textarea
+        aria-label="مسودة محلية غير محفوظة"
+        readOnly
+        value={JSON.stringify(recoveryDraft, null, 2)}
+      />
+    </details>
+  );
 
   if (
     !entry ||
@@ -256,6 +265,8 @@ function VisitEditor({
       <main className="doctor-shell recovery" dir="rtl">
         <h1>الزيارة غير متاحة</h1>
         <p>أكمل القياسات وأدخل المريض عند الطبيب أولاً.</p>
+        {demo && error && <p role="alert">{error}</p>}
+        {completionRecovery}
         <Link className="secretary-primary" href={href("")}>
           العودة للرئيسية
         </Link>
@@ -641,6 +652,8 @@ function VisitEditor({
             {error}
           </p>
         )}
+        {(!review || completed) && completionRecovery}
+        {savingVisit && <p role="status">جارٍ حفظ المسودة… لا تغادر الصفحة قبل التأكيد.</p>}
         {demo && (
           <p className="demo-flow-note">
             عرض تجريبي · حفظ تلقائي في هذا المتصفح فقط. لا تدخل بيانات حقيقية.
@@ -689,6 +702,10 @@ function VisitEditor({
       </footer>
       {review && !completed && (
         <FinishReview onClose={() => setReview(false)}>
+          {demo && error && (
+            <p className="secretary-error" role="alert">{error}</p>
+          )}
+          {completionRecovery}
           <dl className="visit-summary">
             <div>
               <dt>المريض</dt>
