@@ -1,0 +1,275 @@
+import "server-only";
+import type { VisitHistoryItem, VisitMeasurement } from "./clinical-model";
+import type {
+  ClinicalResult,
+  ClinicalSnapshot,
+  ScreenRequest,
+} from "./clinical-types";
+import {
+  attempt,
+  invalid,
+  normalizeClinicalNumber,
+  session,
+  validId,
+} from "./clinical-core";
+
+const measurementStrings = (
+  values: Record<string, number> | null | undefined
+): VisitMeasurement =>
+  Object.fromEntries(
+    Object.entries(values ?? {}).map(([key, value]) => [key, String(value)])
+  );
+
+const completionFormatter = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Asia/Damascus",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+function completedVisitDate(timestamp: string) {
+  const parts = Object.fromEntries(
+    completionFormatter
+      .formatToParts(new Date(timestamp))
+      .map(({ type, value }) => [type, value])
+  );
+  const date = `${parts.year}-${parts.month}-${parts.day}`;
+  return { date, detailDate: `${date} · ${parts.hour}:${parts.minute}` };
+}
+
+async function readBatches<Row>(
+  ids: string[],
+  query: (
+    batch: string[]
+  ) => PromiseLike<{ data: Row[] | null; error: unknown }>
+): Promise<Row[]> {
+  const responses = await Promise.all(
+    Array.from({ length: Math.ceil(ids.length / 100) }, (_, index) =>
+      query(ids.slice(index * 100, index * 100 + 100))
+    )
+  );
+  const rows: Row[] = [];
+  for (const response of responses) {
+    if (response.error) throw response.error;
+    rows.push(...(response.data ?? []));
+  }
+  return rows;
+}
+
+export async function getClinicScreen(
+  input: ScreenRequest
+): Promise<ClinicalResult<ClinicalSnapshot>> {
+  return attempt(async () => {
+    if (
+      !input ||
+      typeof input.term !== "string" ||
+      input.term.length > 160 ||
+      !Number.isInteger(input.page) ||
+      input.page < 0 ||
+      input.page > 100000 ||
+      (input.patient && !validId(input.patient)) ||
+      (input.entry && !validId(input.entry))
+    )
+      invalid();
+    const { client, account } = await session();
+    const clinic = account.clinicId;
+    const date = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Damascus",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
+    const term = normalizeClinicalNumber(input.term)
+      .replace(/[^\p{L}\p{N}\s+]/gu, " ")
+      .trim();
+    let patientQuery = client
+      .from("patients")
+      .select("id,full_name,phone,height_cm,gender,birth_year,goal,revision")
+      .eq("clinic_id", clinic)
+      .order("full_name")
+      .order("id")
+      .range(input.page * 50, input.page * 50 + 50);
+    if (term)
+      patientQuery = patientQuery.or(
+        `full_name.ilike.%${term}%,phone.ilike.%${term}%`
+      );
+    const patientsResult = await patientQuery;
+    if (patientsResult.error) throw patientsResult.error;
+    let queueQuery = client
+      .from("daily_queue")
+      .select(
+        "id,patient_id,visit_type,status,arrived_at,queue_date,revision,handed_off_at"
+      )
+      .eq("clinic_id", clinic)
+      .order("arrived_at")
+      .limit(501);
+    // Unfinished visits from earlier days still occupy the clinic's single slot.
+    queueQuery = queueQuery.or(
+      `queue_date.eq.${date},status.eq.with_doctor${input.entry ? `,id.eq.${input.entry}` : ""}`
+    );
+    const queueResult = await queueQuery;
+    if (queueResult.error) throw queueResult.error;
+    if (queueResult.data.length > 500)
+      throw new Error("Queue exceeds operational page bound");
+    const selectedIds = [
+      ...new Set([
+        ...queueResult.data.map((row) => row.patient_id as string),
+        ...(input.patient ? [input.patient] : []),
+      ]),
+    ];
+    const missingIds = selectedIds.filter(
+      (id) => !patientsResult.data.slice(0, 50).some((row) => row.id === id)
+    );
+    const additional = await readBatches(missingIds, (batch) =>
+      client
+        .from("patients")
+        .select("id,full_name,phone,height_cm,gender,birth_year,goal,revision")
+        .eq("clinic_id", clinic)
+        .in("id", batch)
+    );
+    const hasMore = patientsResult.data.length > 50;
+    const patientRows = [...patientsResult.data.slice(0, 50), ...additional];
+    const entryPatient = queueResult.data.find(
+      (row) => row.id === input.entry
+    )?.patient_id;
+    const detailPatient = input.patient ?? entryPatient;
+    const visits = {
+      data: await readBatches(
+        queueResult.data.map((row) => row.id as string),
+        (batch) =>
+          client
+            .from("visits")
+            .select(
+              "id,patient_id,queue_entry_id,completed_at,created_at,doctor_opened_at"
+            )
+            .eq("clinic_id", clinic)
+            .in("queue_entry_id", batch)
+            .order("created_at", { ascending: false })
+            .limit(501)
+      ),
+    };
+    if (detailPatient) {
+      const history = await client
+        .from("visits")
+        .select(
+          "id,patient_id,queue_entry_id,completed_at,created_at,doctor_opened_at"
+        )
+        .eq("clinic_id", clinic)
+        .eq("patient_id", detailPatient)
+        .not("completed_at", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(100);
+      if (history.error) throw history.error;
+      for (const row of history.data)
+        if (!visits.data.some((v) => v.id === row.id)) visits.data.push(row);
+    }
+    const visitIds = visits.data.map((row) => row.id as string);
+    const measured = await readBatches(visitIds, (batch) =>
+      client
+        .from("visit_measurements")
+        .select("visit_id,measurements")
+        .eq("clinic_id", clinic)
+        .in("visit_id", batch)
+    );
+    const measurements = new Map(
+      measured.map((row) => [
+        row.visit_id,
+        measurementStrings(row.measurements),
+      ])
+    );
+    const visitKinds = new Map(
+      queueResult.data.map((row) => [row.id, row.visit_type])
+    );
+    const historyQueueIds = visits.data
+      .filter((v) => v.completed_at && !visitKinds.has(v.queue_entry_id))
+      .map((v) => v.queue_entry_id as string);
+    if (historyQueueIds.length) {
+      const historical = await client
+        .from("daily_queue")
+        .select("id,visit_type")
+        .eq("clinic_id", clinic)
+        .in("id", historyQueueIds);
+      if (historical.error) throw historical.error;
+      historical.data.forEach((row) => visitKinds.set(row.id, row.visit_type));
+    }
+    const queue = queueResult.data.map((row) => {
+      const v = visits.data.find((item) => item.queue_entry_id === row.id);
+      return {
+        id: row.id as string,
+        patientId: row.patient_id as string,
+        kind: row.visit_type as "full_exam" | "follow_up",
+        status: row.status as "waiting" | "ready" | "with_doctor" | "completed",
+        revision: row.revision as number,
+        visitId: v?.id as string | undefined,
+        handedOffAt: (row.handed_off_at as string | null) ?? undefined,
+        doctorOpened: !!v?.doctor_opened_at,
+        arrivalTime: new Intl.DateTimeFormat("en-GB", {
+          timeZone: "Asia/Damascus",
+          hour: "2-digit",
+          minute: "2-digit",
+        }).format(new Date(row.arrived_at)),
+        measurements: measurements.get(v?.id) ?? {},
+      };
+    });
+    const selectedVisit = queue.find((row) => row.id === input.entry);
+    if (account.role === "doctor" && selectedVisit?.visitId) {
+      const id = selectedVisit.visitId;
+      const [notes, diet, appointment] = await Promise.all([
+        client
+          .from("visit_private_notes")
+          .select("notes")
+          .eq("visit_id", id)
+          .maybeSingle(),
+        client
+          .from("diet_plans")
+          .select("days")
+          .eq("visit_id", id)
+          .maybeSingle(),
+        client
+          .from("appointments")
+          .select("appointment_date")
+          .eq("originating_visit_id", id)
+          .maybeSingle(),
+      ]);
+      for (const result of [notes, diet, appointment])
+        if (result.error) throw result.error;
+      Object.assign(selectedVisit, {
+        visit: {
+          notes: notes.data?.notes ?? "",
+          days: diet.data?.days ?? [],
+          appointment: appointment.data?.appointment_date ?? "",
+          completedAt:
+            visits.data.find((v) => v.id === id)?.completed_at ?? undefined,
+        },
+      });
+    }
+    return {
+      clinicId: clinic,
+      role: account.role,
+      serviceDate: date,
+      hasMore,
+      queue,
+      patients: patientRows.map((row) => ({
+        id: row.id,
+        name: row.full_name,
+        phone: row.phone ?? "",
+        height: row.height_cm == null ? "" : String(row.height_cm),
+        gender: row.gender ?? "",
+        birthYear: row.birth_year == null ? "" : String(row.birth_year),
+        goal: row.goal ?? "",
+        revision: row.revision,
+        visits: visits.data
+          .filter((v) => v.patient_id === row.id && v.completed_at)
+          .map((v, index) => ({
+            id: v.queue_entry_id,
+            number: index + 1,
+            ...completedVisitDate(String(v.completed_at)),
+            kind: visitKinds.get(v.queue_entry_id),
+            measurements: measurements.get(v.id) ?? {},
+          })) as VisitHistoryItem[],
+      })),
+    };
+  });
+}

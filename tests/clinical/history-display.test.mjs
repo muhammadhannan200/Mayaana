@@ -59,45 +59,49 @@ async function historyAt(completedAt) {
       return query;
     },
   };
-  const source = readFileSync(
-    new URL("../../lib/clinical.ts", import.meta.url),
-    "utf8"
-  );
-  const compiled = ts.transpileModule(source, {
-    compilerOptions: {
-      module: ts.ModuleKind.CommonJS,
-      target: ts.ScriptTarget.ES2022,
-    },
-  }).outputText;
-  const exports = {};
-  vm.runInNewContext(
-    compiled,
-    {
-      exports,
-      require(name) {
-        if (name === "server-only") return {};
-        if (name === "./supabase/server")
-          return { createClient: async () => client };
-        if (name === "./queue-handoff")
-          return {
-            cancelUnavailableMessage: "",
-            doctorOccupiedMessage: "",
-          };
-        if (name === "./auth")
-          return {
-            accountForUser: async () => ({
-              clinicId: "fictional-clinic",
-              role: "secretary",
-              mustChangePassword: false,
-            }),
-          };
-        throw new Error(`Unexpected runtime dependency: ${name}`);
+  const load = (file, modules) => {
+    const source = readFileSync(
+      new URL(`../../lib/${file}`, import.meta.url),
+      "utf8"
+    );
+    const compiled = ts.transpileModule(source, {
+      compilerOptions: {
+        module: ts.ModuleKind.CommonJS,
+        target: ts.ScriptTarget.ES2022,
       },
-      Intl,
-      Date,
+    }).outputText;
+    const exports = {};
+    vm.runInNewContext(
+      compiled,
+      {
+        exports,
+        require(name) {
+          if (name === "server-only") return {};
+          if (name in modules) return modules[name];
+          throw new Error(`Unexpected runtime dependency: ${name}`);
+        },
+        Intl,
+        Date,
+      },
+      { filename: `lib/${file}` }
+    );
+    return exports;
+  };
+  const core = load("clinical-core.ts", {
+    "./supabase/server": { createClient: async () => client },
+    "./queue-handoff": {
+      cancelUnavailableMessage: "",
+      doctorOccupiedMessage: "",
     },
-    { filename: "lib/clinical.ts" }
-  );
+    "./auth": {
+      accountForUser: async () => ({
+        clinicId: "fictional-clinic",
+        role: "secretary",
+        mustChangePassword: false,
+      }),
+    },
+  });
+  const exports = load("clinical-screen.ts", { "./clinical-core": core });
   const result = await exports.getClinicScreen({ term: "", page: 0, patient });
   assert.equal(result.ok, true);
   // Read-only adapters must preserve the actual stored timestamp.
