@@ -59,6 +59,7 @@
 .doctor-workspace .doctor-queue li.agenda-row > a.agenda-call {
   display: grid;
   flex: none;
+  place-content: center;
   place-items: center;
   width: 44px;
   height: 44px;
