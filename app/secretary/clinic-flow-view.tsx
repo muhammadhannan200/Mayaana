@@ -20,6 +20,7 @@ import { DoctorNav } from "@/app/doctor/doctor-nav";
 import { MeasurementScreen } from "./measurements/measurement-screen";
 import { DoctorVisit } from "@/app/doctor/visit-screen";
 import { DoctorHome } from "@/app/doctor/doctor-home";
+import { DoctorPatientList } from "@/app/doctor/patient-list";
 import {
   measurementFields,
   type PatientRecord,
@@ -965,58 +966,16 @@ export function ClinicFlowView({
     );
   else if (route === "doctor/patients" || route === "doctor/search")
     content = (
-      <>
-        <header className="doctor-list-header">
-          <h1>{route === "doctor/search" ? "البحث" : "المرضى"}</h1>
-          <p>إجمالي المرضى ({matches.length})</p>
-        </header>
-        <div className="secretary-content search-content doctor-patient-list">
-          <label className="patient-search-input">
-            <Icon name="search" size={20} />
-            <input
-              aria-label="اسم المريض أو رقم هاتفه"
-              placeholder="ابحث بالاسم أو رقم الهاتف"
-              value={term}
-              onChange={(event) => {
-                setTerm(event.target.value);
-                operations?.search(event.target.value);
-              }}
-              maxLength={80}
-            />
-          </label>
-          <ul className="patient-result-list">
-            {matches.map((p) => (
-              <li key={p.id}>
-                <Link
-                  className="patient-result patient-result-link"
-                  href={href(`doctor/patients/${p.id}`)}
-                >
-                  <span className="patient-avatar">{p.name[0]}</span>
-                  <span>
-                    <strong>{p.name}</strong>
-                    <small>
-                      {p.visits[0] ? (
-                        <>
-                          آخر زيارة <bdi>{p.visits[0].date}</bdi> ·{" "}
-                          <bdi>{p.visits[0].measurements.weight} كغ</bdi>
-                        </>
-                      ) : (
-                        "زيارة أولى اليوم"
-                      )}
-                    </small>
-                  </span>
-                  <Icon name="arrow" size={18} />
-                </Link>
-              </li>
-            ))}
-          </ul>
-          {matches.length === 0 && (
-            <p className="secretary-muted">
-              لا توجد نتائج. جرّب اسماً أو رقماً آخر.
-            </p>
-          )}
-        </div>
-      </>
+      <DoctorPatientList
+        title={route === "doctor/search" ? "البحث" : "المرضى"}
+        patients={matches}
+        term={term}
+        onTerm={(value) => {
+          setTerm(value);
+          operations?.search(value);
+        }}
+        href={href}
+      />
     );
   else {
     const record = patients.find((p) => p.id === route.split("/")[2]);
