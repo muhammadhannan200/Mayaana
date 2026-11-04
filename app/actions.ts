@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { createClient as createAuthClient } from "@supabase/supabase-js";
 import type { AuthError } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/server";
@@ -23,6 +24,11 @@ const serviceError: FormResult = {
   error: "تعذّر الاتصال بالخدمة. حاول مرة أخرى.",
 };
 
+const changePasswordError: FormResult = {
+  kind: "service",
+  error: "تعذّر تغيير كلمة المرور. تحقق من البيانات وحاول مجدداً.",
+};
+
 function isServiceError(error: AuthError) {
   return (
     error.name === "AuthRetryableFetchError" ||
@@ -31,6 +37,22 @@ function isServiceError(error: AuthError) {
     error.status === 429 ||
     (error.status !== undefined && error.status >= 500)
   );
+}
+
+// updateUser only checks current_password when the project enforces it, so
+// verify it here. A separate stateless client leaves the staff session alone.
+async function currentPasswordError(
+  email: string | undefined,
+  password: string
+): Promise<FormResult> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  if (!url || !key || !email) return serviceError;
+  const { error } = await createAuthClient(url, key, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  }).auth.signInWithPassword({ email, password });
+  if (!error) return null;
+  return isServiceError(error) ? serviceError : changePasswordError;
 }
 
 export async function signIn(
@@ -127,17 +149,17 @@ export async function changePassword(
   }
 
   try {
+    if (!account.mustChangePassword && typeof current === "string") {
+      const rejected = await currentPasswordError(user.email, current);
+      if (rejected) return rejected;
+    }
     const { error: updateError } = await supabase.auth.updateUser({
       password,
       ...(!account.mustChangePassword && typeof current === "string"
         ? { current_password: current }
         : {}),
     });
-    if (updateError)
-      return {
-        kind: "service",
-        error: "تعذّر تغيير كلمة المرور. تحقق من البيانات وحاول مجدداً.",
-      };
+    if (updateError) return changePasswordError;
 
     if (account.mustChangePassword) {
       const admin = createAdminClient();
