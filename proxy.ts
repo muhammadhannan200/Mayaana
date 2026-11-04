@@ -2,6 +2,18 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function proxy(request: NextRequest) {
+  // Guidance only: discard legacy email query values before rendering, without
+  // exchanging tokens, following next, or changing existing session cookies.
+  const query = request.nextUrl.searchParams;
+  if (
+    request.method === "GET" &&
+    request.nextUrl.pathname === "/" &&
+    ([
+      "code", "token_hash", "access_token", "refresh_token", "error", "error_code",
+    ].some((key) => query.has(key)) || query.getAll("type").includes("recovery"))
+  )
+    return NextResponse.redirect(new URL("/auth/confirm", request.url));
+
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   if (!url || !key) return NextResponse.next({ request });
