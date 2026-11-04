@@ -217,9 +217,9 @@ test("two independent sessions: intake, handoff, private draft, diet, appointmen
     ).toBeVisible();
     await surface(secretary);
     await secretary.getByRole("button", { name: "إدخال عند الطبيب" }).click();
-    await expect(doctor.locator(".doctor-current")).toContainText(patientName, {
-      timeout: 25_000,
-    });
+    await expect(
+      doctor.locator(".doctor-current")
+    ).toContainText(patientName, { timeout: 25_000 });
     await doctor.getByRole("link", { name: "فتح الملف", exact: true }).click();
     await expect(doctor.locator(".demo-measurements")).toContainText("80");
     await doctor

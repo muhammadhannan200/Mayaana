@@ -870,7 +870,9 @@ export function ClinicFlowView({
               إعادة ضبط العرض التجريبي
             </button>
           )}
-          {!demo && <SignOutForm buttonClassName="secretary-primary signout" />}
+          {!demo && (
+            <SignOutForm buttonClassName="secretary-primary signout" />
+          )}
           <DemoNote demo={demo} href={href("doctor")} />
         </div>
       </>
