@@ -8,7 +8,13 @@ import type { useDemoClinic } from "@/lib/demo-clinic";
 import { Icon } from "@/components/icon";
 import { Toast } from "@/components/toast";
 import type { AccountProfile } from "@/lib/account-profile";
+import {
+  parsePatientFields,
+  patientFieldsError,
+} from "@/lib/patient-validation";
 import { SecretaryAccount } from "./account-screen";
+import { PatientEditForm } from "./patient-edit-form";
+import { PatientFile } from "./patient-file";
 import { visitCountLabel } from "@/lib/arabic-count";
 import { DoctorNav } from "@/app/doctor/doctor-nav";
 import { MeasurementScreen } from "./measurements/measurement-screen";
@@ -106,6 +112,11 @@ export function ClinicFlowView({
   const entry = queue.find((e) => e.id === params.get("entry"));
   const patient = patients.find((p) => p.id === entry?.patientId);
   const go = (path: string) => router.push(href(path));
+  const fileMatch = /^secretary\/patients\/([^/]+)(?:\/edit)?$/.exec(route);
+  const filePatient =
+    fileMatch && fileMatch[1] !== "new"
+      ? patients.find((p) => p.id === fileMatch[1])
+      : undefined;
   const queueToast = params.has("sent")
     ? "تم إدخال المريض عند الطبيب."
     : params.has("measured")
@@ -164,27 +175,37 @@ export function ClinicFlowView({
     );
     go(`secretary?added=1&patient=${id}&kind=${visitKind}`);
   }
+  async function savePatient(next: Omit<PatientRecord, "visits">) {
+    const backToFile = `secretary/patients/${next.id}`;
+    if (operations) {
+      const revision = clinical?.patients.find(
+        (p) => p.id === next.id
+      )?.revision;
+      if (
+        revision !== undefined &&
+        (await operations.updatePatient(next, revision))
+      )
+        go(backToFile);
+      return;
+    }
+    update((state) => ({
+      ...state,
+      patients: state.patients.map((p) =>
+        p.id === next.id ? { ...p, ...next } : p
+      ),
+    }));
+    go(backToFile);
+  }
   async function createPatient(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
-    const phone = normalize(String(data.get("phone") ?? "")).replace(
-      /[\s()-]/g,
-      ""
+    const { phone, height, birthYear, valid } = parsePatientFields(
+      data,
+      name,
+      normalize
     );
-    const height = normalize(String(data.get("height") ?? ""));
-    const birthYear = normalize(String(data.get("birthYear") ?? ""));
-    if (
-      name.trim().length < 2 ||
-      !/^\+?\d{6,15}$/.test(phone) ||
-      !Number.isFinite(Number(height)) ||
-      Number(height) < 50 ||
-      Number(height) > 250 ||
-      (birthYear &&
-        (!/^\d{4}$/.test(birthYear) ||
-          Number(birthYear) < 1900 ||
-          Number(birthYear) > new Date().getFullYear()))
-    ) {
-      setError("تحقق من الاسم والهاتف والطول (50–250 سم) وسنة الميلاد.");
+    if (!valid) {
+      setError(patientFieldsError);
       return;
     }
     if (demo && patients.some((p) => p.phone === phone)) {
@@ -597,7 +618,11 @@ export function ClinicFlowView({
                 <li key={p.id}>
                   <Link
                     className="patient-result patient-result-link"
-                    href={href(`secretary/confirm?patient=${p.id}`)}
+                    href={href(
+                      route === "secretary/patients"
+                        ? `secretary/patients/${p.id}`
+                        : `secretary/confirm?patient=${p.id}`
+                    )}
                   >
                     <span className="patient-avatar">{p.name[0]}</span>
                     <span>
@@ -760,6 +785,28 @@ export function ClinicFlowView({
           )}
         </div>
       </>
+    );
+  else if (filePatient && route.endsWith("/edit"))
+    content = (
+      <>
+        {subheader("تعديل البيانات", `secretary/patients/${filePatient.id}`)}
+        <PatientEditForm
+          patient={filePatient}
+          backHref={href(`secretary/patients/${filePatient.id}`)}
+          normalize={normalize}
+          pending={operations?.pending}
+          onSave={savePatient}
+        />
+      </>
+    );
+  else if (filePatient)
+    content = (
+      <PatientFile
+        patient={filePatient}
+        backHref={href("secretary/patients")}
+        addHref={href(`secretary/confirm?patient=${filePatient.id}`)}
+        editHref={href(`secretary/patients/${filePatient.id}/edit`)}
+      />
     );
   else if (route === "secretary/patients/new")
     content = (

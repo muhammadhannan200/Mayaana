@@ -11,6 +11,9 @@ export async function getClinicScreen(input: ScreenRequest) {
 export async function createPatient(input: PatientInput) {
   return clinical.createPatient(input);
 }
+export async function updatePatient(input: PatientInput, revision: number) {
+  return clinical.updatePatient(input, revision);
+}
 export async function enqueuePatient(patient: string, kind: string) {
   return clinical.enqueuePatient(patient, kind);
 }
