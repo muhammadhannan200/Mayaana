@@ -150,7 +150,7 @@ test("Doctor surfaces wrap long Arabic names and mixed-direction metadata withou
   });
   await page.goto("/demo/secretary/confirm?patient=demo-reem");
   await page.getByRole("button", { name: "إضافة للدور", exact: true }).click();
-  await expect(page).toHaveURL(/\/demo\/secretary\?added=1$/);
+  await expect(page).toHaveURL(/\/demo\/secretary\?added=1&/);
   // Change only this isolated browser context's fictional state, never a fixture
   // file or a hosted clinical record. App routes remain the real Next routes.
   await page.evaluate(() => {
