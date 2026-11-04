@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import type { useDemoClinic } from "@/lib/demo-clinic";
@@ -15,16 +14,12 @@ import {
 import { SecretaryAccount } from "./account-screen";
 import { PatientEditForm } from "./patient-edit-form";
 import { PatientFile } from "./patient-file";
-import { visitCountLabel } from "@/lib/arabic-count";
 import { DoctorNav } from "@/app/doctor/doctor-nav";
 import { MeasurementScreen } from "./measurements/measurement-screen";
 import { DoctorVisit } from "@/app/doctor/visit-screen";
 import { DoctorHome } from "@/app/doctor/doctor-home";
-import {
-  measurementFields,
-  type PatientRecord,
-  type QueueEntry,
-} from "@/lib/clinical-model";
+import { DoctorPatientRecord } from "@/app/doctor/patient-record";
+import { type PatientRecord, type QueueEntry } from "@/lib/clinical-model";
 import "./secretary.css";
 import { SecretaryNav, VisitOptions, VisitType } from "./clinic-ui";
 import "./persisted.css";
@@ -1021,15 +1016,6 @@ export function ClinicFlowView({
   else {
     const record = patients.find((p) => p.id === route.split("/")[2]);
     const today = queue.find((e) => e.patientId === record?.id);
-    const latest =
-      today && today.status !== "waiting"
-        ? today.measurements
-        : record?.visits[0]?.measurements;
-    const startingWeight = record?.visits.at(-1)?.measurements.weight;
-    const change =
-      latest?.weight && startingWeight
-        ? Number(latest.weight) - Number(startingWeight)
-        : null;
     content = (
       <>
         {subheader(
@@ -1039,130 +1025,20 @@ export function ClinicFlowView({
         )}
         <div className="secretary-content demo-patient-file">
           {record ? (
-            <>
-              {latest?.weight && (
-                <section className="patient-progress">
-                  <h2>
-                    <Image
-                      src="/rashaqa/doctor-target.svg"
-                      width={18}
-                      height={18}
-                      alt=""
-                      unoptimized
-                    />
-                    التقدم منذ البداية
-                  </h2>
-                  <p>
-                    {startingWeight && (
-                      <small>
-                        من <bdi>{startingWeight}</bdi>
-                      </small>
-                    )}
-                    <strong>
-                      <bdi>{latest.weight}</bdi>
-                    </strong>
-                    <span>كغ</span>
-                  </p>
-                  {change !== null && (
-                    <span>
-                      {change < 0 ? "نزول" : change > 0 ? "زيادة" : "ثبات"}{" "}
-                      <bdi>{Math.abs(change).toFixed(1)}</bdi> كغ ·{" "}
-                      {visitCountLabel(record.visits.length)}
-                    </span>
-                  )}
-                </section>
-              )}
-              <section>
-                <h2>معلومات المريض</h2>
-                <dl className="demo-patient-info">
-                  <div>
-                    <dt>الهدف</dt>
-                    <dd>{record.goal}</dd>
-                  </div>
-                  <div>
-                    <dt>الطول</dt>
-                    <dd>{record.height} سم</dd>
-                  </div>
-                  {record.birthYear && (
-                    <div>
-                      <dt>العمر التقريبي</dt>
-                      <dd>
-                        {(demo
-                          ? Number(local!.today.slice(0, 4))
-                          : new Date().getFullYear()) -
-                          Number(record.birthYear)}{" "}
-                        سنة
-                      </dd>
-                    </div>
-                  )}
-                  <div>
-                    <dt>{demo ? "الهاتف التجريبي" : "الهاتف"}</dt>
-                    <dd>
-                      <bdi>{record.phone}</bdi>
-                    </dd>
-                  </div>
-                </dl>
-              </section>
-              {today &&
-                (today.status === "with_doctor" ||
-                  today.status === "completed") && (
-                  <Link
-                    className="secretary-primary"
-                    href={href(`doctor/visits/${today.id}`)}
-                  >
-                    {today.status === "completed"
-                      ? "عرض الزيارة المكتملة"
-                      : "زيارة اليوم"}
-                  </Link>
-                )}
-              <section className="doctor-record-section">
-                <h2>قياسات اليوم</h2>
-                {today && today.status !== "waiting" ? (
-                  <dl className="demo-measurements">
-                    {measurementFields
-                      .filter((f) => today.measurements[f.key])
-                      .map((f) => (
-                        <div key={f.key}>
-                          <dt>{f.label}</dt>
-                          <dd>
-                            <bdi>
-                              {today.measurements[f.key]}{" "}
-                              <small>{f.unit}</small>
-                            </bdi>
-                          </dd>
-                        </div>
-                      ))}
-                  </dl>
-                ) : (
-                  <p>لم تُستكمل قياسات اليوم بعد.</p>
-                )}
-              </section>
-              <section className="doctor-record-section">
-                <h2>
-                  {demo ? "الزيارات السابقة" : "آخر الزيارات (حتى 100)"} (
-                  {record.visits.length})
-                </h2>
-                <ul className="demo-visit-history">
-                  {record.visits.map((v) => (
-                    <li key={v.id}>
-                      <span>
-                        {v.date}
-                        {!demo && (
-                          <Link href={href(`doctor/visits/${v.id}`)}>
-                            فتح الزيارة
-                          </Link>
-                        )}
-                        <small>
-                          {v.kind === "full_exam" ? "كشفية" : "مراجعة"} ·
-                          الزيارة {v.number}
-                        </small>
-                      </span>
-                      <bdi>{v.measurements.weight} كغ</bdi>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            </>
+            <DoctorPatientRecord
+              patient={record}
+              today={today}
+              demo={demo}
+              currentYear={
+                demo
+                  ? Number(local!.today.slice(0, 4))
+                  : new Date().getFullYear()
+              }
+              href={href}
+              visitHref={
+                demo ? undefined : (visit) => href(`doctor/visits/${visit.id}`)
+              }
+            />
           ) : (
             <p>اختر مريضاً من القائمة.</p>
           )}

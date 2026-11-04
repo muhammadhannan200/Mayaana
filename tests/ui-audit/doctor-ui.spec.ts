@@ -184,3 +184,16 @@ test("Doctor surfaces wrap long Arabic names and mixed-direction metadata withou
   }
   expect(writes).toEqual([]);
 });
+
+test("patient record tabs show progress and visits", async ({ page }) => {
+  await page.goto("/demo/doctor/patients/demo-reem");
+  await page.getByRole("tab", { name: "التطور" }).click();
+  await expect(page.getByRole("img", { name: /الوزن \(كغ\)/ })).toBeVisible();
+  await page.getByRole("button", { name: "الدهون" }).click();
+  await expect(page.getByRole("button", { name: "الدهون" })).toHaveAttribute(
+    "aria-pressed",
+    "true"
+  );
+  await page.getByRole("tab", { name: "الزيارات" }).click();
+  await expect(page.locator(".record-visits li")).toHaveCount(2);
+});
