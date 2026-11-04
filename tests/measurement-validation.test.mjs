@@ -16,6 +16,13 @@ test("accepts values within the field range and precision", () => {
   assert.equal(validateMeasurement("100", "fat"), null);
 });
 
+test("accepts 200 kg and rejects 200.01 kg at the UI validation boundary", () => {
+  for (const value of ["200", "200.00", "٢٠٠٫٠٠"])
+    assert.equal(validateMeasurement(value, "weight"), null);
+  for (const value of ["200.01", "٢٠٠٫٠١", "500"])
+    assert.match(validateMeasurement(value, "weight"), /الوزن.*200/);
+});
+
 test("rejects empty, zero, negative and out-of-range values", () => {
   for (const value of ["", "   ", "0", "-5", "abc", "501"])
     assert.match(validateMeasurement(value, "weight"), /الوزن/);

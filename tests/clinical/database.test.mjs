@@ -256,6 +256,33 @@ test("handoff without measurements and invalid measurement saves roll back compl
   const visits = await staff.doctor.from("visits").select("started_at").eq("id", visitId).single(); assert.equal(visits.data.started_at, null);
 });
 
+test("200 kg persists and 200.01 kg is rejected for both intake roles without mutation", async () => {
+  for (const name of ["secretary", "doctor"]) {
+    const patient = await rpc(staff.secretary, "clinical_create_patient", create(randomUUID()));
+    let entry = await rpc(staff.secretary, "clinical_enqueue", { p_clinic: clinics[0], p_patient: patient, p_kind: "full_exam" });
+    entry = await rpc(staff[name], "clinical_save_measurements", {
+      p_queue: entry.id, p_revision: entry.revision, p_values: { ...measurements, weight: 200 },
+    });
+    const visit = await staff.doctor.from("visits").select("id").eq("queue_id", entry.id).single();
+    assert.ifError(visit.error);
+    const before = await staff.doctor.from("visit_measurements").select("*").eq("visit_id", visit.data.id).single();
+    assert.ifError(before.error);
+    assert.equal(before.data.weight_kg, 200);
+    assert.equal(before.data.measurements.weight, 200);
+    const error = await denied(staff[name].rpc("clinical_save_measurements", {
+      p_queue: entry.id, p_revision: entry.revision, p_values: { ...measurements, weight: 200.01 },
+    }));
+    assert.equal(error.code, "22023");
+    const after = await staff.doctor.from("visit_measurements").select("*").eq("visit_id", visit.data.id).single();
+    assert.ifError(after.error);
+    assert.deepEqual(after.data, before.data);
+    const unchanged = await staff.doctor.from("daily_queue").select("revision,status").eq("id", entry.id).single();
+    assert.ifError(unchanged.error);
+    assert.deepEqual(unchanged.data, { revision: entry.revision, status: entry.status });
+  }
+  fault("weight-limit.sql");
+});
+
 test("measurement persistence, stale rejection, retry-safe handoff and no post-handoff intake mutation", async () => {
   const oldRevision = queue.revision;
   queue = await rpc(staff.secretary, "clinical_save_measurements", { p_queue: queue.id, p_revision: queue.revision, p_values: measurements });
