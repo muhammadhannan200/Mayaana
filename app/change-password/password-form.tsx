@@ -1,12 +1,27 @@
 "use client";
 
-import { useActionState } from "react";
+import { useState } from "react";
+import Link from "next/link";
 import { changePassword } from "@/app/actions";
 import { SignOutForm } from "@/app/sign-out-form";
 import { PasswordInput } from "@/app/password-input";
+import { FieldError, useAuthForm } from "@/app/use-auth-form";
+import { validatePassword } from "@/lib/auth-validation";
 
 export function PasswordForm({ firstUse }: { firstUse: boolean }) {
-  const [state, action, pending] = useActionState(changePassword, null);
+  const {
+    formRef,
+    action,
+    pending,
+    errors,
+    onChange,
+    onSubmit,
+    message,
+    attempt,
+  } = useAuthForm(changePassword, (data) => validatePassword(data, !firstUse));
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmation, setConfirmation] = useState("");
 
   return (
     <main className="auth-shell">
@@ -14,14 +29,27 @@ export function PasswordForm({ firstUse }: { firstUse: boolean }) {
         <div className="auth-content">
           <div className="page-header">
             <h1>{firstUse ? "إنشاء كلمة مرور جديدة" : "تغيير كلمة المرور"}</h1>
-            <SignOutForm />
+            {firstUse ? (
+              <SignOutForm />
+            ) : (
+              <Link className="text-link" href="/doctor">
+                رجوع
+              </Link>
+            )}
           </div>
           <p className="message message-info">
             {firstUse
               ? "استخدم كلمة مرور خاصة بك قبل متابعة العمل."
               : "أدخل كلمة المرور الحالية ثم اختر كلمة مرور جديدة."}
           </p>
-          <form className="auth-form" action={action}>
+          <form
+            ref={formRef}
+            className="auth-form"
+            action={action}
+            noValidate
+            onChange={onChange}
+            onSubmit={onSubmit}
+          >
             <div className="fields">
               {!firstUse && (
                 <div className="field">
@@ -31,7 +59,19 @@ export function PasswordForm({ firstUse }: { firstUse: boolean }) {
                     id="currentPassword"
                     name="currentPassword"
                     autoComplete="current-password"
+                    value={currentPassword}
+                    onChange={(event) => setCurrentPassword(event.target.value)}
+                    aria-invalid={Boolean(errors.currentPassword)}
+                    aria-describedby={
+                      errors.currentPassword
+                        ? "currentPassword-error"
+                        : undefined
+                    }
                     required
+                  />
+                  <FieldError
+                    id="currentPassword-error"
+                    error={errors.currentPassword}
                   />
                 </div>
               )}
@@ -43,8 +83,20 @@ export function PasswordForm({ firstUse }: { firstUse: boolean }) {
                   name="password"
                   autoComplete="new-password"
                   minLength={8}
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  aria-invalid={Boolean(errors.password)}
+                  aria-describedby={
+                    errors.password
+                      ? "newPassword-hint newPassword-error"
+                      : "newPassword-hint"
+                  }
                   required
                 />
+                <p id="newPassword-hint" className="message message-info">
+                  استخدم 8 أحرف على الأقل.
+                </p>
+                <FieldError id="newPassword-error" error={errors.password} />
               </div>
               <div className="field">
                 <label htmlFor="confirmation">تأكيد كلمة المرور</label>
@@ -54,14 +106,33 @@ export function PasswordForm({ firstUse }: { firstUse: boolean }) {
                   name="confirmation"
                   autoComplete="new-password"
                   minLength={8}
+                  value={confirmation}
+                  onChange={(event) => setConfirmation(event.target.value)}
+                  aria-invalid={Boolean(errors.confirmation)}
+                  aria-describedby={
+                    errors.confirmation
+                      ? "confirmation-hint confirmation-error"
+                      : "confirmation-hint"
+                  }
                   required
+                />
+                <p id="confirmation-hint" className="message message-info">
+                  أعد إدخال كلمة المرور الجديدة نفسها.
+                </p>
+                <FieldError
+                  id="confirmation-error"
+                  error={errors.confirmation}
                 />
               </div>
             </div>
             <div className="form-actions">
-              {state?.error && (
-                <p className="message message-error message-box" role="alert">
-                  {state.error}
+              {message && (
+                <p
+                  key={attempt}
+                  className="message message-error message-box"
+                  role="alert"
+                >
+                  {message}
                 </p>
               )}
               <button className="submit" type="submit" disabled={pending}>

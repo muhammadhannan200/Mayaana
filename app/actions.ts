@@ -6,11 +6,13 @@ import type { AuthError } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/server";
 import { accountForUser, homeForRole } from "@/lib/auth";
-
-export type FormResult = {
-  error: string;
-  kind: "validation" | "credentials" | "service";
-} | null;
+import {
+  validateLogin,
+  validatePassword,
+  validationResult,
+  type FormResult,
+} from "@/lib/auth-validation";
+export type { FormResult } from "@/lib/auth-validation";
 
 const credentialsError: FormResult = {
   kind: "credentials",
@@ -40,12 +42,10 @@ export async function signIn(
   const email =
     typeof rawEmail === "string" ? rawEmail.trim().toLowerCase() : "";
 
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return { kind: "validation", error: "أدخل بريداً إلكترونياً صالحاً." };
-  }
-  if (typeof password !== "string" || !password) {
-    return { kind: "validation", error: "أدخل كلمة المرور." };
-  }
+  const invalid = validationResult(validateLogin(formData));
+  if (invalid) return invalid;
+  // Keep the runtime type guard at the authentication boundary.
+  if (typeof password !== "string") return serviceError;
   if (!isSupabaseConfigured()) {
     return {
       kind: "service",
@@ -88,32 +88,36 @@ export async function changePassword(
   formData: FormData
 ): Promise<FormResult> {
   const password = formData.get("password");
-  const confirmation = formData.get("confirmation");
   const current = formData.get("currentPassword");
-  if (typeof password !== "string" || password.length < 8) {
-    return {
-      kind: "validation",
-      error: "كلمة المرور الجديدة يجب أن تكون 8 أحرف على الأقل.",
-    };
-  }
-  if (password !== confirmation) {
-    return { kind: "validation", error: "تأكيد كلمة المرور غير مطابق." };
-  }
+  // Include the current field when rendered/submitted so missing-field focus
+  // follows DOM order. Omitting it cannot bypass the account-based check below.
+  const invalid = validationResult(
+    validatePassword(formData, formData.has("currentPassword"))
+  );
+  if (invalid) return invalid;
+  if (typeof password !== "string") return serviceError;
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
-  const account = user && (await accountForUser(supabase, user));
-  if (error || !user || !account) redirect("/");
+  let supabase: Awaited<ReturnType<typeof createClient>>;
+  let user;
+  let account;
+  try {
+    supabase = await createClient();
+    const result = await supabase.auth.getUser();
+    if (result.error && isServiceError(result.error)) return serviceError;
+    user = result.error ? null : result.data.user;
+    account = user && (await accountForUser(supabase, user));
+  } catch {
+    return serviceError;
+  }
+  // Keep redirect control flow outside the service-error catch.
+  if (!user || !account) redirect("/");
   if (!account.mustChangePassword && account.role !== "doctor")
     redirect(homeForRole(account.role));
   if (
     !account.mustChangePassword &&
     (typeof current !== "string" || !current)
   ) {
-    return { kind: "validation", error: "أدخل كلمة المرور الحالية." };
+    return validationResult({ currentPassword: "أدخل كلمة المرور الحالية." });
   }
   if (account.mustChangePassword && !process.env.SUPABASE_SECRET_KEY) {
     return {

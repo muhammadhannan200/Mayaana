@@ -1,9 +1,11 @@
 "use client";
 
 import Image from "next/image";
-import { useActionState, useState } from "react";
+import { useEffect, useState } from "react";
 import { signIn } from "./actions";
 import { PasswordInput } from "./password-input";
+import { FieldError, useAuthForm } from "./use-auth-form";
+import { validateLogin } from "@/lib/auth-validation";
 
 function EmailIcon() {
   return (
@@ -63,9 +65,36 @@ function LockIcon() {
 }
 
 export function LoginForm({ configured }: { configured: boolean }) {
-  const [state, action, pending] = useActionState(signIn, null);
+  const {
+    formRef,
+    action,
+    pending,
+    errors,
+    onChange,
+    onSubmit,
+    message,
+    attempt,
+  } = useAuthForm(signIn, validateLogin);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+
+  useEffect(() => {
+    function checkLegacyFragment() {
+      // Fragments never reach the server. Discard them without passing their
+      // values to Auth, storage, rendered copy or a user-supplied destination.
+      const hash = new URLSearchParams(window.location.hash.slice(1));
+      if (
+        [
+          "code", "token_hash", "access_token", "refresh_token", "error", "error_code",
+        ].some((key) => hash.has(key)) ||
+        hash.getAll("type").includes("recovery")
+      )
+        window.location.replace("/auth/confirm");
+    }
+    checkLegacyFragment();
+    window.addEventListener("hashchange", checkLegacyFragment);
+    return () => window.removeEventListener("hashchange", checkLegacyFragment);
+  }, []);
 
   return (
     <main className="auth-shell">
@@ -91,7 +120,14 @@ export function LoginForm({ configured }: { configured: boolean }) {
             <p>ادخل ببريدك الإلكتروني وكلمة المرور</p>
           </div>
 
-          <form className="auth-form" action={action} noValidate>
+          <form
+            ref={formRef}
+            className="auth-form"
+            action={action}
+            noValidate
+            onChange={onChange}
+            onSubmit={onSubmit}
+          >
             <div className="fields">
               <div className="field">
                 <label htmlFor="email">البريد الإلكتروني</label>
@@ -108,12 +144,11 @@ export function LoginForm({ configured }: { configured: boolean }) {
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
                     required
-                    aria-invalid={
-                      state?.kind === "validation" &&
-                      state.error.includes("البريد")
-                    }
+                    aria-invalid={Boolean(errors.email)}
+                    aria-describedby={errors.email ? "email-error" : undefined}
                   />
                 </div>
+                <FieldError id="email-error" error={errors.email} />
               </div>
 
               <div className="field">
@@ -127,25 +162,30 @@ export function LoginForm({ configured }: { configured: boolean }) {
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
                   required
-                  aria-invalid={
-                    state?.kind === "validation" &&
-                    state.error.includes("المرور")
+                  aria-invalid={Boolean(errors.password)}
+                  aria-describedby={
+                    errors.password ? "password-error" : undefined
                   }
                 >
                   <LockIcon />
                 </PasswordInput>
+                <FieldError id="password-error" error={errors.password} />
               </div>
             </div>
 
             <div className="form-actions">
-              {!configured && (
+              {!configured && !message && !pending && (
                 <p className="message message-error message-box" role="alert">
                   إعداد خدمة الدخول غير مكتمل.
                 </p>
               )}
-              {state?.error && (
-                <p className="message message-error message-box" role="alert">
-                  {state.error}
+              {message && (
+                <p
+                  key={attempt}
+                  className="message message-error message-box"
+                  role="alert"
+                >
+                  {message}
                 </p>
               )}
               <button

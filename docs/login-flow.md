@@ -34,8 +34,12 @@ Exact Arabic copy and session lifetime can be refined later. The doctor Figma Lo
 The approved recovery path remains administrator-managed temporary passwords,
 not email-token recovery or public self-service reset. Do not send recovery
 emails as a substitute for the temporary-password process above. Legacy recovery
-links are planned to show administrator-contact guidance only, without token
-exchange or password mutation; that guidance is not implemented yet.
+links now show administrator-contact guidance only, without token exchange or
+password mutation. Recognized query arrivals at Login redirect to `/auth/confirm`;
+fragment arrivals do so after JavaScript loads. The fixed guidance also works
+directly at `/auth/confirm`, ignores `next` and does not validate or consume tokens.
+Without JavaScript, fragments are unavailable to the server and Login's existing
+administrator-contact help remains visible. This is not email recovery acceptance.
 
 See the [Issue #50 baseline and investigation](issue-50-auth-baseline.md) for
 the isolated master baseline, confirmed repository behavior, blocked hosted
