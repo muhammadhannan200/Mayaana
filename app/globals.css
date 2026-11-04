@@ -74,28 +74,31 @@ button:disabled { cursor: wait; }
 }
 .field input:focus-visible { border: 2px solid var(--focus); padding-right: 43px; }
 .field input::placeholder { color: #94a3b8; }
+.field input[aria-invalid="true"] { border-color: #b91c1c; }
 .field input[dir="ltr"] { text-align: right; }
-.password-toggle {
+.input-wrap-email svg { right: auto; left: 16px; }
+.field .input-wrap-email input[dir="ltr"] { text-align: left; padding: 12px 16px 12px 44px; }
+.field .input-wrap-email input:focus-visible { padding-left: 43px; }
+.field .password-input-wrap input { padding-inline-end: 52px; }
+.password-visibility-toggle {
   position: absolute;
-  right: 2px;
-  z-index: 1;
+  inset-inline-end: 2px;
+  top: 2px;
   display: flex;
   align-items: center;
   justify-content: center;
   width: 44px;
   height: 44px;
+  padding: 0;
   border: 0;
   border-radius: 10px;
   background: transparent;
   color: var(--muted);
   touch-action: manipulation;
 }
-.password-toggle:hover { color: var(--brand); }
-.password-toggle:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
-.input-wrap .password-toggle svg { position: static; color: inherit; }
-.input-wrap-email svg { right: auto; left: 16px; }
-.field .input-wrap-email input[dir="ltr"] { text-align: left; padding: 12px 16px 12px 44px; }
-.field .input-wrap-email input:focus-visible { padding-left: 43px; }
+.password-visibility-toggle:hover { color: var(--brand); background: var(--soft); }
+.password-visibility-toggle:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
+.password-input-wrap .password-visibility-toggle svg { position: static; color: inherit; }
 .submit {
   width: 100%;
   min-height: 48px;
