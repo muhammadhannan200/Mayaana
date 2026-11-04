@@ -22,6 +22,7 @@ jobs:
         env:
           HUSKY: "0"
       - run: npm run test:single-active
+      - run: npm run test:agenda
       - run: npx next typegen
       - run: npm run typecheck
       - run: npm run lint

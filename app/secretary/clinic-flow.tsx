@@ -12,6 +12,7 @@ import {
 import { Icon } from "./components";
 import { MeasurementScreen } from "./measurements/measurement-screen";
 import { DoctorVisit } from "@/app/doctor/visit-screen";
+import { DoctorAgenda } from "@/app/doctor/agenda";
 import { measurementFields } from "./measurements/mock-visits";
 import "./secretary.css";
 import { PersistedFlow } from "./persisted-flow";
@@ -954,6 +955,7 @@ export function ClinicFlowView({
               </ul>
             </section>
           )}
+          <DoctorAgenda demoState={demo ? local : undefined} />
           <DemoNote demo={demo} href={href("secretary")} secretary />
         </div>
       </>
