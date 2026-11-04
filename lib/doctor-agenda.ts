@@ -1,7 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ClinicAccount } from "./auth";
 
-export type AgendaRow = { patientId: string; name: string; date: string };
+export type AgendaRow = {
+  patientId: string;
+  name: string;
+  phone?: string;
+  date: string;
+};
 export type DoctorAgendaData = { today: AgendaRow[]; overdue: AgendaRow[] };
 export type AgendaAppointment = { patientId: string; date: string };
 
@@ -18,7 +23,7 @@ export function damascusDate(now: Date): string {
 // fulfils it; a later saved appointment supersedes an older appointment.
 export function classifyAgenda(
   today: string,
-  patients: { id: string; name: string }[],
+  patients: { id: string; name: string; phone?: string | null }[],
   appointments: AgendaAppointment[],
   arrived: string[],
   completed: { patientId: string; date: string }[]
@@ -45,6 +50,7 @@ export function classifyAgenda(
     result[date === today ? "today" : "overdue"].push({
       patientId: patient.id,
       name: patient.name,
+      ...(patient.phone ? { phone: patient.phone } : {}),
       date,
     });
   }
@@ -56,6 +62,13 @@ export function classifyAgenda(
         a.patientId.localeCompare(b.patientId)
     );
   return result;
+}
+
+export function daysLate(today: string, date: string) {
+  return Math.round(
+    (Date.parse(`${today}T12:00:00Z`) - Date.parse(`${date}T12:00:00Z`)) /
+      86_400_000
+  );
 }
 
 export class AgendaBoundError extends Error {}
@@ -94,15 +107,15 @@ export async function readDoctorAgenda(
   );
   const ids = [...new Set(candidates.map((row) => String(row.patient_id)))];
   const result: DoctorAgendaData = { today: [], overdue: [] };
-  // At most two batches, four bounded reads each. No notes, diet, measurements,
-  // contact details or visit drafts are selected.
+  // At most two batches, four bounded reads each. No notes, diet, measurements
+  // or visit drafts are selected. Phone supports the call button.
   for (let offset = 0; offset < ids.length; offset += 100) {
     const batch = ids.slice(offset, offset + 100);
     const [patientResult, appointmentResult, queueResult, visitResult] =
       await Promise.all([
         client
           .from("patients")
-          .select("id,full_name")
+          .select("id,full_name,phone")
           .eq("clinic_id", clinic)
           .in("id", batch)
           .limit(101),
@@ -136,7 +149,11 @@ export async function readDoctorAgenda(
       throw new Error("Incomplete agenda patients");
     const data = classifyAgenda(
       today,
-      patients.map((row) => ({ id: row.id, name: row.full_name })),
+      patients.map((row) => ({
+        id: row.id,
+        name: row.full_name,
+        phone: row.phone,
+      })),
       bounded(appointmentResult, 500).map((row) => ({
         patientId: row.patient_id,
         date: row.appointment_date,

@@ -528,23 +528,23 @@ function VisitEditor({
   return (
     <main className="doctor-shell visit-shell" dir="rtl">
       <header className="doctor-topbar">
-        <div>
-          <h1>{completed ? "الزيارة المكتملة" : "زيارة اليوم"}</h1>
-          <p>
-            {patient.name} · {entry.kind === "full_exam" ? "كشفية" : "مراجعة"}
-          </p>
-        </div>
         {completed && (
           // Start a fresh document: client navigation retains hidden visit
           // markup (including notes) in Next's mounted route cache.
           <a
-            className="doctor-back"
+            className="doctor-back visit-header-action"
             href={`${visitHref}/print`}
             aria-label="طباعة البرنامج"
           >
             <Icon name="print" size={20} />
           </a>
         )}
+        <div>
+          <h1>{completed ? "الزيارة المكتملة" : "زيارة اليوم"}</h1>
+          <p>
+            {patient.name} · {entry.kind === "full_exam" ? "كشفية" : "مراجعة"}
+          </p>
+        </div>
         <Link
           className="doctor-back"
           href={href(`/patients/${patient.id}`)}
