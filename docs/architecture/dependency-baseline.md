@@ -46,14 +46,11 @@ server-only/RPC safeguards remain unchanged.
   fixtures only. `lib/clinical-types.ts` and `lib/clinical.ts` no longer depend
   on `app/` or on demo modules.
 - Six Doctor-to-Secretary import declarations are reported: four Doctor
-  route pages import `clinic-flow.tsx`; `visit-screen.tsx` imports the
-  Secretary icon module.
+  route pages import `clinic-flow.tsx`;
 - Doctor home and patient-record rendering also reside inside
   `clinic-flow.tsx`; the path report points to this shared ownership problem,
   not an authorization finding.
 - No direct shared-UI-to-server/Supabase import is detected at this baseline.
-  The inventory recognizes current `app/secretary/components.tsx` as shared UI,
-  plus future root `components/` and feature `ui/` directories.
 
 ## Size and responsibility signals
 

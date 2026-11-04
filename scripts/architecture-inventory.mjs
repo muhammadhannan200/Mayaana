@@ -205,9 +205,7 @@ const fictional = (path) =>
   );
 const production = (path) => !path.startsWith("tests/") && !fictional(path);
 const sharedUI = (path) =>
-  path.startsWith("components/") ||
-  /\/ui\//.test(path) ||
-  path === "app/secretary/components.tsx";
+  path.startsWith("components/") || /\/ui\//.test(path);
 const model = (path) =>
   path === "lib/clinical-types.ts" ||
   path.startsWith("features/clinical/model/");
