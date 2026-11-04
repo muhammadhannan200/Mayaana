@@ -19,7 +19,7 @@ test("secretary patient file shows visits read-only and saves edits", async ({
   await page.getByRole("link", { name: "تعديل البيانات" }).click();
   await page.getByLabel("الطول").fill("٢٠");
   await page.getByRole("button", { name: "حفظ التعديلات" }).click();
-  await expect(page.locator(".secretary-error")).toContainText("تحقق من الاسم");
+  await expect(page.getByText("أدخل الطول بين 50 و250 سم.")).toBeVisible();
   await page.getByLabel("الطول").fill("١٨٠");
   await page.getByRole("button", { name: "حفظ التعديلات" }).click();
   await expect(page).toHaveURL(/\/demo\/secretary\/patients\/demo-samer$/);
