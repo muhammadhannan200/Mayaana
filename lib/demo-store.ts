@@ -1,4 +1,9 @@
 import { createDemoFixture, type DemoState } from "./demo-fixture";
+import {
+  handoffCancelMs,
+  handoffQueue,
+  type QueueHandoffOutcome,
+} from "./queue-handoff";
 
 type DemoSnapshot = DemoState & { today: string };
 
@@ -167,6 +172,60 @@ export function createDemoStore(scope: string) {
       };
     },
     update,
+    handoff(id: string) {
+      let outcome = "unavailable" as QueueHandoffOutcome;
+      update((current) => {
+        const result = handoffQueue(current.queue, id);
+        outcome = result.outcome;
+        if (result.outcome !== "sent") return current;
+        const handedOffAt = new Date().toISOString();
+        return {
+          ...current,
+          queue: result.queue.map((entry) =>
+            entry.id === id
+              ? { ...entry, handedOffAt, doctorOpened: false }
+              : entry
+          ),
+        };
+      });
+      return outcome;
+    },
+    cancelHandoff(id: string) {
+      let cancelled = false;
+      update((current) => {
+        const entry = current.queue.find((item) => item.id === id);
+        if (
+          entry?.status !== "with_doctor" ||
+          !entry.handedOffAt ||
+          entry.doctorOpened ||
+          Date.now() - Date.parse(entry.handedOffAt) > handoffCancelMs
+        )
+          return current;
+        cancelled = true;
+        return {
+          ...current,
+          queue: current.queue.map((item) =>
+            item.id === id
+              ? { ...item, status: "ready", handedOffAt: undefined }
+              : item
+          ),
+        };
+      });
+      return cancelled;
+    },
+    openVisit(id: string) {
+      update((current) => {
+        const entry = current.queue.find((item) => item.id === id);
+        return entry?.status !== "with_doctor" || entry.doctorOpened
+          ? current
+          : {
+              ...current,
+              queue: current.queue.map((item) =>
+                item.id === id ? { ...item, doctorOpened: true } : item
+              ),
+            };
+      });
+    },
     reset: () => update(() => browserInitial()),
   };
 }

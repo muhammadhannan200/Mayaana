@@ -21,6 +21,8 @@ export type DemoEntry = {
   status: "waiting" | "ready" | "with_doctor" | "completed";
   measurements: VisitMeasurement;
   arrivalTime?: string;
+  handedOffAt?: string;
+  doctorOpened?: boolean;
   visit?: DemoVisit;
 };
 export type DemoMeal = { id: string; type: string; description: string };
