@@ -7,6 +7,21 @@ begin
   if pg_has_role('authenticated',api,'MEMBER') or pg_has_role('anon',api,'MEMBER') then raise exception 'Application role can assume clinical writer'; end if;
   if has_schema_privilege(api,'public','CREATE') or has_schema_privilege(api,'clinical_private','CREATE') then raise exception 'Clinical API can create schema objects'; end if;
   if exists(select 1 from pg_auth_members where member=api and roleid<>(select oid from pg_roles where rolname='authenticated')) then raise exception 'Clinical API inherits unexpected role privileges'; end if;
+  -- The cycle-breaking directory helper is private, caller-scoped and pinned.
+  select p.* into strict f from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+    where n.nspname='clinical_private' and p.proname='directory_doctor_clinic' and p.pronargs=0;
+  if not f.prosecdef or f.proowner<>(select oid from pg_roles where rolname='postgres')
+    or f.provolatile<>'s' or not coalesce(f.proconfig @> array['search_path=""'],false)
+    or has_function_privilege('anon',f.oid,'EXECUTE')
+    or not has_function_privilege('authenticated',f.oid,'EXECUTE') then
+    raise exception 'Unsafe directory helper owner/config/grants';
+  end if;
+  foreach t in array array['clinics','clinic_staff'] loop
+    relation := ('public.'||t)::regclass;
+    if not exists(select 1 from pg_class where oid=relation and relrowsecurity) then raise exception 'Directory RLS disabled: %',t; end if;
+    if has_table_privilege('anon',relation,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE') or has_any_column_privilege('anon',relation,'SELECT,INSERT,UPDATE') then raise exception 'Anonymous directory access: %',t; end if;
+    if has_table_privilege('authenticated',relation,'INSERT,UPDATE,DELETE,TRUNCATE') or has_any_column_privilege('authenticated',relation,'INSERT,UPDATE') then raise exception 'Direct directory write bypass: %',t; end if;
+  end loop;
   foreach t in array array['patients','daily_queue','visits','visit_measurements','visit_private_notes','diet_plans','appointments'] loop
     relation := ('public.'||t)::regclass;
     if not exists(select 1 from pg_class where oid=relation and relrowsecurity and relowner<>api) then raise exception 'Missing RLS or unsafe table owner: %',t; end if;

@@ -85,6 +85,37 @@ test("patient creation is UUID-idempotent and contacts are not identities", asyn
   await denied(staff.secretary.rpc("clinical_create_patient", create(randomUUID(), clinics[1])));
 });
 
+test("directory API preserves active staff access, own login records and clinic isolation", async () => {
+  for (const table of ["clinic_staff", "clinics"]) await denied(anonymous.from(table).select("*"));
+  const expected = await admin.from("clinic_staff").select("user_id").eq("clinic_id", clinics[0]).order("user_id");
+  assert.ifError(expected.error);
+  const directory = await staff.doctor.from("clinic_staff").select("user_id").order("user_id");
+  assert.ifError(directory.error); assert.deepEqual(directory.data, expected.data);
+  // Includes inactive and first-use colleagues: the caller's state gates access,
+  // not the listed staff member's state.
+  assert.equal(directory.data.length, 4);
+  for (const name of ["doctor", "otherDoctor", "secretary", "inactive", "firstUse"]) {
+    const identity = await staff[name].auth.getUser(); assert.ifError(identity.error);
+    const own = await staff[name].from("clinic_staff")
+      .select("clinic_id,role,login_email,must_change_password,active").eq("user_id", identity.data.user.id).maybeSingle();
+    assert.ifError(own.error); assert.ok(own.data);
+    assert.equal(own.data.login_email, identity.data.user.email);
+    assert.equal(own.data.active, name !== "inactive");
+    assert.equal(own.data.must_change_password, name === "firstUse");
+    if (name !== "doctor") {
+      const rows = await staff[name].from("clinic_staff").select("user_id");
+      assert.ifError(rows.error); assert.deepEqual(rows.data, [{ user_id: identity.data.user.id }]);
+    }
+    const clinic = await staff[name].from("clinics").select("id"); assert.ifError(clinic.error);
+    assert.deepEqual(clinic.data, name === "doctor" ? [{ id: clinics[0] }] : name === "otherDoctor" ? [{ id: clinics[1] }] : []);
+    const foreignClinic = name === "otherDoctor" ? clinics[0] : clinics[1];
+    for (const [table, column] of [["clinics", "id"], ["clinic_staff", "clinic_id"]]) {
+      const foreign = await staff[name].from(table).select("*").eq(column, foreignClinic);
+      assert.ifError(foreign.error); assert.deepEqual(foreign.data, []);
+    }
+  }
+});
+
 test("cross-clinic reads/writes and direct mutation bypasses are denied", async () => {
   for (const table of tableNames) {
     const result = await staff.otherDoctor.from(table).select("*");
@@ -106,6 +137,47 @@ test("patient corrections preserve identity/metadata and reject stale or cross-c
   const stale=await denied(staff.secretary.rpc("clinical_update_patient",input));assert.equal(stale.code,"PT409");
   await denied(staff.otherDoctor.rpc("clinical_update_patient",{...input,p_revision:next}));
   const corrected=await staff.doctor.from("patients").select("id,full_name,created_at,created_by,revision").eq("id",patientId).single();assert.ifError(corrected.error);assert.equal(corrected.data.id,patientId);assert.equal(corrected.data.full_name,input.p_name);assert.equal(corrected.data.created_at,original.data.created_at);assert.equal(corrected.data.created_by,original.data.created_by);
+});
+
+// Adapted from the read-only production worktree's 14-line regression. Exercise
+// both roles with already-issued sessions, then prove access returns on activation.
+test("deactivation/password setup immediately revokes directory and clinical reads except own login record", async () => {
+  for (const name of ["doctor", "secretary"]) {
+    const client = staff[name];
+    const identity = await client.auth.getUser(); assert.ifError(identity.error);
+    const id = identity.data.user.id;
+    const baseline = await client.from("clinic_staff").select("user_id").order("user_id"); assert.ifError(baseline.error);
+    const before = await client.from("patients").select("id").eq("id", patientId);
+    assert.ifError(before.error); assert.deepEqual(before.data, [{ id: patientId }]);
+    try {
+      for (const change of [{ active: false }, { active: true, must_change_password: true }]) {
+        assert.ifError((await admin.from("clinic_staff").update(change).eq("user_id", id)).error);
+        const directory = await client.from("clinic_staff").select("user_id");
+        assert.ifError(directory.error); assert.deepEqual(directory.data, [{ user_id: id }]);
+        const own = await client.from("clinic_staff")
+          .select("clinic_id,role,login_email,must_change_password,active").eq("user_id", id).maybeSingle();
+        assert.ifError(own.error); assert.ok(own.data);
+        assert.equal(own.data.active, change.active);
+        assert.equal(own.data.must_change_password, change.must_change_password ?? false);
+        assert.equal(own.data.login_email, identity.data.user.email);
+        const clinic = await client.from("clinics").select("id");
+        assert.ifError(clinic.error); assert.deepEqual(clinic.data, []);
+        for (const table of tableNames) {
+          const rows = await client.from(table).select("*");
+          assert.ifError(rows.error); assert.deepEqual(rows.data, []);
+        }
+        await denied(client.rpc("clinical_create_patient", create(randomUUID())));
+      }
+    } finally {
+      assert.ifError((await admin.from("clinic_staff").update({ active: true, must_change_password: false }).eq("user_id", id)).error);
+    }
+    const restored = await client.from("clinic_staff").select("user_id").order("user_id");
+    assert.ifError(restored.error); assert.deepEqual(restored.data, baseline.data);
+    const clinic = await client.from("clinics").select("id"); assert.ifError(clinic.error);
+    assert.deepEqual(clinic.data, name === "doctor" ? [{ id: clinics[0] }] : []);
+    const patients = await client.from("patients").select("id").eq("id", patientId);
+    assert.ifError(patients.error); assert.deepEqual(patients.data, [{ id: patientId }]);
+  }
 });
 
 test("concurrent duplicate enqueue creates exactly one queue entry and visit", async () => {
