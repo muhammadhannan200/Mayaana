@@ -614,7 +614,7 @@ test("independent doctor sessions reject stale drafts and never present unsaved 
     );
     await expect(
       first.getByRole("button", { name: "حفظ المسودة", exact: true })
-    ).toBeEnabled();
+    ).toBeDisabled();
     first.once("dialog", (dialog) => dialog.accept());
     await first
       .getByRole("button", { name: "تحميل النسخة المحفوظة وإلغاء تعديلاتي" })
