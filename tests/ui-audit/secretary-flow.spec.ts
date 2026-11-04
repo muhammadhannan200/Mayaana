@@ -177,7 +177,7 @@ test("complete V1: secretary intake → measurements → handoff → doctor note
     path: info.outputPath("populated-patient-file.png"),
     fullPage: true,
   });
-  await doctor.getByRole("link", { name: "زيارة اليوم", exact: true }).click();
+  await doctor.getByRole("link", { name: "فتح زيارة اليوم", exact: true }).click();
   await expect(doctor.getByLabel("ملاحظاتي")).toHaveValue(/نزول تدريجي جيد/);
   await doctor.getByRole("link", { name: "متابعة للبرنامج والموعد" }).click();
   await expect(doctor.locator(".visit-meal")).toHaveCount(5);
@@ -217,11 +217,11 @@ test("complete V1: secretary intake → measurements → handoff → doctor note
   ).toBeVisible();
   await expect(doctor.locator(".doctor-current")).toContainText("ريم الخطيب");
   await doctor.getByRole("link", { name: "فتح الملف", exact: true }).click();
-  await expect(doctor.locator(".demo-measurements")).toContainText("64.5");
+  await expect(doctor.locator(".patient-progress")).toContainText("64.5");
   await doctor.getByRole("tab", { name: "الزيارات" }).click();
   await expect(doctor.locator(".demo-visit-history")).toContainText("68.2");
   await doctor.reload();
-  await expect(doctor.locator(".demo-measurements")).toContainText("64.5");
+  await expect(doctor.locator(".patient-progress")).toContainText("64.5");
   await checkSurface(doctor);
   await page.goto("/demo/secretary/confirm?patient=demo-reem");
   await expect(
@@ -230,7 +230,7 @@ test("complete V1: secretary intake → measurements → handoff → doctor note
   await expect(
     page.getByRole("button", { name: "إضافة للدور", exact: true })
   ).toHaveCount(0);
-  await doctor.getByRole("link", { name: "زيارة اليوم", exact: true }).click();
+  await doctor.getByRole("link", { name: "فتح زيارة اليوم", exact: true }).click();
   await expect(
     doctor.getByRole("heading", { name: "زيارة اليوم" })
   ).toBeVisible();
@@ -394,7 +394,7 @@ test("new patient: E2 → S4 → S3 → S6 validates all fields and shares ident
   await page.getByRole("link", { name: "عرض الطبيب" }).click();
   await expect(page.locator(".doctor-current")).toContainText("هبة أحمد");
   await page.getByRole("link", { name: "فتح الملف", exact: true }).click();
-  await expect(page.locator(".demo-measurements > div")).toHaveCount(9);
+  await expect(page.locator(".record-exam > div")).toHaveCount(4);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("هبة أحمد");
 });
 

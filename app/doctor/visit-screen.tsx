@@ -534,6 +534,17 @@ function VisitEditor({
             {patient.name} · {entry.kind === "full_exam" ? "كشفية" : "مراجعة"}
           </p>
         </div>
+        {completed && (
+          // Start a fresh document: client navigation retains hidden visit
+          // markup (including notes) in Next's mounted route cache.
+          <a
+            className="doctor-back"
+            href={`${visitHref}/print`}
+            aria-label="طباعة البرنامج"
+          >
+            <Icon name="print" size={20} />
+          </a>
+        )}
         <Link
           className="doctor-back"
           href={href(`/patients/${patient.id}`)}
@@ -647,23 +658,25 @@ function VisitEditor({
                 </span>
               )}
             </section>
-            <dl className="demo-measurements">
-              {measurementFields
-                .filter(
-                  (field) =>
-                    field.key !== "weight" && entry.measurements[field.key]
-                )
-                .map((field) => (
-                  <div key={field.key}>
-                    <dt>{field.label}</dt>
-                    <dd>
-                      <bdi>
-                        {entry.measurements[field.key]} {field.unit}
-                      </bdi>
-                    </dd>
-                  </div>
-                ))}
-            </dl>
+            {completed && (
+              <dl className="demo-measurements">
+                {measurementFields
+                  .filter(
+                    (field) =>
+                      field.key !== "weight" && entry.measurements[field.key]
+                  )
+                  .map((field) => (
+                    <div key={field.key}>
+                      <dt>{field.label}</dt>
+                      <dd>
+                        <bdi>
+                          {entry.measurements[field.key]} {field.unit}
+                        </bdi>
+                      </dd>
+                    </div>
+                  ))}
+              </dl>
+            )}
             <section className="visit-notes">
               <label htmlFor="visit-notes">ملاحظاتي</label>
               <textarea
@@ -679,14 +692,6 @@ function VisitEditor({
                 }
               />
             </section>
-            {!completed && (
-              <section>
-                <h2>البرنامج الغذائي</h2>
-                <Link className="visit-dashed" href={`${visitHref}?step=plan`}>
-                  إعداد البرنامج والموعد <Icon name="plus" size={18} />
-                </Link>
-              </section>
-            )}
           </>
         )}
         {(plan || completed) && diet}
@@ -704,27 +709,22 @@ function VisitEditor({
       <footer
         className={`visit-actionbar${completed ? " visit-actionbar-done" : ""}`}
       >
-        {completed && (
-          // Start a fresh document: client navigation retains hidden visit
-          // markup (including notes) in Next's mounted route cache.
-          <a className="secretary-outline" href={`${visitHref}/print`}>
-            طباعة البرنامج
-          </a>
-        )}
-        {completed && whatsappLink && (
-          <a
-            className="secretary-outline"
-            href={whatsappLink}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            إرسال عبر واتساب
-          </a>
-        )}
         {completed ? (
-          <Link className="secretary-primary" href={href("")}>
-            العودة للرئيسية
-          </Link>
+          <>
+            <Link className="secretary-outline" href={href("")}>
+              العودة للرئيسية
+            </Link>
+            {whatsappLink && (
+              <a
+                className="secretary-primary"
+                href={whatsappLink}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                إرسال عبر واتساب
+              </a>
+            )}
+          </>
         ) : !plan ? (
           <Link className="secretary-primary" href={`${visitHref}?step=plan`}>
             متابعة للبرنامج والموعد
