@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useDemoClinic } from "@/lib/demo-clinic";
+import { dietPlanMessage, whatsappUrl } from "@/lib/whatsapp";
 import { dayCountLabel, mealCountLabel } from "@/lib/arabic-count";
 import { measurementFields, type VisitDraft } from "@/lib/clinical-model";
 import { damascusDate } from "@/lib/doctor-agenda";
@@ -310,6 +311,15 @@ function VisitEditor({
   const delta = previous ? weight - Number(previous) : null;
   const towardsGoal =
     delta !== null && (patient.goal === "زيادة وزن" ? delta > 0 : delta < 0);
+
+  const whatsappLink = whatsappUrl(
+    patient.phone,
+    dietPlanMessage({
+      patientName: patient.name,
+      days: visit.days,
+      appointment: visit.appointment,
+    })
+  );
 
   const diet = (
     <section className="visit-diet">
@@ -691,12 +701,24 @@ function VisitEditor({
           </p>
         )}
       </fieldset>
-      <footer className="visit-actionbar">
+      <footer
+        className={`visit-actionbar${completed ? " visit-actionbar-done" : ""}`}
+      >
         {completed && (
           // Start a fresh document: client navigation retains hidden visit
           // markup (including notes) in Next's mounted route cache.
           <a className="secretary-outline" href={`${visitHref}/print`}>
             طباعة البرنامج
+          </a>
+        )}
+        {completed && whatsappLink && (
+          <a
+            className="secretary-outline"
+            href={whatsappLink}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            إرسال عبر واتساب
           </a>
         )}
         {completed ? (

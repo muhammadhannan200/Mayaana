@@ -274,6 +274,17 @@
 .visit-actionbar > * {
   width: 100%;
 }
+.visit-actionbar-done {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.visit-actionbar-done > :last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+.visit-actionbar-done > * {
+  margin: 0;
+}
 .visit-review {
   position: fixed;
   inset: auto 0 0;

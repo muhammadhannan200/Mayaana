@@ -28,5 +28,5 @@ jobs:
       - run: npm run lint
       - run: node --test tests/print-plan/privacy.test.mjs
       - run: node --test tests/clinical/history-display.test.mjs
-      - run: node --test tests/measurement-validation.test.mjs tests/arabic-count.test.mjs tests/password-preflight.test.mjs tests/auth-validation.test.mjs
+      - run: node --test tests/measurement-validation.test.mjs tests/arabic-count.test.mjs tests/doctor-week.test.mjs tests/whatsapp.test.mjs tests/password-preflight.test.mjs tests/auth-validation.test.mjs
       - run: npm run build
