@@ -65,6 +65,8 @@ test("Doctor Home agenda uses fictional browser-local records, RTL, dates and pa
     name: "متأخرون (1)",
     exact: true,
   });
+  await expect(overdue.locator(".patient-avatar")).toHaveCSS("width", "40px");
+  await expect(overdue.locator(".patient-avatar")).toHaveCSS("height", "40px");
   await expect(
     today.getByRole("link", { name: /خيالي متوقع/ })
   ).toHaveAttribute("href", "/demo/doctor/patients/today");
