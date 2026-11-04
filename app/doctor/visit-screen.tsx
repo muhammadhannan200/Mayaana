@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useDemoClinic, type DemoVisit } from "@/lib/demo-clinic";
+import { damascusDate } from "@/lib/doctor-agenda";
 import { Icon } from "@/app/secretary/components";
 import { measurementFields } from "@/app/secretary/measurements/mock-visits";
 import "./visit.css";
@@ -270,6 +271,8 @@ function VisitEditor({
                     id: entryId,
                     number: record.visits.length + 1,
                     date: new Date(completedAt).toLocaleDateString("ar-SY"),
+                    serviceDate: damascusDate(new Date(completedAt)),
+                    appointment: completedAppointment,
                     detailDate: "زيارة مكتملة · العرض التجريبي",
                     kind: active.kind,
                     measurements: { ...active.measurements },
@@ -688,6 +691,13 @@ function VisitEditor({
         )}
       </fieldset>
       <footer className="visit-actionbar">
+        {completed && (
+          // Start a fresh document: client navigation retains hidden visit
+          // markup (including notes) in Next's mounted route cache.
+          <a className="secretary-outline" href={`${visitHref}/print`}>
+            طباعة البرنامج
+          </a>
+        )}
         {completed ? (
           <Link className="secretary-primary" href={href("")}>
             العودة للرئيسية

@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
+import { readDoctorAgenda } from "../../lib/doctor-agenda.ts";
 
 if (process.env.CLINICAL_TEST_LOCAL !== "1" || process.env.NEXT_PUBLIC_SUPABASE_URL !== "http://127.0.0.1:55431") throw new Error("Isolated local runner required");
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -92,6 +93,25 @@ before(async () => {
     assert.ifError((await client.auth.signInWithPassword({ email, password })).error);
     staff[name] = client;
   }
+});
+
+test("read-only Doctor agenda resolves saved date-only appointments with real PostgREST and clinic RLS", async () => {
+  const { queue } = await doctorVisit();
+  const appointment = tomorrowServiceDate();
+  await rpc(staff.doctor, "clinical_finish", {
+    p_queue: queue.id, p_revision: queue.revision, p_request: randomUUID(),
+    p_notes: "Synthetic agenda fixture", p_days: days, p_appointment: appointment,
+  });
+  const account = { role: "doctor", clinicId: clinics[0], mustChangePassword: false };
+  const onDate = new Date(`${appointment}T09:00:00Z`);
+  const data = await readDoctorAgenda(staff.doctor, account, onDate);
+  assert.ok(data.today.some(row => row.patientId === queue.patient_id && row.date === appointment));
+  assert.ok(!data.overdue.some(row => row.patientId === queue.patient_id));
+  const followingDate = new Date(onDate.getTime() + 86400000);
+  assert.ok((await readDoctorAgenda(staff.doctor, account, followingDate)).overdue.some(row => row.patientId === queue.patient_id));
+  // Even a forged account clinic cannot bypass the caller-scoped client's RLS.
+  assert.deepEqual(await readDoctorAgenda(staff.otherDoctor, account, onDate), { today: [], overdue: [] });
+  assert.deepEqual(await readDoctorAgenda(staff.doctor, { ...account, clinicId: clinics[1] }, onDate), { today: [], overdue: [] });
 });
 
 test("anonymous has no clinical access; inactive and first-use staff see no clinical rows", async () => {
