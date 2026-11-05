@@ -2,14 +2,15 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useState } from "react";
 import { useDemoClinic } from "@/frontend/demo/demo-clinic";
 import { dietPlanMessage, whatsappUrl } from "@/shared/whatsapp";
-import { dayCountLabel, mealCountLabel } from "@/shared/arabic-count";
 import { measurementFields, type VisitDraft } from "@/shared/clinical-model";
 import { damascusDate } from "@/shared/doctor-agenda";
 import { Icon } from "@/frontend/components/icon";
 import { VisitAttachments } from "./visit-attachments";
+import { useMealEditor, VisitDiet } from "./visit-diet";
+import { FinishReview } from "./visit-finish-review";
 import "./visit.css";
 import type {
   ClinicalOperations,
@@ -21,36 +22,6 @@ function dateAfter(days: number, base?: string) {
   const date = base ? new Date(`${base}T12:00:00`) : new Date();
   date.setDate(date.getDate() + days);
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-}
-
-function FinishReview({
-  children,
-  onClose,
-}: {
-  children: React.ReactNode;
-  onClose: () => void;
-}) {
-  const ref = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
-    const trigger = document.activeElement;
-    ref.current?.showModal();
-    return () => {
-      if (trigger instanceof HTMLElement && trigger.isConnected)
-        trigger.focus();
-    };
-  }, []);
-  return (
-    <dialog
-      ref={ref}
-      className="visit-review"
-      aria-labelledby="finish-title"
-      onCancel={onClose}
-    >
-      <h2 id="finish-title">قبل إنهاء الزيارة</h2>
-      <p>راجع الملخص. بعد الحفظ يخرج المريض من الدور.</p>
-      {children}
-    </dialog>
-  );
 }
 
 export function DoctorVisit({
@@ -108,11 +79,6 @@ function VisitEditor({
   const patient = patients.find((item) => item.id === entry?.patientId);
   const [review, setReview] = useState(false);
   const [error, setError] = useState("");
-  const [editing, setEditing] = useState<{ day: string; meal?: string } | null>(
-    null
-  );
-  const [mealType, setMealType] = useState("فطور");
-  const [description, setDescription] = useState("");
   const plan = params.get("step") === "plan";
   const completed = entry?.status === "completed";
   const needsOpen = entry?.status === "with_doctor" && !entry.doctorOpened;
@@ -145,31 +111,6 @@ function VisitEditor({
   const visitHref = href(`/visits/${entryId}`);
   const revision = (entry as ClinicEntry | undefined)?.revision ?? 0;
   const stale = !!draft && draft.revision !== revision;
-  useEffect(() => {
-    if (demo || (!draft && !(editing && description.trim()))) return;
-    const unload = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-    };
-    const leave = (event: MouseEvent) => {
-      const link = (event.target as Element).closest?.("a[href]");
-      if (
-        !(link instanceof HTMLAnchorElement) ||
-        link.pathname === window.location.pathname
-      )
-        return;
-      if (!window.confirm("لديك تعديلات غير محفوظة. مغادرة الزيارة؟")) {
-        event.preventDefault();
-        event.stopPropagation();
-      }
-    };
-    window.addEventListener("beforeunload", unload);
-    document.addEventListener("click", leave, true);
-    return () => {
-      window.removeEventListener("beforeunload", unload);
-      document.removeEventListener("click", leave, true);
-    };
-  }, [demo, draft, editing, description]);
-
   function save(change: (current: VisitDraft) => VisitDraft) {
     if (operations) {
       if (completed || operations.pending) return;
@@ -195,33 +136,32 @@ function VisitEditor({
     }));
     setError("");
   }
-
-  function saveMeal(event: FormEvent) {
-    event.preventDefault();
-    if (!editing || !description.trim()) return;
-    const meal = {
-      id: editing.meal ?? crypto.randomUUID(),
-      type: mealType,
-      description: description.trim(),
+  const editor = useMealEditor(save);
+  const { editing, description } = editor;
+  useEffect(() => {
+    if (demo || (!draft && !(editing && description.trim()))) return;
+    const unload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
     };
-    save((current) => ({
-      ...current,
-      days: current.days.map((day) =>
-        day.id === editing.day
-          ? {
-              ...day,
-              meals: editing.meal
-                ? day.meals.map((item) =>
-                    item.id === editing.meal ? meal : item
-                  )
-                : [...day.meals, meal],
-            }
-          : day
-      ),
-    }));
-    setEditing(null);
-    setDescription("");
-  }
+    const leave = (event: MouseEvent) => {
+      const link = (event.target as Element).closest?.("a[href]");
+      if (
+        !(link instanceof HTMLAnchorElement) ||
+        link.pathname === window.location.pathname
+      )
+        return;
+      if (!window.confirm("لديك تعديلات غير محفوظة. مغادرة الزيارة؟")) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    };
+    window.addEventListener("beforeunload", unload);
+    document.addEventListener("click", leave, true);
+    return () => {
+      window.removeEventListener("beforeunload", unload);
+      document.removeEventListener("click", leave, true);
+    };
+  }, [demo, draft, editing, description]);
 
   async function finish() {
     if (operations) {
@@ -320,210 +260,6 @@ function VisitEditor({
       days: visit.days,
       appointment: visit.appointment,
     })
-  );
-
-  const diet = (
-    <section className="visit-diet">
-      <div className="visit-section-heading">
-        <div>
-          <h2>البرنامج الغذائي</h2>
-          <small>
-            {dayCountLabel(visit.days.length)} · {mealCountLabel(meals)}
-          </small>
-        </div>
-      </div>
-      {visit.days.map((day, index) => (
-        <section
-          key={day.id}
-          className="visit-day"
-          aria-label={`اليوم ${index + 1}`}
-        >
-          <div className="visit-section-heading">
-            <h3>اليوم {index + 1}</h3>
-            {!completed && (
-              <button
-                type="button"
-                className="visit-icon"
-                aria-label={`حذف اليوم ${index + 1}`}
-                onClick={() => {
-                  if (
-                    !window.confirm("حذف هذا اليوم وجميع وجباته من البرنامج؟")
-                  )
-                    return;
-                  save((current) => ({
-                    ...current,
-                    days: current.days.filter((item) => item.id !== day.id),
-                  }));
-                  if (editing?.day === day.id) setEditing(null);
-                }}
-              >
-                <Icon name="trash" size={18} />
-              </button>
-            )}
-          </div>
-          {day.meals.map((meal) => (
-            <div key={meal.id} className="visit-meal">
-              <div>
-                <strong>{meal.type}</strong>
-                <p>{meal.description}</p>
-              </div>
-              {!completed && (
-                <div className="visit-meal-actions">
-                  <button
-                    type="button"
-                    className="visit-icon"
-                    aria-label={`تعديل ${meal.type}`}
-                    onClick={() => {
-                      setEditing({ day: day.id, meal: meal.id });
-                      setMealType(meal.type);
-                      setDescription(meal.description);
-                    }}
-                  >
-                    <Icon name="edit" size={16} />
-                  </button>
-                  <button
-                    type="button"
-                    className="visit-icon"
-                    aria-label={`حذف ${meal.type}`}
-                    onClick={() => {
-                      if (
-                        !demo &&
-                        !window.confirm("حذف هذه الوجبة من المسودة؟")
-                      )
-                        return;
-                      save((current) => ({
-                        ...current,
-                        days: current.days.map((item) =>
-                          item.id === day.id
-                            ? {
-                                ...item,
-                                meals: item.meals.filter(
-                                  (m) => m.id !== meal.id
-                                ),
-                              }
-                            : item
-                        ),
-                      }));
-                      if (editing?.meal === meal.id) setEditing(null);
-                    }}
-                  >
-                    <Icon name="close" size={16} />
-                  </button>
-                </div>
-              )}
-            </div>
-          ))}
-          {!completed &&
-            (editing?.day === day.id ? (
-              <form className="visit-new-meal" onSubmit={saveMeal}>
-                <h3>{editing.meal ? "تعديل الوجبة" : "وجبة جديدة"}</h3>
-                <fieldset className="visit-meal-types">
-                  <legend className="sr-only">نوع الوجبة</legend>
-                  {["فطور", "غداء", "سناك", "عشاء", "أخرى"].map((type) => (
-                    <label
-                      key={type}
-                      className={mealType === type ? "selected" : ""}
-                    >
-                      <input
-                        type="radio"
-                        name="mealType"
-                        checked={mealType === type}
-                        onChange={() => setMealType(type)}
-                      />
-                      {type}
-                    </label>
-                  ))}
-                </fieldset>
-                <label className="secretary-field">
-                  تفاصيل الوجبة
-                  <textarea
-                    autoFocus
-                    required
-                    maxLength={1000}
-                    rows={3}
-                    value={description}
-                    onChange={(event) => setDescription(event.target.value)}
-                  />
-                </label>
-                <small>اكتب الوجبة كما تريد أن يقرأها المريض</small>
-                <div className="visit-buttons">
-                  <button
-                    className="secretary-primary"
-                    type="submit"
-                    disabled={!description.trim()}
-                  >
-                    {editing.meal ? "حفظ الوجبة" : "إضافة الوجبة"}
-                  </button>
-                  <button
-                    className="secretary-outline"
-                    type="button"
-                    onClick={() => setEditing(null)}
-                  >
-                    إلغاء
-                  </button>
-                </div>
-              </form>
-            ) : (
-              <button
-                className="visit-dashed"
-                type="button"
-                onClick={() => {
-                  setEditing({ day: day.id });
-                  setMealType("فطور");
-                  setDescription("");
-                }}
-              >
-                <Icon name="plus" size={18} />
-                إضافة وجبة
-              </button>
-            ))}
-        </section>
-      ))}
-      {!completed && (
-        <button
-          type="button"
-          className="visit-dashed"
-          onClick={() =>
-            save((current) => ({
-              ...current,
-              days: [...current.days, { id: crypto.randomUUID(), meals: [] }],
-            }))
-          }
-        >
-          <Icon name="plus" size={20} />
-          إضافة يوم
-        </button>
-      )}
-      <section className="visit-appointment">
-        <h2>موعد المراجعة القادمة</h2>
-        {completed ? (
-          <p>{appointment || "لم يُحدّد موعد متابعة"}</p>
-        ) : (
-          <label className="secretary-field">
-            تاريخ الموعد
-            <input
-              type="date"
-              disabled={operations?.pending}
-              min={dateAfter(1, demo ? local!.today : clinical?.serviceDate)}
-              value={appointment}
-              onChange={(event) =>
-                save((current) => ({
-                  ...current,
-                  appointment: event.target.value,
-                }))
-              }
-            />
-          </label>
-        )}
-        {(!completed || visit.appointment) && (
-          <small>
-            {visit.appointment
-              ? "موعد مخصص لهذه الزيارة"
-              : "يُحسب تلقائياً: اليوم التالي لنهاية البرنامج"}
-          </small>
-        )}
-      </section>
-    </section>
   );
 
   return (
@@ -700,7 +436,22 @@ function VisitEditor({
             />
           </>
         )}
-        {(plan || completed) && diet}
+        {(plan || completed) && (
+          <VisitDiet
+            visit={visit}
+            meals={meals}
+            completed={completed}
+            demo={demo}
+            pending={operations?.pending}
+            appointment={appointment}
+            minAppointment={dateAfter(
+              1,
+              demo ? local!.today : clinical?.serviceDate
+            )}
+            save={save}
+            editor={editor}
+          />
+        )}
         {error && (
           <p className="secretary-error" role="alert">
             {error}
@@ -771,48 +522,18 @@ function VisitEditor({
         )}
       </footer>
       {review && !completed && (
-        <FinishReview onClose={() => setReview(false)}>
-          <dl className="visit-summary">
-            <div>
-              <dt>المريض</dt>
-              <dd>{patient.name}</dd>
-            </div>
-            <div>
-              <dt>الوزن</dt>
-              <dd>{entry.measurements.weight} كغ</dd>
-            </div>
-            <div>
-              <dt>الملاحظات</dt>
-              <dd>{visit.notes.trim() ? "مكتوبة" : "بدون ملاحظات"}</dd>
-            </div>
-            <div>
-              <dt>البرنامج الغذائي</dt>
-              <dd>
-                {dayCountLabel(visit.days.length)} · {mealCountLabel(meals)}
-              </dd>
-            </div>
-            <div>
-              <dt>المراجعة القادمة</dt>
-              <dd>{appointment}</dd>
-            </div>
-          </dl>
-          <div className="visit-buttons">
-            <button
-              className="secretary-primary"
-              onClick={finish}
-              disabled={operations?.pending || stale}
-            >
-              حفظ وإنهاء الزيارة
-            </button>
-            <button
-              className="secretary-outline"
-              disabled={operations?.pending}
-              onClick={() => setReview(false)}
-            >
-              رجوع
-            </button>
-          </div>
-        </FinishReview>
+        <FinishReview
+          patientName={patient.name}
+          weight={entry.measurements.weight}
+          hasNotes={!!visit.notes.trim()}
+          days={visit.days.length}
+          meals={meals}
+          appointment={appointment}
+          disabled={operations?.pending}
+          stale={stale}
+          onFinish={finish}
+          onClose={() => setReview(false)}
+        />
       )}
     </main>
   );
