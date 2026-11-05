@@ -7,7 +7,7 @@ import type { PatientRecord } from "@/shared/clinical-model";
 import {
   PreviousSheet,
   PreviousVisitCard,
-} from "./measurements/measurement-screen";
+} from "./measurements/previous-visit";
 import "./patient-file.css";
 
 export function PatientFile({
