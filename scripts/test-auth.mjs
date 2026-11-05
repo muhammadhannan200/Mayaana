@@ -20,20 +20,45 @@ async function run(command, args, childEnv = env, capture = false) {
   });
 }
 const supabase = (args, capture = false) => run(cli, [...args, "--workdir", workdir], env, capture);
+// The previous stack's containers can take a while to release their ports.
+async function portFree(port) {
+  for (let attempt = 1; ; attempt++) {
+    const free = await new Promise(resolve => {
+      const server = createServer();
+      server.once("error", () => resolve(false));
+      server.listen(port, "127.0.0.1", () => server.close(() => resolve(true)));
+    });
+    if (free) return;
+    if (attempt === 24) throw new Error(`Test port ${port} is occupied; refusing to attach to another stack.`);
+    await new Promise(resolve => setTimeout(resolve, 5000));
+  }
+}
+// A silent image pull can hang until the job times out, so fail early and retry once.
+async function startStack() {
+  try {
+    await withTimeout(supabase(["start"], true), 480000);
+  } catch {
+    await supabase(["stop", "--no-backup"], true).catch(() => undefined);
+    await withTimeout(supabase(["start"], true), 480000);
+  }
+}
+function withTimeout(promise, ms) {
+  let timer;
+  const expired = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error("Supabase start timed out.")), ms);
+  });
+  return Promise.race([promise, expired]).finally(() => clearTimeout(timer));
+}
 let started = false;
 try {
   cpSync(join(root, "supabase"), join(workdir, "supabase"), { recursive: true, filter: source => !source.includes(`${process.platform === "win32" ? "\\" : "/"}.temp`) });
   const config = join(workdir, "supabase", "config.toml");
   writeFileSync(config, readFileSync(config, "utf8").replace(/^project_id = ".*"/m, `project_id = "auth-${randomUUID()}"`));
   for (const port of [55430, 55431, 55432, 55439, 3102]) {
-    await new Promise((resolve, reject) => {
-      const server = createServer();
-      server.once("error", () => reject(new Error(`Test port ${port} is occupied; refusing to attach to another stack.`)));
-      server.listen(port, "127.0.0.1", () => server.close(resolve));
-    });
+    await portFree(port);
   }
   started = true;
-  await supabase(["start"], true); // Do not print local keys.
+  await startStack(); // Do not print local keys.
   await supabase(["db", "reset", "--local"]);
   const status = JSON.parse(await supabase(["status", "--output", "json"], true));
   const url = new URL(status.API_URL);
