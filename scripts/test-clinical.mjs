@@ -20,6 +20,35 @@ async function run(command, args, childEnv = env, capture = false) {
     child.on("exit", code => code === 0 ? resolve(output) : reject(new Error(`${command} ${args[0]} failed (${code})`)));
   });
 }
+// The previous stack's containers can take a while to release their ports.
+async function portFree(port) {
+  for (let attempt = 1; ; attempt++) {
+    const free = await new Promise(resolve => {
+      const server = createServer();
+      server.once("error", () => resolve(false));
+      server.listen(port, "127.0.0.1", () => server.close(() => resolve(true)));
+    });
+    if (free) return;
+    if (attempt === 24) throw new Error(`Test port ${port} occupied; refusing to attach to another stack.`);
+    await new Promise(resolve => setTimeout(resolve, 5000));
+  }
+}
+// A silent image pull can hang until the job times out, so fail early and retry once.
+async function startStack() {
+  try {
+    await withTimeout(supabase(["start"], true), 480000);
+  } catch {
+    await supabase(["stop", "--no-backup"], true).catch(() => undefined);
+    await withTimeout(supabase(["start"], true), 480000);
+  }
+}
+function withTimeout(promise, ms) {
+  let timer;
+  const expired = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error("Supabase start timed out.")), ms);
+  });
+  return Promise.race([promise, expired]).finally(() => clearTimeout(timer));
+}
 const supabase = (args, capture = false) => run(cli, [...args, "--workdir", workdir], env, capture);
 async function waitForClinicalSchema(testEnv) {
   // migration up commits before PostgREST processes its asynchronous schema
@@ -44,14 +73,10 @@ try {
   const config = join(workdir, "supabase", "config.toml");
   writeFileSync(config, readFileSync(config, "utf8").replace(/project_id = "[^"]+"/, `project_id = "clinical-${randomUUID().slice(0, 18)}"`));
   for (const port of [55430, 55431, 55432]) {
-    await new Promise((resolve, reject) => {
-      const server = createServer();
-      server.once("error", () => reject(new Error(`Test port ${port} occupied; refusing to attach to another stack.`)));
-      server.listen(port, "127.0.0.1", () => server.close(resolve));
-    });
+    await portFree(port);
   }
   started = true;
-  await supabase(["start"], true);
+  await startStack();
   const status = JSON.parse(await supabase(["status", "--output", "json"], true));
   if (status.API_URL !== "http://127.0.0.1:55431" || !status.ANON_KEY || !status.SERVICE_ROLE_KEY) throw new Error("Non-local/incomplete test configuration refused");
   const testEnv = { ...env, CLINICAL_TEST_LOCAL: "1", CLINICAL_TEST_WORKDIR: workdir, NEXT_PUBLIC_SUPABASE_URL: status.API_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: status.ANON_KEY, SUPABASE_SECRET_KEY: status.SERVICE_ROLE_KEY };
