@@ -21,3 +21,11 @@ export function greeting(name?: string, now = new Date()) {
   const title = name?.trim().replace(/^(د\.|دكتور)\s*/, "");
   return title ? `${opening} د. ${title}` : `${opening} دكتور`;
 }
+
+// Shows stored YYYY-MM-DD dates as D/M/YYYY, including inside longer labels.
+export function displayDate(value: string) {
+  return value.replace(
+    /\b(\d{4})-(\d{2})-(\d{2})\b/g,
+    (_, year, month, day) => `${Number(day)}/${Number(month)}/${year}`
+  );
+}

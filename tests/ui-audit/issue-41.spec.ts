@@ -37,10 +37,13 @@ test.beforeAll(async ({ request }) => {
             (args) => ({ path: args.path, namespace: "fixture" })
           );
           // The real agenda action imports server-only modules.
-          builder.onResolve({ filter: /(agenda|week|attachment)-actions$/ }, () => ({
-            path: "agenda-actions",
-            namespace: "agenda-fixture",
-          }));
+          builder.onResolve(
+            { filter: /(agenda|week|attachment)-actions$/ },
+            () => ({
+              path: "agenda-actions",
+              namespace: "agenda-fixture",
+            })
+          );
           builder.onLoad({ filter: /.*/, namespace: "agenda-fixture" }, () => ({
             loader: "tsx",
             resolveDir: process.cwd(),

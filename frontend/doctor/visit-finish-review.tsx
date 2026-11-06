@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { dayCountLabel, mealCountLabel } from "@/shared/arabic-count";
+import { displayDate } from "@/shared/clinic-dates";
 
 export function FinishReview({
   patientName,
@@ -65,7 +66,9 @@ export function FinishReview({
         </div>
         <div>
           <dt>المراجعة القادمة</dt>
-          <dd>{appointment}</dd>
+          <dd>
+            <bdi>{appointment ? displayDate(appointment) : "—"}</bdi>
+          </dd>
         </div>
       </dl>
       <div className="visit-buttons">

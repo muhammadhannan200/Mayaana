@@ -14,6 +14,7 @@ import {
 import { whatsappUrl } from "@/shared/whatsapp";
 import { PatientProgress, PatientVisits } from "./patient-progress";
 import "./patient-record.css";
+import { displayDate } from "@/shared/clinic-dates";
 
 const tabs = [
   { id: "file", label: "الملف" },
@@ -59,7 +60,7 @@ function LatestFullExam({
               <span>{label}</span>
               {change !== null && (
                 <small>
-                  <bdi>
+                  <bdi dir="ltr">
                     {change > 0 ? "+" : ""}
                     {change.toFixed(1)}
                   </bdi>
@@ -200,7 +201,7 @@ export function DoctorPatientRecord({
                 <div>
                   <dt>أول زيارة</dt>
                   <dd>
-                    <bdi>{firstVisit.date}</bdi>
+                    <bdi>{displayDate(firstVisit.date)}</bdi>
                   </dd>
                 </div>
               )}

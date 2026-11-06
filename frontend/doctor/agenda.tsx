@@ -13,6 +13,7 @@ import "./agenda.css";
 import { demoAgenda } from "@/frontend/demo/demo-agenda";
 import type { DemoState } from "@/frontend/demo/demo-fixture";
 import { getDoctorAgenda } from "../../backend/actions/agenda-actions";
+import { displayDate } from "@/shared/clinic-dates";
 
 export function DoctorAgenda({ demoState }: { demoState?: DemoState }) {
   const demo = !!demoState;
@@ -121,7 +122,7 @@ export function DoctorAgenda({ demoState }: { demoState?: DemoState }) {
                           <small>
                             موعده{" "}
                             <time dateTime={row.date}>
-                              <bdi>{row.date}</bdi>
+                              <bdi>{displayDate(row.date)}</bdi>
                             </time>
                           </small>
                         </span>

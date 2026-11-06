@@ -13,6 +13,7 @@ import {
 import { VisitType } from "@/frontend/secretary/clinic-ui";
 import { getDoctorWeek } from "../../backend/actions/week-actions";
 import "./doctor-week.css";
+import { displayDate } from "@/shared/clinic-dates";
 
 function useDoctorWeek(demoState?: DemoState, demoToday = "") {
   const [data, setData] = useState<DoctorWeekData>();
@@ -127,7 +128,7 @@ export function DoctorWeek({
         groups.map((group) => (
           <section key={group.date}>
             <h2>
-              <bdi>{group.date}</bdi>
+              <bdi>{displayDate(group.date)}</bdi>
             </h2>
             <ul>
               {group.rows.map((visit) => (

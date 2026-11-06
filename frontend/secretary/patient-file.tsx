@@ -9,6 +9,7 @@ import {
   PreviousVisitCard,
 } from "./measurements/previous-visit";
 import "./patient-file.css";
+import { displayDate } from "@/shared/clinic-dates";
 
 export function PatientFile({
   patient,
@@ -30,7 +31,7 @@ export function PatientFile({
     {
       label: "آخر زيارة",
       value: last
-        ? `${last.date} · ${last.kind === "full_exam" ? "كشفية" : "مراجعة"}`
+        ? `${displayDate(last.date)} · ${last.kind === "full_exam" ? "كشفية" : "مراجعة"}`
         : "لا توجد زيارات",
     },
     { label: "الزيارة القادمة", value: `رقم ${patient.visits.length + 1}` },

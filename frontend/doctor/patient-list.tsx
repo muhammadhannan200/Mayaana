@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useState } from "react";
 import { Icon } from "@/frontend/components/icon";
 import type { PatientRecord } from "@/shared/clinical-model";
+import { WeightChange } from "@/frontend/components/weight-change";
+import { displayDate } from "@/shared/clinic-dates";
 
 const filters = [
   { id: "all", label: "الكل", goal: "" },
@@ -83,7 +85,7 @@ export function DoctorPatientList({
                     <small>
                       {p.visits[0] ? (
                         <>
-                          آخر زيارة <bdi>{p.visits[0].date}</bdi> ·{" "}
+                          آخر زيارة <bdi>{displayDate(p.visits[0].date)}</bdi> ·{" "}
                           <bdi>{p.visits[0].measurements.weight} كغ</bdi>
                         </>
                       ) : (
@@ -92,12 +94,7 @@ export function DoctorPatientList({
                     </small>
                   </span>
                   {change !== null && (
-                    <span className="doctor-patient-change">
-                      <bdi>
-                        {change > 0 ? "+" : ""}
-                        {change.toFixed(1)} كغ
-                      </bdi>
-                    </span>
+                    <WeightChange value={change} goal={p.goal} />
                   )}
                   <Icon name="arrow" size={18} />
                 </Link>
