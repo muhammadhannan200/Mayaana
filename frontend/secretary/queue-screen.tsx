@@ -20,6 +20,21 @@ import {
 import { DemoNote } from "./clinic-ui";
 import { QueuePatientCard } from "./queue-patient-card";
 
+// The message shown after another screen sends the secretary back to the queue.
+export function queueToastText(params: URLSearchParams, selectedName?: string) {
+  return params.has("sent")
+    ? "تم إدخال المريض عند الطبيب."
+    : params.has("measured")
+      ? "تم حفظ القياسات. المريض جاهز للدخول."
+      : params.has("added")
+        ? selectedName
+          ? `أضيف ${selectedName} للدور · ${
+              params.get("kind") === "full_exam" ? "كشفية" : "مراجعة"
+            }`
+          : "تمت إضافة المريض للدور."
+        : "";
+}
+
 type QueueScreenProps = {
   demo?: boolean;
   queue: QueueEntry[];
