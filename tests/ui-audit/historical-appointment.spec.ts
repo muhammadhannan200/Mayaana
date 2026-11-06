@@ -93,7 +93,7 @@ test("completed visit without a saved appointment never invents one", async ({
   await expect(page.getByLabel("ملاحظاتي")).toHaveValue(notes);
   await expect(page.getByLabel("ملاحظاتي")).toHaveAttribute("readonly", "");
   await expect(page.locator(".visit-meal")).toContainText("وجبة خيالية محفوظة");
-  await expect(page.getByLabel("تاريخ الموعد")).toHaveCount(0);
+  await expect(page.getByLabel("تعديل التاريخ")).toHaveCount(0);
   const stored = await page.evaluate(() =>
     localStorage.getItem("mayanaa-demo-v1:public")
   );
@@ -168,7 +168,7 @@ test("active suggestions, custom dates, validation and final save are unchanged"
   await page
     .getByRole("link", { name: "متابعة للبرنامج والموعد", exact: true })
     .click();
-  const date = page.getByLabel("تاريخ الموعد");
+  const date = page.getByLabel("تعديل التاريخ");
   await expect(date).toHaveValue("2030-01-21");
   await expect(date).toHaveAttribute("min", "2030-01-21");
   await expect(page.locator(".visit-appointment")).toContainText(

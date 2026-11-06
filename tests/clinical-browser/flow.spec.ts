@@ -255,7 +255,7 @@ test("two independent sessions: intake, handoff, private draft, diet, appointmen
     const appointment = new Date(Date.now() + 7 * 86400000)
       .toISOString()
       .slice(0, 10);
-    await doctor.getByLabel("تاريخ الموعد").fill(appointment);
+    await doctor.getByLabel("تعديل التاريخ").fill(appointment);
     await doctor
       .getByRole("button", { name: "حفظ المسودة", exact: true })
       .click();
@@ -264,7 +264,7 @@ test("two independent sessions: intake, handoff, private draft, diet, appointmen
     );
     await doctor.reload();
     await expect(doctor.locator(".visit-meal")).toContainText("بيض وخبز");
-    await expect(doctor.getByLabel("تاريخ الموعد")).toHaveValue(appointment);
+    await expect(doctor.getByLabel("تعديل التاريخ")).toHaveValue(appointment);
     await surface(doctor);
     await doctor
       .getByRole("button", { name: "إنهاء الزيارة", exact: true })

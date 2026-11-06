@@ -459,16 +459,31 @@ for (const role of ["doctor", "first-doctor", "first-secretary"] as const) {
   });
 }
 
-for (const role of ["doctor", "secretary", "first-doctor", "first-secretary"] as const) {
-  test(`${role}: legacy recovery guidance preserves the existing session and route restrictions`, async ({ page }) => {
+for (const role of [
+  "doctor",
+  "secretary",
+  "first-doctor",
+  "first-secretary",
+] as const) {
+  test(`${role}: legacy recovery guidance preserves the existing session and route restrictions`, async ({
+    page,
+  }) => {
     await login(page, role);
-    const destination = role.startsWith("first-") ? "/change-password" : `/${role}`;
+    const destination = role.startsWith("first-")
+      ? "/change-password"
+      : `/${role}`;
     await expect(page).toHaveURL(destination);
     const before = passwordRequests;
-    await page.goto("/?code=synthetic-legacy-code&next=https://example.invalid");
-    await expect(page.getByRole("heading", { name: "استعادة الوصول للحساب", exact: true })).toBeVisible();
+    await page.goto(
+      "/?code=synthetic-legacy-code&next=https://example.invalid"
+    );
+    await expect(
+      page.getByRole("heading", { name: "استعادة الوصول للحساب", exact: true })
+    ).toBeVisible();
     await expect(page.locator("form, input")).toHaveCount(0);
-    await page.getByRole("link", { name: "العودة لتسجيل الدخول", exact: true }).click();
+    await page
+      .getByRole("link", { name: "العودة لتسجيل الدخول", exact: true })
+      .click();
     await expect(page).toHaveURL(destination);
     expect(passwordRequests).toBe(before);
   });
@@ -520,9 +535,7 @@ test("failed sign-out is visible, does not claim success, and can be retried", a
 }) => {
   await login(page, "doctor");
   await expect(page).toHaveURL("/doctor");
-  await expect(
-    page.getByRole("heading", { name: /الخير/ })
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: /الخير/ })).toBeVisible();
   await page.goto("/doctor/staff");
   const failuresBefore = logoutFailures;
   failLogout = true;
@@ -646,7 +659,9 @@ for (const role of ["first-doctor", "first-secretary"] as const) {
 
 // Keep the optional mutation last: earlier doctor cases use the original fixture
 // password. This requires real isolated Auth; offline preflight is not a substitute.
-test("doctor: wrong current password retains fields; corrected optional change takes effect", async ({ page }) => {
+test("doctor: wrong current password retains fields; corrected optional change takes effect", async ({
+  page,
+}) => {
   await login(page, "doctor");
   await expect(page).toHaveURL("/doctor");
   await page.goto("/change-password");
@@ -657,22 +672,32 @@ test("doctor: wrong current password retains fields; corrected optional change t
   await current.fill(password + "wrong");
   await next.fill(replacement);
   await confirmation.fill(replacement);
-  await page.getByRole("button", { name: "إظهار كلمة المرور الجديدة", exact: true }).click();
-  await page.getByRole("button", { name: "حفظ كلمة المرور", exact: true }).click();
-  await expect(page.locator("form.auth-form [role=alert]")).toHaveText("تعذّر تغيير كلمة المرور. تحقق من البيانات وحاول مجدداً.");
+  await page
+    .getByRole("button", { name: "إظهار كلمة المرور الجديدة", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "حفظ كلمة المرور", exact: true })
+    .click();
+  await expect(page.locator("form.auth-form [role=alert]")).toHaveText(
+    "تعذّر تغيير كلمة المرور. تحقق من البيانات وحاول مجدداً."
+  );
   await expect(page).toHaveURL("/change-password");
   await expect(current).toHaveValue(password + "wrong");
   await expect(next).toHaveValue(replacement);
   await expect(confirmation).toHaveValue(replacement);
   await expect(next).toHaveAttribute("type", "text");
   await current.fill(password);
-  await page.getByRole("button", { name: "حفظ كلمة المرور", exact: true }).click();
+  await page
+    .getByRole("button", { name: "حفظ كلمة المرور", exact: true })
+    .click();
   await expect(page).toHaveURL("/doctor");
   await page.goto("/doctor/staff");
   await page.getByRole("button", { name: "تسجيل الخروج", exact: true }).click();
   await expect(page).toHaveURL("/");
   await login(page, "doctor", password);
-  await expect(page.locator("form.auth-form [role=alert]")).toHaveText("البريد الإلكتروني أو كلمة المرور غير صحيحة.");
+  await expect(page.locator("form.auth-form [role=alert]")).toHaveText(
+    "البريد الإلكتروني أو كلمة المرور غير صحيحة."
+  );
   await login(page, "doctor", replacement);
   await expect(page).toHaveURL("/doctor");
   await page.reload();

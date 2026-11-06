@@ -245,3 +245,18 @@ test("the doctor can attach and remove a file on a visit", async ({ page }) => {
     "صورة أو PDF"
   );
 });
+
+test("the doctor can copy the previous diet plan", async ({ page }) => {
+  page.on("dialog", (dialog) => dialog.accept());
+  await page.goto("/demo/doctor/visits/demo-featured?step=plan");
+  await expect(page.locator(".visit-meal")).toHaveCount(5);
+  await expect(page.locator(".visit-day h3").first()).toContainText(
+    /اليوم 1 · \d{1,2}\/\d{1,2}\/\d{4}/
+  );
+  await page.getByRole("button", { name: "نسخ البرنامج السابق" }).click();
+  await expect(page.locator(".visit-day")).toHaveCount(2);
+  await expect(page.locator(".visit-meal")).toHaveCount(4);
+  await expect(page.locator(".visit-appointment-date")).toContainText(
+    /\d{1,2}\/\d{1,2}\/\d{4}/
+  );
+});

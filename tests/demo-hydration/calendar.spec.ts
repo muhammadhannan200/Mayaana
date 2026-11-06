@@ -5,6 +5,7 @@ import {
   type Page,
 } from "@playwright/test";
 import { createDemoFixture } from "../../frontend/demo/demo-fixture";
+import { displayDate as shown } from "../../shared/clinic-dates";
 
 const key = "mayanaa-demo-v1:public";
 const test = base.extend<{ cleanHydration: void }>({
@@ -62,14 +63,14 @@ test("same instant, different server/browser timezones: direct Doctor Patients",
   await page.goto("/demo/doctor/patients");
   await expect(
     page.locator(".patient-result").filter({ hasText: "سامر درويش" })
-  ).toContainText("2024-02-15");
+  ).toContainText(shown("2024-02-15"));
   await expect(
     page.locator(".patient-result").filter({ hasText: "مريم العلي" })
-  ).toContainText("2024-02-29");
+  ).toContainText(shown("2024-02-29"));
   await page.reload();
   await expect(
     page.locator(".patient-result").filter({ hasText: "سامر درويش" })
-  ).toContainText("2024-02-15");
+  ).toContainText(shown("2024-02-15"));
 });
 
 for (const [label, instant, today, previous, appointment, tomorrow] of [
@@ -112,14 +113,17 @@ for (const [label, instant, today, previous, appointment, tomorrow] of [
     await clock(page, instant);
     await page.goto("/demo/doctor/patients/demo-noor");
     await page.getByRole("tab", { name: "الزيارات" }).click();
-    await expect(page.locator(".demo-visit-history")).toContainText(previous);
+    await expect(page.locator(".demo-visit-history")).toContainText(
+      shown(previous)
+    );
+    await page.getByRole("tab", { name: "الملف" }).click();
     await expect(page.locator(".demo-patient-info")).toContainText(
       `${Number(today.slice(0, 4)) - 1994} سنة`
     );
     await page.goto("/demo/doctor/visits/demo-featured?step=plan");
-    await expect(page.getByLabel("تاريخ الموعد")).toHaveValue(appointment);
+    await expect(page.getByLabel("تعديل التاريخ")).toHaveValue(appointment);
     await page.reload();
-    await expect(page.getByLabel("تاريخ الموعد")).toHaveValue(appointment);
+    await expect(page.getByLabel("تعديل التاريخ")).toHaveValue(appointment);
     await page
       .getByRole("link", { name: "القياسات والملاحظات", exact: true })
       .click();
@@ -135,8 +139,8 @@ for (const [label, instant, today, previous, appointment, tomorrow] of [
       localStorage.setItem(key, JSON.stringify(saved));
     }, key);
     await page.goto("/demo/doctor/visits/demo-featured?step=plan");
-    await expect(page.getByLabel("تاريخ الموعد")).toHaveValue(tomorrow);
-    await expect(page.getByLabel("تاريخ الموعد")).toHaveAttribute(
+    await expect(page.getByLabel("تعديل التاريخ")).toHaveValue(tomorrow);
+    await expect(page.getByLabel("تعديل التاريخ")).toHaveAttribute(
       "min",
       tomorrow
     );
@@ -170,10 +174,10 @@ for (const storage of [
     await page.goto("/demo/doctor/patients/demo-noor");
     await page.getByRole("tab", { name: "الزيارات" }).click();
     await expect(page.locator(".demo-visit-history")).toContainText(
-      "2024-02-15"
+      shown("2024-02-15")
     );
     await page.goto("/demo/doctor/visits/demo-featured?step=plan");
-    await expect(page.getByLabel("تاريخ الموعد")).toHaveValue("2024-03-14");
+    await expect(page.getByLabel("تعديل التاريخ")).toHaveValue("2024-03-14");
     await page
       .getByRole("link", { name: "القياسات والملاحظات", exact: true })
       .click();
@@ -186,7 +190,7 @@ for (const storage of [
       .getByRole("link", { name: "البرنامج والموعد", exact: true })
       .click();
     await expect(page).toHaveURL(/\?step=plan$/);
-    await expect(page.getByLabel("تاريخ الموعد")).toHaveValue("2024-03-14");
+    await expect(page.getByLabel("تعديل التاريخ")).toHaveValue("2024-03-14");
     await page.goBack();
     await expect(page).toHaveURL(/\/visits\/demo-featured$/);
     await expect(notes).toHaveValue("ملاحظة خيالية محفوظة في الذاكرة");
@@ -199,7 +203,7 @@ test("valid storage wins; notes autosave survives reload/navigation; reset synch
 }) => {
   await clock(page);
   await page.goto("/demo/doctor/visits/demo-featured?step=plan");
-  await expect(page.getByLabel("تاريخ الموعد")).toHaveValue("2024-03-14");
+  await expect(page.getByLabel("تعديل التاريخ")).toHaveValue("2024-03-14");
   await page
     .getByRole("link", { name: "القياسات والملاحظات", exact: true })
     .click();
@@ -223,15 +227,19 @@ test("valid storage wins; notes autosave survives reload/navigation; reset synch
   await page.goto("/demo/doctor/patients");
   await expect(
     page.locator(".patient-result").filter({ hasText: "سامر درويش" })
-  ).toContainText("2024-12-18");
+  ).toContainText(shown("2024-12-18"));
   await page.getByRole("link", { name: /نور الحسن/ }).click();
   await page.getByRole("tab", { name: "الزيارات" }).click();
-  await expect(page.locator(".demo-visit-history")).toContainText("2024-12-18");
+  await expect(page.locator(".demo-visit-history")).toContainText(
+    shown("2024-12-18")
+  );
   await page.goBack();
   await expect(page).toHaveURL(/\/doctor\/patients$/);
   await page.goForward();
   await page.getByRole("tab", { name: "الزيارات" }).click();
-  await expect(page.locator(".demo-visit-history")).toContainText("2024-12-18");
+  await expect(page.locator(".demo-visit-history")).toContainText(
+    shown("2024-12-18")
+  );
 });
 
 test.describe("same timezone across midnight", () => {
@@ -243,14 +251,14 @@ test.describe("same timezone across midnight", () => {
     await page.goto("/demo/doctor/patients");
     await expect(
       page.locator(".patient-result").filter({ hasText: "مريم العلي" })
-    ).toContainText("2024-02-29");
+    ).toContainText(shown("2024-02-29"));
     await page.goto("/demo/doctor/patients/demo-noor");
     await page.getByRole("tab", { name: "الزيارات" }).click();
     await expect(page.locator(".demo-visit-history")).toContainText(
-      "2024-02-15"
+      shown("2024-02-15")
     );
     await page.goto("/demo/doctor/visits/demo-featured?step=plan");
-    await expect(page.getByLabel("تاريخ الموعد")).toHaveValue("2024-03-14");
+    await expect(page.getByLabel("تعديل التاريخ")).toHaveValue("2024-03-14");
   });
 });
 
@@ -278,7 +286,7 @@ test.describe("same loaded session across local midnight", () => {
       );
       await page.clock.install({ time: new Date("2024-02-29T23:58:00Z") });
       await page.goto("/demo/doctor/visits/demo-featured?step=plan");
-      const date = page.getByLabel("تاريخ الموعد");
+      const date = page.getByLabel("تعديل التاريخ");
       await expect(date).toHaveValue(custom || "2024-03-01");
       await expect(date).toHaveAttribute("min", "2024-03-01");
       const before = await page.evaluate(
@@ -310,7 +318,9 @@ test.describe("same loaded session across local midnight", () => {
       }
       const review = page.getByRole("dialog");
       await expect(review).toBeVisible();
-      await expect(review).toContainText(accepted ? after : "2024-03-02");
+      await expect(review).toContainText(
+        shown(accepted ? after : "2024-03-02")
+      );
       await activate(
         review.getByRole("button", { name: "حفظ وإنهاء الزيارة", exact: true })
       );
@@ -348,7 +358,7 @@ test.describe("same loaded session across local midnight", () => {
     );
     await page.clock.install({ time: new Date("2024-02-29T23:58:00Z") });
     await page.goto("/demo/doctor/visits/demo-featured?step=plan");
-    const date = page.getByLabel("تاريخ الموعد");
+    const date = page.getByLabel("تعديل التاريخ");
     await expect(date).toHaveValue("2024-03-10");
     await expect(date).toHaveAttribute("min", "2024-03-01");
     await page.clock.pauseAt("2024-02-29T23:59:59Z");
@@ -376,7 +386,7 @@ test.describe("same loaded session across local midnight", () => {
     await activate(
       page.getByRole("button", { name: "إنهاء الزيارة", exact: true })
     );
-    await expect(page.getByRole("dialog")).toContainText("2024-03-10");
+    await expect(page.getByRole("dialog")).toContainText(shown("2024-03-10"));
   });
 
   test("confirmation crossing midnight revalidates a custom date before writing", async ({
@@ -395,7 +405,7 @@ test.describe("same loaded session across local midnight", () => {
     );
     await page.clock.install({ time: new Date("2024-02-29T23:58:00Z") });
     await page.goto("/demo/doctor/visits/demo-featured?step=plan");
-    const date = page.getByLabel("تاريخ الموعد");
+    const date = page.getByLabel("تعديل التاريخ");
     await expect(date).toHaveValue("2024-03-01");
     await expect(date).toHaveAttribute("min", "2024-03-01");
     await activate(
