@@ -106,7 +106,9 @@ test("two independent sessions: intake, handoff, private draft, diet, appointmen
         errors.push(message.text());
     });
   try {
+    console.log("STEP 1 line 109", Date.now());
     await secretary.goto("/");
+    console.log("STEP 2 line 110", Date.now());
     await secretary.evaluate(
       (id) =>
         localStorage.setItem(
@@ -115,8 +117,11 @@ test("two independent sessions: intake, handoff, private draft, diet, appointmen
         ),
       clinicId
     );
+    console.log("STEP 3 line 118", Date.now());
     await login(secretary, secretaryEmail, "secretary");
+    console.log("STEP 4 line 119", Date.now());
     await expect(secretary.getByText("الدور فارغ الآن")).toBeVisible();
+    console.log("STEP 5 line 120", Date.now());
     await expect(
       secretary.getByRole("heading", { name: /متوقع اليوم|متأخر/ })
     ).toHaveCount(0);
@@ -126,41 +131,59 @@ test("two independent sessions: intake, handoff, private draft, diet, appointmen
         clinicId
       )
     ).toBeNull();
+    console.log("STEP 6 line 129", Date.now());
     await surface(secretary);
+    console.log("STEP 7 line 130", Date.now());
     await login(doctor, doctorEmail, "doctor");
+    console.log("STEP 8 line 131", Date.now());
     await expect(
       doctor.getByText("لا يوجد مريض عند الطبيب الآن.")
     ).toBeVisible();
+    console.log("STEP 9 line 134", Date.now());
     await expect(
       doctor.getByText("لا يوجد مرضى متوقعون اليوم لم يصلوا بعد.")
     ).toBeVisible();
+    console.log("STEP 10 line 137", Date.now());
     await expect(
       doctor.getByText("لا توجد مواعيد متأخرة دون زيارة مكتملة أو موعد لاحق.")
     ).toBeVisible();
+    console.log("STEP 11 line 140", Date.now());
     await secretary
       .getByRole("link", { name: "إضافة مريض للدور", exact: true })
       .click();
+    console.log("STEP 12 line 143", Date.now());
     await secretary.getByRole("link", { name: /ملف.*جديد/ }).click();
     const patientName = "مريض اختباري طويل الاسم للتحقق من التخطيط العربي";
+    console.log("STEP 13 line 145", Date.now());
     await secretary
       .getByLabel("الاسم الكامل", { exact: false })
       .fill(patientName);
+    console.log("STEP 14 line 148", Date.now());
     await secretary
       .getByLabel("رقم الهاتف", { exact: false })
       .fill("+12025550121");
+    console.log("STEP 15 line 151", Date.now());
     await secretary.getByLabel("الطول", { exact: false }).fill("١٧٠");
+    console.log("STEP 16 line 152", Date.now());
     await secretary.getByLabel("سنة الميلاد").fill("١٩٩٠");
+    console.log("STEP 17 line 153", Date.now());
     await secretary
       .getByRole("button", { name: "حفظ ومتابعة الإضافة للدور" })
       .click();
+    console.log("STEP 18 line 156", Date.now());
     await expect(secretary).toHaveURL(/secretary\/confirm/);
+    console.log("STEP 19 line 157", Date.now());
     await surface(secretary);
     const patientId = new URL(secretary.url()).searchParams.get("patient")!;
+    console.log("STEP 20 line 159", Date.now());
     await secretary
       .getByRole("button", { name: "إضافة للدور", exact: true })
       .click();
+    console.log("STEP 21 line 162", Date.now());
     await expect(secretary).toHaveURL(/secretary\?added=1/);
+    console.log("STEP 22 line 163", Date.now());
     await secretary.reload();
+    console.log("STEP 23 line 164", Date.now());
     await secretary.getByRole("link", { name: "أخذ القياس" }).click();
     const values: Record<string, string> = {
       الوزن: "٨٠",
@@ -179,6 +202,7 @@ test("two independent sessions: intake, handoff, private draft, diet, appointmen
         .fill(value);
     // Lose the response AFTER the real transaction commits. Retrying must use
     // the original request identity, not fail stale or write measurements twice.
+    console.log("STEP 24 line 182", Date.now());
     await secretary.route(
       "**/secretary/measurements/full-exam*",
       async (route) => {
@@ -187,10 +211,13 @@ test("two independent sessions: intake, handoff, private draft, diet, appointmen
         await route.abort();
       }
     );
+    console.log("STEP 25 line 190", Date.now());
     await secretary.getByRole("button", { name: /حفظ القياسات/ }).click();
+    console.log("STEP 26 line 191", Date.now());
     await expect(secretary.locator("p[role=alert]")).toContainText(
       "تعذّر الاتصال"
     );
+    console.log("STEP 27 line 194", Date.now());
     await expect(
       secretary.getByRole("textbox", { name: "الوزن", exact: true })
     ).toHaveValue("٨٠");
@@ -201,8 +228,11 @@ test("two independent sessions: intake, handoff, private draft, diet, appointmen
       .single();
     expect(committed.error).toBeNull();
     expect(committed.data).toMatchObject({ revision: 1, status: "ready" });
+    console.log("STEP 28 line 204", Date.now());
     await secretary.unrouteAll();
+    console.log("STEP 29 line 205", Date.now());
     await secretary.getByRole("button", { name: /حفظ القياسات/ }).click();
+    console.log("STEP 30 line 206", Date.now());
     await expect(secretary).toHaveURL(/measured=1/);
     const retried = await admin
       .from("daily_queue")
@@ -211,92 +241,138 @@ test("two independent sessions: intake, handoff, private draft, diet, appointmen
       .single();
     expect(retried.error).toBeNull();
     expect(retried.data).toEqual(committed.data);
+    console.log("STEP 31 line 214", Date.now());
     await secretary.reload();
+    console.log("STEP 32 line 215", Date.now());
     await expect(
       secretary.getByRole("button", { name: "إدخال عند الطبيب" })
     ).toBeVisible();
+    console.log("STEP 33 line 218", Date.now());
     await surface(secretary);
+    console.log("STEP 34 line 219", Date.now());
     await secretary.getByRole("button", { name: "إدخال عند الطبيب" }).click();
+    console.log("STEP 35 line 220", Date.now());
     await expect(doctor.locator(".doctor-current")).toContainText(patientName, {
       timeout: 25_000,
     });
+    console.log("STEP 36 line 223", Date.now());
     await doctor.getByRole("link", { name: "فتح الملف", exact: true }).click();
+    console.log("STEP 37 line 224", Date.now());
     await expect(doctor.locator(".patient-progress")).toContainText("80");
+    console.log("STEP 38 line 225", Date.now());
     await doctor
       .getByRole("link", { name: "فتح زيارة اليوم", exact: true })
       .click();
+    console.log("STEP 39 line 228", Date.now());
     await doctor
       .getByLabel("ملاحظاتي")
       .fill("ملاحظة خاصة اختباريّة لا تظهر للسكرتيرة");
+    console.log("STEP 40 line 231", Date.now());
     await doctor
       .getByRole("button", { name: "حفظ المسودة", exact: true })
       .click();
+    console.log("STEP 41 line 234", Date.now());
     await expect(doctor.locator(".clinical-draft")).toContainText(
       "النسخة المحفوظة"
     );
+    console.log("STEP 42 line 237", Date.now());
     await doctor.reload();
+    console.log("STEP 43 line 238", Date.now());
     await expect(doctor.getByLabel("ملاحظاتي")).toHaveValue(
       "ملاحظة خاصة اختباريّة لا تظهر للسكرتيرة"
     );
+    console.log("STEP 44 line 241", Date.now());
     await surface(doctor);
+    console.log("STEP 45 line 242", Date.now());
     await doctor.getByRole("link", { name: "متابعة للبرنامج والموعد" }).click();
+    console.log("STEP 46 line 243", Date.now());
     await doctor
       .getByRole("button", { name: "إضافة يوم", exact: true })
       .click();
+    console.log("STEP 47 line 246", Date.now());
     await doctor
       .getByRole("button", { name: "إضافة وجبة", exact: true })
       .click();
+    console.log("STEP 48 line 249", Date.now());
     await doctor
       .getByLabel("تفاصيل الوجبة")
       .fill("بيض وخبز وخضار — بيانات اختبارية");
+    console.log("STEP 49 line 252", Date.now());
     await doctor
       .getByRole("button", { name: "إضافة الوجبة", exact: true })
       .click();
     const appointment = new Date(Date.now() + 7 * 86400000)
       .toISOString()
       .slice(0, 10);
+    console.log("STEP 50 line 258", Date.now());
     await doctor.getByLabel("تاريخ الموعد").fill(appointment);
+    console.log("STEP 51 line 259", Date.now());
     await doctor
       .getByRole("button", { name: "حفظ المسودة", exact: true })
       .click();
+    console.log("STEP 52 line 262", Date.now());
     await expect(doctor.locator(".clinical-draft")).toContainText(
       "النسخة المحفوظة"
     );
+    console.log("STEP 53 line 265", Date.now());
     await doctor.reload();
+    console.log("STEP 54 line 266", Date.now());
     await expect(doctor.locator(".visit-meal")).toContainText("بيض وخبز");
+    console.log("STEP 55 line 267", Date.now());
     await expect(doctor.getByLabel("تاريخ الموعد")).toHaveValue(appointment);
+    console.log("STEP 56 line 268", Date.now());
     await surface(doctor);
+    console.log("STEP 57 line 269", Date.now());
     await doctor
       .getByRole("button", { name: "إنهاء الزيارة", exact: true })
       .focus();
+    console.log("STEP 58 line 272", Date.now());
     await doctor.keyboard.press("Enter");
+    console.log("STEP 59 line 273", Date.now());
     await expect(doctor.getByRole("dialog").locator(":focus")).toHaveCount(1);
+    console.log("STEP 60 line 274", Date.now());
     await doctor.keyboard.press("Escape");
+    console.log("STEP 61 line 275", Date.now());
     await expect(doctor.getByRole("dialog")).toHaveCount(0);
+    console.log("STEP 62 line 276", Date.now());
     await doctor.keyboard.press("Enter");
+    console.log("STEP 63 line 277", Date.now());
     await expect(doctor.getByRole("dialog")).toContainText(patientName);
+    console.log("STEP 64 line 278", Date.now());
     await surface(doctor);
+    console.log("STEP 65 line 279", Date.now());
     await doctor
       .getByRole("button", { name: "حفظ وإنهاء الزيارة", exact: true })
       .click();
+    console.log("STEP 66 line 282", Date.now());
     await expect(
       doctor.getByRole("heading", { name: "الزيارة المكتملة", exact: true })
     ).toBeVisible();
+    console.log("STEP 67 line 285", Date.now());
     await doctor.reload();
+    console.log("STEP 68 line 286", Date.now());
     await expect(doctor.getByLabel("ملاحظاتي")).toHaveValue(
       "ملاحظة خاصة اختباريّة لا تظهر للسكرتيرة"
     );
+    console.log("STEP 69 line 289", Date.now());
     await expect(doctor.getByLabel("ملاحظاتي")).toHaveAttribute("readonly", "");
+    console.log("STEP 70 line 290", Date.now());
     await expect(doctor.locator(".visit-meal")).toContainText("بيض وخبز");
+    console.log("STEP 71 line 291", Date.now());
     await expect(
       secretary.locator(".doctor-card").filter({ hasText: patientName })
     ).toContainText("اكتملت الزيارة", { timeout: 25_000 });
+    console.log("STEP 72 line 294", Date.now());
     await secretary.reload();
+    console.log("STEP 73 line 295", Date.now());
     await expect(
       secretary.locator(".doctor-card").filter({ hasText: patientName })
     ).toContainText("اكتملت الزيارة");
+    console.log("STEP 74 line 298", Date.now());
     await secretary.goto(`/secretary/search`);
+    console.log("STEP 75 line 299", Date.now());
     await secretary.getByLabel("اسم المريض أو رقم هاتفه").fill("+12025550121");
+    console.log("STEP 76 line 300", Date.now());
     await expect(
       secretary.getByRole("link", { name: new RegExp(patientName) })
     ).toBeVisible();
@@ -321,10 +397,12 @@ test("two independent sessions: intake, handoff, private draft, diet, appointmen
       .eq("id", patientId)
       .single();
     expect(patient.data?.full_name).toBe(patientName);
+    console.log("STEP 77 line 324", Date.now());
     await doctor.screenshot({
       path: info.outputPath("completed.png"),
       fullPage: true,
     });
+    console.log("STEP 78 line 328", Date.now());
     await surface(doctor);
     expect(errors).toEqual([]);
   } finally {
