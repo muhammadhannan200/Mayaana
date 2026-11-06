@@ -33,21 +33,10 @@ async function portFree(port) {
     await new Promise(resolve => setTimeout(resolve, 5000));
   }
 }
-// A silent image pull can hang until the job times out, so fail early and retry once.
+// A first start pulls images and can take several minutes, so it has no
+// timeout here: a timed-out start kept running and later blocked cleanup.
 async function startStack() {
-  try {
-    await withTimeout(supabase(["start"], true), 480000);
-  } catch {
-    await supabase(["stop", "--no-backup"], true).catch(() => undefined);
-    await withTimeout(supabase(["start"], true), 480000);
-  }
-}
-function withTimeout(promise, ms) {
-  let timer;
-  const expired = new Promise((_, reject) => {
-    timer = setTimeout(() => reject(new Error("Supabase start timed out.")), ms);
-  });
-  return Promise.race([promise, expired]).finally(() => clearTimeout(timer));
+  await supabase(["start"], true);
 }
 let started = false;
 try {
