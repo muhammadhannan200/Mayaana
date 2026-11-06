@@ -262,10 +262,7 @@ export function QueueScreen({
               </span>
               <h3>الدور فارغ الآن</h3>
               <p>أضف مريضاً لبدء دور اليوم.</p>
-              <Link
-                className="secretary-primary"
-                href={href("secretary/search")}
-              >
+              <Link className="secretary-primary" href={href("secretary/add")}>
                 إضافة مريض للدور
               </Link>
             </div>
