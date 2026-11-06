@@ -340,7 +340,7 @@ test("new patient: E2 → S4 → S3 → S6 validates all fields and shares ident
   await page.goto("/demo/secretary/add");
   await page.getByLabel("اسم المريض أو رقم هاتفه").fill("غير موجود");
   await expect(
-    page.getByRole("heading", { name: "لا توجد نتائج" })
+    page.getByRole("heading", { name: "ما لقينا غير موجود" })
   ).toBeVisible();
   await checkSurface(page);
   await page.getByRole("link", { name: "فتح ملف مريض جديد" }).click();
