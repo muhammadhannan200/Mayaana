@@ -1,28 +1,25 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useDemoClinic } from "@/frontend/demo/demo-clinic";
 import { dietPlanMessage, whatsappUrl } from "@/shared/whatsapp";
-import { measurementFields, type VisitDraft } from "@/shared/clinical-model";
-import { damascusDate } from "@/shared/doctor-agenda";
-import { Icon } from "@/frontend/components/icon";
-import { VisitAttachments } from "./visit-attachments";
+import type { VisitDraft } from "@/shared/clinical-model";
 import { useMealEditor, VisitDiet } from "./visit-diet";
+import { VisitDraftStatus, type DoctorDraft } from "./visit-draft-status";
 import { FinishReview } from "./visit-finish-review";
+import { VisitActionBar, VisitUnavailable } from "./visit-action-bar";
+import { VisitHeader } from "./visit-header";
+import { completeDemoVisit } from "./demo-visit";
+import { useUnsavedGuard } from "./use-unsaved-guard";
+import { VisitMeasurements } from "./visit-measurements";
 import "./visit.css";
 import type {
   ClinicalOperations,
   ClinicalSnapshot,
   ClinicEntry,
 } from "@/shared/clinical-types";
-
-function dateAfter(days: number, base?: string) {
-  const date = base ? new Date(`${base}T12:00:00`) : new Date();
-  date.setDate(date.getDate() + days);
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-}
+import { dateAfter } from "@/shared/clinic-dates";
 
 export function DoctorVisit({
   entryId,
@@ -77,6 +74,19 @@ function VisitEditor({
   const href = (path: string) => `${prefix}/doctor${path}`;
   const entry = queue.find((item) => item.id === entryId);
   const patient = patients.find((item) => item.id === entry?.patientId);
+  const previousDays = demo
+    ? (queue
+        .filter(
+          (item) =>
+            item.id !== entryId &&
+            item.patientId === entry?.patientId &&
+            item.status === "completed" &&
+            item.visit?.days.length
+        )
+        .sort((a, b) =>
+          (b.visit?.completedAt ?? "").localeCompare(a.visit?.completedAt ?? "")
+        )[0]?.visit?.days ?? entry?.previousPlan)
+    : entry?.previousPlan;
   const [review, setReview] = useState(false);
   const [error, setError] = useState("");
   const plan = params.get("step") === "plan";
@@ -88,10 +98,7 @@ function VisitEditor({
     else local?.openVisit(entryId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [needsOpen, entryId]);
-  const [draft, setDraft] = useState<{
-    visit: VisitDraft;
-    revision: number;
-  } | null>(null);
+  const [draft, setDraft] = useState<DoctorDraft | null>(null);
   const visit: VisitDraft = (!demo && !completed && draft?.visit) ||
     entry?.visit || {
       notes: "",
@@ -138,30 +145,7 @@ function VisitEditor({
   }
   const editor = useMealEditor(save);
   const { editing, description } = editor;
-  useEffect(() => {
-    if (demo || (!draft && !(editing && description.trim()))) return;
-    const unload = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-    };
-    const leave = (event: MouseEvent) => {
-      const link = (event.target as Element).closest?.("a[href]");
-      if (
-        !(link instanceof HTMLAnchorElement) ||
-        link.pathname === window.location.pathname
-      )
-        return;
-      if (!window.confirm("لديك تعديلات غير محفوظة. مغادرة الزيارة؟")) {
-        event.preventDefault();
-        event.stopPropagation();
-      }
-    };
-    window.addEventListener("beforeunload", unload);
-    document.addEventListener("click", leave, true);
-    return () => {
-      window.removeEventListener("beforeunload", unload);
-      document.removeEventListener("click", leave, true);
-    };
-  }, [demo, draft, editing, description]);
+  useUnsavedGuard(!demo && (!!draft || !!(editing && description.trim())));
 
   async function finish() {
     if (operations) {
@@ -187,46 +171,13 @@ function VisitEditor({
       return;
     }
     const completedAt = new Date().toISOString();
-    update((state) => {
-      const active = state.queue.find((item) => item.id === entryId);
-      if (!active || active.status !== "with_doctor") return state;
-      return {
-        ...state,
-        queue: state.queue.map((item) =>
-          item.id === entryId
-            ? {
-                ...item,
-                status: "completed",
-                visit: {
-                  ...visit,
-                  appointment: completedAppointment,
-                  completedAt,
-                },
-              }
-            : item
-        ),
-        patients: state.patients.map((record) =>
-          record.id === active.patientId
-            ? {
-                ...record,
-                visits: [
-                  {
-                    id: entryId,
-                    number: record.visits.length + 1,
-                    date: new Date(completedAt).toLocaleDateString("ar-SY"),
-                    serviceDate: damascusDate(new Date(completedAt)),
-                    appointment: completedAppointment,
-                    detailDate: "زيارة مكتملة · العرض التجريبي",
-                    kind: active.kind,
-                    measurements: { ...active.measurements },
-                  },
-                  ...record.visits,
-                ],
-              }
-            : record
-        ),
-      };
-    });
+    update((state) =>
+      completeDemoVisit(state, entryId, {
+        ...visit,
+        appointment: completedAppointment,
+        completedAt,
+      })
+    );
     setReview(false);
     router.replace(visitHref);
   }
@@ -236,15 +187,7 @@ function VisitEditor({
     !patient ||
     !["with_doctor", "completed"].includes(entry.status)
   )
-    return (
-      <main className="doctor-shell recovery" dir="rtl">
-        <h1>الزيارة غير متاحة</h1>
-        <p>أكمل القياسات وأدخل المريض عند الطبيب أولاً.</p>
-        <Link className="secretary-primary" href={href("")}>
-          العودة للرئيسية
-        </Link>
-      </main>
-    );
+    return <VisitUnavailable homeHref={href("")} />;
 
   const weight = Number(entry.measurements.weight);
   const previous = patient.visits.find((item) => item.id !== entry.id)
@@ -262,177 +205,72 @@ function VisitEditor({
     })
   );
 
+  function requestFinish() {
+    if (editing) {
+      setError("احفظ الوجبة أو ألغِ تعديلها أولاً.");
+      return;
+    }
+    if (!visit.days.length || visit.days.some((day) => !day.meals.length)) {
+      setError("أضف يوماً ووجبة واحدة على الأقل لكل يوم قبل الإنهاء.");
+      return;
+    }
+    const date = demo ? local!.currentDate() : clinical?.serviceDate;
+    const currentAppointment = demo ? appointmentOn(date) : appointment;
+    if (currentAppointment <= dateAfter(0, date)) {
+      setError("اختر موعد مراجعة بعد اليوم.");
+      return;
+    }
+    setError("");
+    setReview(true);
+  }
+
   return (
     <main className="doctor-shell visit-shell" dir="rtl">
-      <header className="doctor-topbar">
-        {completed && (
-          // Start a fresh document: client navigation retains hidden visit
-          // markup (including notes) in Next's mounted route cache.
-          <a
-            className="doctor-back visit-header-action"
-            href={`${visitHref}/print`}
-            aria-label="طباعة البرنامج"
-          >
-            <Icon name="print" size={20} />
-          </a>
-        )}
-        <div>
-          <h1>{completed ? "الزيارة المكتملة" : "زيارة اليوم"}</h1>
-          <p>
-            {patient.name} · {entry.kind === "full_exam" ? "كشفية" : "مراجعة"}
-          </p>
-        </div>
-        <Link
-          className="doctor-back"
-          href={href(`/patients/${patient.id}`)}
-          aria-label="العودة لملف المريض"
-        >
-          <Icon name="arrow" size={20} />
-        </Link>
-      </header>
-      {!completed && (
-        <nav className="visit-tabs" aria-label="خطوات الزيارة">
-          <Link aria-current={!plan ? "page" : undefined} href={visitHref}>
-            القياسات والملاحظات
-          </Link>
-          <Link
-            aria-current={plan ? "page" : undefined}
-            href={`${visitHref}?step=plan`}
-          >
-            البرنامج والموعد
-          </Link>
-        </nav>
-      )}
+      <VisitHeader
+        completed={completed}
+        plan={plan}
+        visitHref={visitHref}
+        patientName={patient.name}
+        kind={entry.kind}
+        patientHref={href(`/patients/${patient.id}`)}
+      />
       <fieldset
         className="visit-content clinical-fieldset"
         disabled={operations?.pending}
       >
-        {!demo && !completed && (
-          <section className="clinical-draft">
-            <p role="status">
-              {operations?.pending
-                ? "جارٍ الحفظ…"
-                : draft
-                  ? "تعديلات غير محفوظة · احفظ المسودة قبل مغادرة الزيارة."
-                  : "النسخة المحفوظة في العيادة."}
-            </p>
-            {stale && (
-              <p className="secretary-error" role="alert">
-                تغيّرت الزيارة في جلسة أخرى. لم تُستبدل تعديلاتك. راجع النسخة
-                المحفوظة قبل المتابعة.
-              </p>
-            )}
-            <button
-              type="button"
-              className="secretary-outline"
-              disabled={!draft || operations?.pending || stale || !!editing}
-              onClick={async () => {
-                if (
-                  operations &&
-                  (await operations.saveDoctorDraft(
-                    entryId,
-                    draft?.revision ?? revision,
-                    { ...visit, appointment }
-                  ))
-                )
-                  setDraft(null);
-              }}
-            >
-              حفظ المسودة
-            </button>
-            {stale && (
-              <button
-                type="button"
-                className="secretary-outline"
-                onClick={() => {
-                  if (window.confirm("إلغاء تعديلاتك وتحميل النسخة المحفوظة؟"))
-                    setDraft(null);
-                }}
-              >
-                تحميل النسخة المحفوظة وإلغاء تعديلاتي
-              </button>
-            )}
-          </section>
-        )}
-        {completed && (
-          <p className="secretary-success" role="status">
-            اكتملت الزيارة · خرج المريض من الدور.
-          </p>
-        )}
-        {!demo && completed && draft && (
-          <section className="secretary-error" role="alert">
-            <p>
-              أُغلقت الزيارة في جلسة أخرى. المعروض أدناه هو السجل المحفوظ؛ لم
-              تُحفظ تعديلات مسودتك.
-            </p>
-            <details>
-              <summary>ملاحظات مسودتي غير المحفوظة</summary>
-              <textarea
-                aria-label="ملاحظات المسودة غير المحفوظة"
-                readOnly
-                value={draft.visit.notes}
-              />
-            </details>
-          </section>
-        )}
+        <VisitDraftStatus
+          demo={demo}
+          completed={completed}
+          draft={draft}
+          stale={stale}
+          pending={operations?.pending}
+          editing={!!editing}
+          onSave={async () => {
+            if (
+              operations &&
+              (await operations.saveDoctorDraft(
+                entryId,
+                draft?.revision ?? revision,
+                { ...visit, appointment }
+              ))
+            )
+              setDraft(null);
+          }}
+          onDiscard={() => setDraft(null)}
+        />
         {(!plan || completed) && (
           <>
-            <section className="visit-weight">
-              <div>
-                <strong>
-                  <bdi>{entry.measurements.weight} كغ</bdi>
-                </strong>
-                <small>
-                  {previous ? `آخر زيارة ${previous} كغ` : "أول زيارة"}
-                </small>
-              </div>
-              {delta !== null && (
-                <span
-                  className={towardsGoal ? "visit-delta good" : "visit-delta"}
-                >
-                  <bdi>{Math.abs(delta).toFixed(1)} كغ</bdi> ·{" "}
-                  {delta < 0 ? "نزول" : delta > 0 ? "زيادة" : "ثابت"}
-                </span>
-              )}
-            </section>
-            {completed && (
-              <dl className="demo-measurements">
-                {measurementFields
-                  .filter(
-                    (field) =>
-                      field.key !== "weight" && entry.measurements[field.key]
-                  )
-                  .map((field) => (
-                    <div key={field.key}>
-                      <dt>{field.label}</dt>
-                      <dd>
-                        <bdi>
-                          {entry.measurements[field.key]} {field.unit}
-                        </bdi>
-                      </dd>
-                    </div>
-                  ))}
-              </dl>
-            )}
-            <section className="visit-notes">
-              <label htmlFor="visit-notes">ملاحظاتي</label>
-              <textarea
-                id="visit-notes"
-                rows={4}
-                maxLength={4000}
-                readOnly={completed}
-                disabled={operations?.pending}
-                placeholder="اكتب ملاحظات زيارة اليوم…"
-                value={visit.notes}
-                onChange={(event) =>
-                  save((current) => ({ ...current, notes: event.target.value }))
-                }
-              />
-            </section>
-            <VisitAttachments
-              entry={entryId}
+            <VisitMeasurements
+              entryId={entryId}
+              measurements={entry.measurements}
+              previous={previous}
+              towardsGoal={towardsGoal}
+              delta={delta}
+              completed={completed}
               demo={demo}
-              readOnly={completed}
+              pending={operations?.pending}
+              notes={visit.notes}
+              onNotes={(notes) => save((current) => ({ ...current, notes }))}
             />
           </>
         )}
@@ -448,6 +286,8 @@ function VisitEditor({
               1,
               demo ? local!.today : clinical?.serviceDate
             )}
+            startDate={demo ? local!.today : clinical?.serviceDate}
+            previousDays={previousDays}
             save={save}
             editor={editor}
           />
@@ -463,64 +303,15 @@ function VisitEditor({
           </p>
         )}
       </fieldset>
-      <footer
-        className={`visit-actionbar${completed ? " visit-actionbar-done" : ""}`}
-      >
-        {completed ? (
-          <>
-            <Link className="secretary-outline" href={href("")}>
-              العودة للرئيسية
-            </Link>
-            {whatsappLink && (
-              <a
-                className="secretary-primary"
-                href={whatsappLink}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                إرسال عبر واتساب
-              </a>
-            )}
-          </>
-        ) : !plan ? (
-          <Link className="secretary-primary" href={`${visitHref}?step=plan`}>
-            متابعة للبرنامج والموعد
-          </Link>
-        ) : (
-          <button
-            className="secretary-primary"
-            disabled={operations?.pending || stale}
-            onClick={() => {
-              if (editing) {
-                setError("احفظ الوجبة أو ألغِ تعديلها أولاً.");
-                return;
-              }
-              if (
-                !visit.days.length ||
-                visit.days.some((day) => !day.meals.length)
-              ) {
-                setError(
-                  "أضف يوماً ووجبة واحدة على الأقل لكل يوم قبل الإنهاء."
-                );
-                return;
-              }
-              const date = demo ? local!.currentDate() : clinical?.serviceDate;
-              const currentAppointment = demo
-                ? appointmentOn(date)
-                : appointment;
-              if (currentAppointment <= dateAfter(0, date)) {
-                setError("اختر موعد مراجعة بعد اليوم.");
-                return;
-              }
-              setError("");
-              setReview(true);
-            }}
-          >
-            <Icon name="check" size={20} />
-            إنهاء الزيارة
-          </button>
-        )}
-      </footer>
+      <VisitActionBar
+        completed={completed}
+        plan={plan}
+        homeHref={href("")}
+        visitHref={visitHref}
+        whatsappLink={whatsappLink}
+        disabled={operations?.pending || stale}
+        onFinish={requestFinish}
+      />
       {review && !completed && (
         <FinishReview
           patientName={patient.name}

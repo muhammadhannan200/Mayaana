@@ -93,7 +93,7 @@ test("completed visit without a saved appointment never invents one", async ({
   await expect(page.getByLabel("ملاحظاتي")).toHaveValue(notes);
   await expect(page.getByLabel("ملاحظاتي")).toHaveAttribute("readonly", "");
   await expect(page.locator(".visit-meal")).toContainText("وجبة خيالية محفوظة");
-  await expect(page.getByLabel("تاريخ الموعد")).toHaveCount(0);
+  await expect(page.getByLabel("تعديل التاريخ")).toHaveCount(0);
   const stored = await page.evaluate(() =>
     localStorage.getItem("mayanaa-demo-v1:public")
   );
@@ -112,12 +112,12 @@ test("completed visit displays the actual saved appointment after reload", async
   page,
 }) => {
   const { errors, writes } = await openVisit(page, "2026-10-24");
-  await expect(page.locator(".visit-appointment p")).toHaveText("2026-10-24");
+  await expect(page.locator(".visit-appointment p")).toHaveText("24/10/2026");
   await expect(page.locator(".visit-appointment")).not.toContainText(
     "يُحسب تلقائياً"
   );
   await page.reload();
-  await expect(page.locator(".visit-appointment p")).toHaveText("2026-10-24");
+  await expect(page.locator(".visit-appointment p")).toHaveText("24/10/2026");
   expect(errors).toEqual([]);
   expect(writes).toEqual([]);
 });
@@ -142,7 +142,7 @@ for (const appointment of ["", "2026-10-24"]) {
       ).toHaveCount(0);
       await page.goBack();
       await expect(page.locator(".visit-appointment p")).toHaveText(
-        appointment || "لم يُحدّد موعد متابعة"
+        appointment ? "24/10/2026" : "لم يُحدّد موعد متابعة"
       );
       await expect(page.locator(".visit-appointment")).not.toContainText(
         "يُحسب تلقائياً"
@@ -168,7 +168,7 @@ test("active suggestions, custom dates, validation and final save are unchanged"
   await page
     .getByRole("link", { name: "متابعة للبرنامج والموعد", exact: true })
     .click();
-  const date = page.getByLabel("تاريخ الموعد");
+  const date = page.getByLabel("تعديل التاريخ");
   await expect(date).toHaveValue("2030-01-21");
   await expect(date).toHaveAttribute("min", "2030-01-21");
   await expect(page.locator(".visit-appointment")).toContainText(
@@ -186,14 +186,14 @@ test("active suggestions, custom dates, validation and final save are unchanged"
   await page
     .getByRole("button", { name: "إنهاء الزيارة", exact: true })
     .click();
-  await expect(page.getByRole("dialog")).toContainText("2030-01-25");
+  await expect(page.getByRole("dialog")).toContainText("25/1/2030");
   await page
     .getByRole("button", { name: "حفظ وإنهاء الزيارة", exact: true })
     .click();
   await expect(
     page.getByRole("heading", { name: "الزيارة المكتملة", exact: true })
   ).toBeVisible();
-  await expect(page.locator(".visit-appointment p")).toHaveText("2030-01-25");
+  await expect(page.locator(".visit-appointment p")).toHaveText("25/1/2030");
   await expect(page.getByLabel("ملاحظاتي")).toHaveValue(notes);
   await expect(page.locator(".visit-meal")).toContainText("وجبة خيالية محفوظة");
   expect(errors).toEqual([]);

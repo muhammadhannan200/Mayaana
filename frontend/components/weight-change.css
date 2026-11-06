@@ -1,0 +1,28 @@
+.weight-change {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 20px;
+  white-space: nowrap;
+}
+.weight-change.up svg {
+  transform: rotate(180deg);
+}
+.weight-change.good {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+  color: #15803d;
+}
+.weight-change.away {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+}

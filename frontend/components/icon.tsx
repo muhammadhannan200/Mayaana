@@ -13,6 +13,9 @@ export function Icon({
     | "scale"
     | "close"
     | "image"
+    | "copy"
+    | "calendar"
+    | "camera"
     | "check"
     | "edit"
     | "info"
@@ -91,6 +94,24 @@ export function Icon({
       </>
     ),
     close: <path d="M6 6l12 12M18 6 6 18" />,
+    copy: (
+      <>
+        <rect x="8" y="8" width="12" height="12" rx="2" />
+        <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" />
+      </>
+    ),
+    calendar: (
+      <>
+        <rect x="3" y="5" width="18" height="16" rx="2" />
+        <path d="M3 10h18M8 3v4M16 3v4" />
+      </>
+    ),
+    camera: (
+      <>
+        <path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z" />
+        <circle cx="12" cy="13" r="4" />
+      </>
+    ),
     image: (
       <>
         <rect x="3" y="4" width="18" height="16" rx="3" />

@@ -3,7 +3,9 @@
 import { useState, type FormEvent } from "react";
 import { Icon } from "@/frontend/components/icon";
 import { dayCountLabel, mealCountLabel } from "@/shared/arabic-count";
-import type { VisitDraft } from "@/shared/clinical-model";
+import type { DietDay, VisitDraft } from "@/shared/clinical-model";
+import { dateAfter, displayDate } from "@/shared/clinic-dates";
+import "./visit-plan.css";
 
 type SaveDraft = (change: (current: VisitDraft) => VisitDraft) => void;
 
@@ -60,6 +62,8 @@ export function VisitDiet({
   pending,
   appointment,
   minAppointment,
+  startDate,
+  previousDays,
   save,
   editor,
 }: {
@@ -70,6 +74,8 @@ export function VisitDiet({
   pending?: boolean;
   appointment: string;
   minAppointment: string;
+  startDate?: string;
+  previousDays?: DietDay[];
   save: SaveDraft;
   editor: ReturnType<typeof useMealEditor>;
 }) {
@@ -82,6 +88,23 @@ export function VisitDiet({
     setDescription,
     saveMeal,
   } = editor;
+  function copyPrevious() {
+    if (!previousDays?.length) return;
+    if (
+      visit.days.length &&
+      !window.confirm("استبدال أيام البرنامج الحالية بالبرنامج السابق؟")
+    )
+      return;
+    // New ids keep the copy independent from the finished visit's plan.
+    save((current) => ({
+      ...current,
+      days: previousDays.map((day) => ({
+        id: crypto.randomUUID(),
+        meals: day.meals.map((meal) => ({ ...meal, id: crypto.randomUUID() })),
+      })),
+    }));
+    setEditing(null);
+  }
   return (
     <section className="visit-diet">
       <div className="visit-section-heading">
@@ -91,6 +114,17 @@ export function VisitDiet({
             {dayCountLabel(visit.days.length)} · {mealCountLabel(meals)}
           </small>
         </div>
+        {!completed && !!previousDays?.length && (
+          <button
+            type="button"
+            className="secretary-outline visit-copy-plan"
+            disabled={pending}
+            onClick={copyPrevious}
+          >
+            <Icon name="copy" size={18} />
+            نسخ البرنامج السابق
+          </button>
+        )}
       </div>
       {visit.days.map((day, index) => (
         <section
@@ -99,7 +133,15 @@ export function VisitDiet({
           aria-label={`اليوم ${index + 1}`}
         >
           <div className="visit-section-heading">
-            <h3>اليوم {index + 1}</h3>
+            <h3>
+              اليوم {index + 1}
+              {!completed && startDate && (
+                <>
+                  {" · "}
+                  <bdi>{displayDate(dateAfter(index, startDate))}</bdi>
+                </>
+              )}
+            </h3>
             {!completed && (
               <button
                 type="button"
@@ -255,12 +297,22 @@ export function VisitDiet({
         </button>
       )}
       <section className="visit-appointment">
-        <h2>موعد المراجعة القادمة</h2>
+        <h2 className="visit-appointment-head">
+          <Icon name="calendar" size={18} />
+          موعد المراجعة القادمة
+        </h2>
         {completed ? (
-          <p>{appointment || "لم يُحدّد موعد متابعة"}</p>
+          <p>
+            {appointment ? displayDate(appointment) : "لم يُحدّد موعد متابعة"}
+          </p>
         ) : (
+          <strong className="visit-appointment-date">
+            <bdi>{appointment ? displayDate(appointment) : "—"}</bdi>
+          </strong>
+        )}
+        {!completed && (
           <label className="secretary-field">
-            تاريخ الموعد
+            تعديل التاريخ
             <input
               type="date"
               disabled={pending}

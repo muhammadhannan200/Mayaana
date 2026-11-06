@@ -8,12 +8,14 @@ export function FlowSubheader({
   backHref,
   subtitle,
   menu,
+  backIcon = doctor ? "arrow" : "close",
 }: {
   doctor: boolean;
   title: string;
   backHref: string;
   subtitle?: string;
   menu?: ReactNode;
+  backIcon?: "arrow" | "close";
 }) {
   return (
     <header
@@ -29,7 +31,7 @@ export function FlowSubheader({
         <h1>{title}</h1>
       )}
       <Link href={backHref} aria-label="العودة">
-        <Icon name={doctor ? "arrow" : "close"} />
+        <Icon name={backIcon} />
       </Link>
     </header>
   );

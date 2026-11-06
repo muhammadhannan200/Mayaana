@@ -20,6 +20,7 @@ import {
 import { NumericField, TopBar, WeightDelta } from "./measurement-parts";
 import { PreviousSheet, PreviousVisitCard } from "./previous-visit";
 import "./measurements.css";
+import { displayDate } from "@/shared/clinic-dates";
 
 type Mode = "follow-up" | "full-exam" | "previous";
 
@@ -280,7 +281,7 @@ export function MeasurementScreen({
                     ].map((item, index) => (
                       <div key={item.date}>
                         <strong dir="ltr">{item.value}</strong>
-                        <span>{item.date}</span>
+                        <span>{displayDate(item.date)}</span>
                         {index < visits.length && <i />}
                       </div>
                     ))}

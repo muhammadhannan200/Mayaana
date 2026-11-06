@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Icon } from "@/frontend/components/icon";
 import type { PatientRecord, QueueEntry } from "@/shared/clinical-model";
 import { VisitOptions } from "./clinic-ui";
+import { displayDate } from "@/shared/clinic-dates";
 
 type VisitKind = QueueEntry["kind"];
 
@@ -46,7 +47,11 @@ export function ConfirmQueueScreen({
                 <small>عدد الزيارات</small>
               </div>
               <div>
-                <strong>{selected.visits[0]?.date ?? "—"}</strong>
+                <strong>
+                  {selected.visits[0]
+                    ? displayDate(selected.visits[0].date)
+                    : "—"}
+                </strong>
                 <small>آخر زيارة</small>
               </div>
               <div>

@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import type { useDemoClinic } from "@/frontend/demo/demo-clinic";
 import { clinicNotifications } from "@/shared/clinic-notifications";
+import { NotificationBell } from "@/frontend/components/notification-bell";
 import type { AccountProfile } from "@/backend/account-profile";
 import { DemoResetActions, SecretaryAccount } from "./account-screen";
 import { ConfirmQueueScreen } from "./confirm-queue-screen";
@@ -14,6 +15,7 @@ import { PatientEditForm } from "./patient-edit-form";
 import { PatientFile } from "./patient-file";
 import { normalize, usePatientActions } from "./use-patient-actions";
 import { DoctorRoute } from "@/frontend/doctor/doctor-route";
+import { DoctorPatientList } from "@/frontend/doctor/patient-list";
 import { DoctorNav } from "@/frontend/doctor/doctor-nav";
 import { MeasurementRoute } from "./measurements/measurement-route";
 import { DoctorVisit } from "@/frontend/doctor/visit-screen";
@@ -133,7 +135,8 @@ export function ClinicFlowView({
     title: string,
     back = "secretary",
     subtitle?: string,
-    menu?: ReactNode
+    menu?: ReactNode,
+    backIcon: "arrow" | "close" = doctor ? "arrow" : "close"
   ) => (
     <FlowSubheader
       doctor={doctor}
@@ -141,6 +144,7 @@ export function ClinicFlowView({
       backHref={href(back)}
       subtitle={subtitle}
       menu={menu}
+      backIcon={backIcon}
     />
   );
   const badge = (e: QueueEntry) =>
@@ -173,20 +177,32 @@ export function ClinicFlowView({
         badge={badge}
       />
     );
-  else if (
-    route === "secretary/add" ||
-    route === "secretary/search" ||
-    route === "secretary/patients"
-  )
+  else if (route === "secretary/patients" || route === "secretary/search")
+    content = (
+      <DoctorPatientList
+        title={route === "secretary/search" ? "البحث" : "المرضى"}
+        patients={matches}
+        term={term}
+        onTerm={(value) => {
+          setTerm(value);
+          operations?.search(value);
+        }}
+        href={href}
+        patientPath={(id) => `secretary/patients/${id}`}
+        action={
+          <NotificationBell
+            items={notifications}
+            scope="secretary"
+            className="secretary-bell"
+          />
+        }
+        newPatientHref={href("secretary/patients/new")}
+      />
+    );
+  else if (route === "secretary/add")
     content = (
       <>
-        {subheader(
-          route.endsWith("add")
-            ? "إضافة للدور"
-            : route.endsWith("search")
-              ? "البحث"
-              : "المرضى"
-        )}
+        {subheader("إضافة للدور")}
         <PatientSearchScreen
           route={route}
           term={term}
@@ -203,7 +219,13 @@ export function ClinicFlowView({
   else if (route === "secretary/confirm")
     content = (
       <>
-        {subheader("إضافة للدور", "secretary/add")}
+        {subheader(
+          "إضافة للدور",
+          "secretary/add",
+          undefined,
+          undefined,
+          "arrow"
+        )}
         <ConfirmQueueScreen
           selected={selected}
           queued={queue.some((e) => e.patientId === selected?.id)}
@@ -308,7 +330,13 @@ export function ClinicFlowView({
     (doctor && !/^doctor\/patients\/[^/]+$/.test(route));
   return (
     <main
-      className={doctor ? "doctor-shell doctor-workspace" : "secretary-shell"}
+      className={
+        doctor
+          ? "doctor-shell doctor-workspace"
+          : route === "secretary/patients" || route === "secretary/search"
+            ? "secretary-shell doctor-workspace"
+            : "secretary-shell"
+      }
       dir="rtl"
     >
       <fieldset

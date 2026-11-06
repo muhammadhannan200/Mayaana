@@ -57,7 +57,12 @@ export function LoginForm({ configured }: { configured: boolean }) {
       const hash = new URLSearchParams(window.location.hash.slice(1));
       if (
         [
-          "code", "token_hash", "access_token", "refresh_token", "error", "error_code",
+          "code",
+          "token_hash",
+          "access_token",
+          "refresh_token",
+          "error",
+          "error_code",
         ].some((key) => hash.has(key)) ||
         hash.getAll("type").includes("recovery")
       )

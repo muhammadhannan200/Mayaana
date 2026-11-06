@@ -1,4 +1,7 @@
-import { classifyAgenda, type AgendaAppointment } from "../../shared/doctor-agenda";
+import {
+  classifyAgenda,
+  type AgendaAppointment,
+} from "../../shared/doctor-agenda";
 import type { DemoState } from "./demo-fixture";
 
 // Read only appointment and completion metadata from fictional local records.

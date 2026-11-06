@@ -58,6 +58,7 @@ export function VisitAttachments({
   readOnly?: boolean;
 }) {
   const input = useRef<HTMLInputElement>(null);
+  const camera = useRef<HTMLInputElement>(null);
   const [files, setFiles] = useState<VisitAttachment[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -159,15 +160,40 @@ export function VisitAttachments({
               if (file) void add(file);
             }}
           />
-          <button
-            type="button"
-            className="secretary-outline"
-            disabled={busy}
-            onClick={() => input.current?.click()}
-          >
-            <Icon name="image" size={20} />
-            {busy ? "جارٍ الرفع…" : "إضافة صورة أو ملف"}
-          </button>
+          {/* capture opens the camera on phones; desktops fall back to a picker. */}
+          <input
+            ref={camera}
+            type="file"
+            hidden
+            aria-label="التقاط صورة"
+            accept="image/*"
+            capture="environment"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              event.target.value = "";
+              if (file) void add(file);
+            }}
+          />
+          <div className="visit-attachment-actions">
+            <button
+              type="button"
+              className="visit-attachment-camera"
+              disabled={busy}
+              onClick={() => camera.current?.click()}
+            >
+              <Icon name="camera" size={20} />
+              تصوير
+            </button>
+            <button
+              type="button"
+              className="secretary-outline"
+              disabled={busy}
+              onClick={() => input.current?.click()}
+            >
+              <Icon name="image" size={20} />
+              {busy ? "جارٍ الرفع…" : "رفع ملف"}
+            </button>
+          </div>
         </>
       )}
       {error && (

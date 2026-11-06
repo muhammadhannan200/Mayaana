@@ -1,9 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Icon } from "@/frontend/components/icon";
 import type { PatientRecord } from "@/shared/clinical-model";
+import { SearchEmpty } from "@/frontend/secretary/patient-search-screen";
+import { WeightChange } from "@/frontend/components/weight-change";
+import { displayDate } from "@/shared/clinic-dates";
 
 const filters = [
   { id: "all", label: "الكل", goal: "" },
@@ -25,12 +28,18 @@ export function DoctorPatientList({
   term,
   onTerm,
   href,
+  patientPath = (id) => `doctor/patients/${id}`,
+  action,
+  newPatientHref,
 }: {
   title: string;
   patients: PatientRecord[];
   term: string;
   onTerm: (term: string) => void;
   href: (route: string) => string;
+  patientPath?: (id: string) => string;
+  action?: ReactNode;
+  newPatientHref?: string;
 }) {
   const [filter, setFilter] = useState<(typeof filters)[number]["id"]>("all");
   const goal = filters.find((item) => item.id === filter)?.goal;
@@ -38,10 +47,15 @@ export function DoctorPatientList({
   return (
     <>
       <header className="doctor-list-header">
-        <h1>{title}</h1>
-        <p>إجمالي المرضى ({patients.length})</p>
+        <div>
+          <h1>{title}</h1>
+          <p>إجمالي المرضى ({patients.length})</p>
+        </div>
+        {action}
       </header>
-      <div className="secretary-content search-content doctor-patient-list">
+      <div
+        className={`secretary-content search-content doctor-patient-list${newPatientHref ? " has-fab" : ""}`}
+      >
         <label className="patient-search-input">
           <Icon name="search" size={20} />
           <input
@@ -75,7 +89,7 @@ export function DoctorPatientList({
               <li key={p.id}>
                 <Link
                   className="patient-result patient-result-link"
-                  href={href(`doctor/patients/${p.id}`)}
+                  href={href(patientPath(p.id))}
                 >
                   <span className="patient-avatar">{p.name[0]}</span>
                   <span>
@@ -83,7 +97,7 @@ export function DoctorPatientList({
                     <small>
                       {p.visits[0] ? (
                         <>
-                          آخر زيارة <bdi>{p.visits[0].date}</bdi> ·{" "}
+                          آخر زيارة <bdi>{displayDate(p.visits[0].date)}</bdi> ·{" "}
                           <bdi>{p.visits[0].measurements.weight} كغ</bdi>
                         </>
                       ) : (
@@ -92,12 +106,7 @@ export function DoctorPatientList({
                     </small>
                   </span>
                   {change !== null && (
-                    <span className="doctor-patient-change">
-                      <bdi>
-                        {change > 0 ? "+" : ""}
-                        {change.toFixed(1)} كغ
-                      </bdi>
-                    </span>
+                    <WeightChange value={change} goal={p.goal} />
                   )}
                   <Icon name="arrow" size={18} />
                 </Link>
@@ -105,12 +114,19 @@ export function DoctorPatientList({
             );
           })}
         </ul>
-        {shown.length === 0 && (
-          <p className="secretary-muted">
-            لا توجد نتائج. جرّب اسماً أو رقماً آخر.
-          </p>
-        )}
+        {shown.length === 0 &&
+          (term.trim() ? (
+            <SearchEmpty term={term} newPatientHref={newPatientHref} />
+          ) : (
+            <p className="secretary-muted">لا يوجد مرضى في هذا التصنيف.</p>
+          ))}
       </div>
+      {newPatientHref && (
+        <Link className="queue-fab" href={newPatientHref}>
+          <Icon name="plus" size={20} />
+          مريض جديد
+        </Link>
+      )}
     </>
   );
 }

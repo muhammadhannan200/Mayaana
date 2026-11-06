@@ -14,6 +14,7 @@ import {
 import { NumericField, VisitBadge, WeightDelta } from "./measurement-parts";
 import type { MockVisit } from "./mock-visits";
 import "./measurements.css";
+import { displayDate } from "@/shared/clinic-dates";
 
 export function PreviousVisitCard({
   visit,
@@ -39,7 +40,7 @@ export function PreviousVisitCard({
     >
       <div className="measure-visit-text">
         <strong>
-          الزيارة {visit.number} · {visit.date}
+          الزيارة {visit.number} · <bdi>{displayDate(visit.date)}</bdi>
         </strong>
         <span>
           <bdi>{visit.measurements.weight} كغ</bdi>
@@ -187,7 +188,7 @@ export function PreviousSheet({
             <strong>
               الزيارة {visit.number} <VisitBadge kind={visit.kind} />
             </strong>
-            <p>{visit.detailDate}</p>
+            <p>{displayDate(visit.detailDate)}</p>
           </div>
           <button
             type="button"

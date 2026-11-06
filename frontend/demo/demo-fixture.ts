@@ -87,6 +87,22 @@ export function createDemoFixture(today: string): DemoState {
       ],
     },
   ];
+  // A fictional earlier plan, so "نسخ البرنامج السابق" has something to copy.
+  const previousPlan: DemoDay[] = [1, 2].map((day) => ({
+    id: `fictional-previous-day-${day}`,
+    meals: [
+      {
+        id: `fictional-previous-breakfast-${day}`,
+        type: "فطور",
+        description: day === 1 ? "شوفان بالحليب وموزة" : "لبنة وخيار وخبز أسمر",
+      },
+      {
+        id: `fictional-previous-lunch-${day}`,
+        type: "غداء",
+        description: day === 1 ? "سمك مشوي وخضار سوتيه" : "شوربة عدس وسلطة",
+      },
+    ],
+  }));
   const initial: DemoState = {
     patients: [
       {
@@ -228,6 +244,7 @@ export function createDemoFixture(today: string): DemoState {
           days: featuredPlan,
           appointment: demoDate(14),
         },
+        previousPlan,
       },
       {
         id: "demo-completed",

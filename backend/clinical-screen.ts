@@ -1,5 +1,8 @@
 import "server-only";
-import type { VisitHistoryItem, VisitMeasurement } from "../shared/clinical-model";
+import type {
+  VisitHistoryItem,
+  VisitMeasurement,
+} from "../shared/clinical-model";
 import type {
   ClinicalResult,
   ClinicalSnapshot,
@@ -214,7 +217,18 @@ export async function getClinicScreen(
     const selectedVisit = queue.find((row) => row.id === input.entry);
     if (account.role === "doctor" && selectedVisit?.visitId) {
       const id = selectedVisit.visitId;
-      const [notes, diet, appointment] = await Promise.all([
+      const previousVisit = await client
+        .from("visits")
+        .select("id")
+        .eq("clinic_id", clinic)
+        .eq("patient_id", selectedVisit.patientId)
+        .not("completed_at", "is", null)
+        .neq("id", id)
+        .order("completed_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (previousVisit.error) throw previousVisit.error;
+      const [notes, diet, appointment, previousDiet] = await Promise.all([
         client
           .from("visit_private_notes")
           .select("notes")
@@ -230,8 +244,15 @@ export async function getClinicScreen(
           .select("appointment_date")
           .eq("originating_visit_id", id)
           .maybeSingle(),
+        previousVisit.data
+          ? client
+              .from("diet_plans")
+              .select("days")
+              .eq("visit_id", previousVisit.data.id)
+              .maybeSingle()
+          : Promise.resolve({ data: null, error: null }),
       ]);
-      for (const result of [notes, diet, appointment])
+      for (const result of [notes, diet, appointment, previousDiet])
         if (result.error) throw result.error;
       Object.assign(selectedVisit, {
         visit: {
@@ -241,6 +262,9 @@ export async function getClinicScreen(
           completedAt:
             visits.data.find((v) => v.id === id)?.completed_at ?? undefined,
         },
+        previousPlan: previousDiet.data?.days?.length
+          ? previousDiet.data.days
+          : undefined,
       });
     }
     return {
