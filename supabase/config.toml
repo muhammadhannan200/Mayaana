@@ -22,6 +22,14 @@ enabled = false
 [storage]
 enabled = true
 
+# Tests never resize images, and skipping imgproxy and realtime keeps the
+# first start in CI shorter.
+[storage.image_transformation]
+enabled = false
+
+[realtime]
+enabled = false
+
 [auth]
 site_url = "http://127.0.0.1:3102"
 enable_signup = false
