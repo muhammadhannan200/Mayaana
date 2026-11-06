@@ -7,6 +7,7 @@ import {
 import { Icon } from "@/frontend/components/icon";
 import { SignOutForm } from "@/frontend/auth/sign-out-form";
 import type { AccountProfile } from "@/backend/account-profile";
+import { DemoNote } from "./clinic-ui";
 
 export function SecretaryAccount({
   profile,
@@ -42,5 +43,33 @@ export function SecretaryAccount({
         </SignOutForm>
       )}
     </div>
+  );
+}
+
+export function DemoResetActions({
+  onReset,
+  doctorHref,
+}: {
+  onReset: () => void;
+  doctorHref: string;
+}) {
+  return (
+    <>
+      <button
+        className="secretary-outline"
+        onClick={() => {
+          if (
+            window.confirm(
+              "إعادة بيانات العرض الخيالية؟ ستُحذف تعديلات العرض في هذا المتصفح فقط."
+            )
+          ) {
+            onReset();
+          }
+        }}
+      >
+        إعادة ضبط العرض التجريبي
+      </button>
+      <DemoNote demo href={doctorHref} />
+    </>
   );
 }
