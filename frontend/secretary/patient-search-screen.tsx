@@ -34,7 +34,9 @@ export function PatientSearchScreen({
         />
       </label>
       <section className="patient-results" aria-live="polite">
-        {showResults && <h2>نتائج البحث ({results.length})</h2>}
+        {showResults && results.length > 0 && (
+          <h2>نتائج البحث ({results.length})</h2>
+        )}
         <ul className="patient-result-list">
           {results.map((p) => (
             <li key={p.id}>
@@ -62,24 +64,54 @@ export function PatientSearchScreen({
           ))}
         </ul>
         {showResults && !results.length && (
-          <div className="queue-empty">
-            <Icon name="search" size={32} />
-            <h3>لا توجد نتائج</h3>
-            <p>جرّب اسماً أو رقم هاتف آخر، أو افتح ملفاً جديداً.</p>
-          </div>
+          <SearchEmpty
+            term={term}
+            newPatientHref={href("secretary/patients/new")}
+          />
         )}
       </section>
-      <div className="create-patient-link">
-        <strong>ما لقيت المريض؟</strong>
-        <p>إذا أول مرة يزور العيادة، افتح له ملف جديد.</p>
-        <Link
-          className="secretary-outline"
-          href={href("secretary/patients/new")}
-        >
-          <Icon name="plus" size={18} />
+      {(!showResults || results.length > 0) && (
+        <div className="create-patient-link">
+          <strong>ما لقيت المريض؟</strong>
+          <p>إذا أول مرة يزور العيادة، افتح له ملف جديد.</p>
+          <Link
+            className="secretary-outline"
+            href={href("secretary/patients/new")}
+          >
+            <Icon name="plus" size={18} />
+            فتح ملف مريض جديد
+          </Link>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// No match: name the search and offer a new file, so the page is never blank.
+export function SearchEmpty({
+  term,
+  newPatientHref,
+}: {
+  term: string;
+  newPatientHref?: string;
+}) {
+  return (
+    <div className="queue-empty search-empty">
+      <span className="queue-empty-icon">
+        <Icon name="patients" size={28} />
+      </span>
+      <h2>
+        ما لقينا <bdi>{term.trim()}</bdi>
+      </h2>
+      <p>
+        جرّب الاسم الأول فقط أو رقم الهاتف.
+        {newPatientHref && " إذا أول زيارة، افتح ملف جديد."}
+      </p>
+      {newPatientHref && (
+        <Link className="secretary-primary" href={newPatientHref}>
           فتح ملف مريض جديد
         </Link>
-      </div>
+      )}
     </div>
   );
 }

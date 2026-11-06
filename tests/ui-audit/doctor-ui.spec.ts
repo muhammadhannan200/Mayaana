@@ -104,7 +104,7 @@ test("D3 matches the patient-row type scale and preserves filtering, empty state
   await search.fill("غير موجود");
   await expect(page.locator(".patient-result")).toHaveCount(0);
   await expect(
-    page.getByText("لا توجد نتائج. جرّب اسماً أو رقماً آخر.")
+    page.getByRole("heading", { name: "ما لقينا غير موجود" })
   ).toBeVisible();
   await search.fill("نور");
   await expect(page.locator(".patient-result")).toHaveCount(1);

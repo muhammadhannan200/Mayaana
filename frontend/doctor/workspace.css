@@ -29,6 +29,10 @@
 }
 .doctor-workspace .doctor-home-header,
 .doctor-workspace .doctor-list-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
   padding: 20px 16px 12px;
 }
 .doctor-workspace .doctor-list-header h1 {
