@@ -1,0 +1,28 @@
+.visit-appointment-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.visit-appointment-head h2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 500;
+}
+.visit-appointment-date {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 32px;
+}
+.visit-copy-plan {
+  flex: none;
+  width: auto;
+  min-height: 44px;
+  padding: 8px 12px;
+  font-size: 14px;
+}
+.visit-day h3 bdi {
+  font-weight: 700;
+}

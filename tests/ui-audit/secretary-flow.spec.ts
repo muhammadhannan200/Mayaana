@@ -183,7 +183,7 @@ test("complete V1: secretary intake → measurements → handoff → doctor note
   await expect(doctor.getByLabel("ملاحظاتي")).toHaveValue(/نزول تدريجي جيد/);
   await doctor.getByRole("link", { name: "متابعة للبرنامج والموعد" }).click();
   await expect(doctor.locator(".visit-meal")).toHaveCount(5);
-  await expect(doctor.getByLabel("تاريخ الموعد")).not.toHaveValue("");
+  await expect(doctor.getByLabel("تعديل التاريخ")).not.toHaveValue("");
   await doctor.screenshot({
     path: info.outputPath("featured-plan.png"),
     fullPage: true,
@@ -264,9 +264,9 @@ test("complete V1: secretary intake → measurements → handoff → doctor note
     .fill("بيضتان مسلوقتان + خبز أسمر + خضار");
   await doctor.getByRole("button", { name: "حفظ الوجبة", exact: true }).click();
   const appointment = "2030-11-15";
-  await doctor.getByLabel("تاريخ الموعد").fill(appointment);
+  await doctor.getByLabel("تعديل التاريخ").fill(appointment);
   await doctor.reload();
-  await expect(doctor.getByLabel("تاريخ الموعد")).toHaveValue(appointment);
+  await expect(doctor.getByLabel("تعديل التاريخ")).toHaveValue(appointment);
   await expect(doctor.locator(".visit-meal")).toContainText("خضار");
   await doctor.getByRole("button", { name: "إضافة يوم", exact: true }).click();
   doctor.once("dialog", (dialog) => dialog.dismiss());

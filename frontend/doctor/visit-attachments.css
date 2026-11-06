@@ -77,3 +77,25 @@
   background: transparent;
   color: #b91c1c;
 }
+.visit-attachment-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.visit-attachment-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  width: 100%;
+  margin: 0;
+  font: inherit;
+  font-weight: 700;
+}
+.visit-attachment-camera {
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: var(--soft, #f0fdfa);
+  color: var(--brand, #0f766e);
+}

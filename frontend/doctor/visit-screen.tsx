@@ -19,12 +19,7 @@ import type {
   ClinicalSnapshot,
   ClinicEntry,
 } from "@/shared/clinical-types";
-
-function dateAfter(days: number, base?: string) {
-  const date = base ? new Date(`${base}T12:00:00`) : new Date();
-  date.setDate(date.getDate() + days);
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-}
+import { dateAfter } from "@/shared/clinic-dates";
 
 export function DoctorVisit({
   entryId,
@@ -79,6 +74,19 @@ function VisitEditor({
   const href = (path: string) => `${prefix}/doctor${path}`;
   const entry = queue.find((item) => item.id === entryId);
   const patient = patients.find((item) => item.id === entry?.patientId);
+  const previousDays = demo
+    ? (queue
+        .filter(
+          (item) =>
+            item.id !== entryId &&
+            item.patientId === entry?.patientId &&
+            item.status === "completed" &&
+            item.visit?.days.length
+        )
+        .sort((a, b) =>
+          (b.visit?.completedAt ?? "").localeCompare(a.visit?.completedAt ?? "")
+        )[0]?.visit?.days ?? entry?.previousPlan)
+    : entry?.previousPlan;
   const [review, setReview] = useState(false);
   const [error, setError] = useState("");
   const plan = params.get("step") === "plan";
@@ -278,6 +286,8 @@ function VisitEditor({
               1,
               demo ? local!.today : clinical?.serviceDate
             )}
+            startDate={demo ? local!.today : clinical?.serviceDate}
+            previousDays={previousDays}
             save={save}
             editor={editor}
           />

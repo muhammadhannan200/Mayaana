@@ -57,6 +57,8 @@ export type QueueEntry = {
   handedOffAt?: string;
   doctorOpened?: boolean;
   visit?: VisitDraft;
+  // The patient's last finished diet plan, for the doctor to copy.
+  previousPlan?: DietDay[];
 };
 
 export const measurementFields: {
