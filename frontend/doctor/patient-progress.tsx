@@ -9,6 +9,8 @@ import type {
   QueueEntry,
   VisitHistoryItem,
 } from "@/shared/clinical-model";
+import { WeightChange } from "@/frontend/components/weight-change";
+import { displayDate } from "@/shared/clinic-dates";
 
 const metrics: { key: MeasurementKey; label: string; unit: string }[] = [
   { key: "weight", label: "الوزن", unit: "كغ" },
@@ -82,7 +84,7 @@ function ProgressChart({
               {point.value}
             </text>
             <text className="progress-date" x={point.x} y={height + 12}>
-              {point.date.slice(5)}
+              {displayDate(point.date).replace(/\/\d{4}$/, "")}
             </text>
           </g>
         ))}
@@ -132,9 +134,9 @@ export function PatientProgress({ patient }: { patient: PatientRecord }) {
               <tr>
                 <th scope="col">القياس</th>
                 {comparison.first !== comparison.latest && (
-                  <th scope="col">{comparison.first.date}</th>
+                  <th scope="col">{displayDate(comparison.first.date)}</th>
                 )}
-                <th scope="col">{comparison.latest.date}</th>
+                <th scope="col">{displayDate(comparison.latest.date)}</th>
                 <th scope="col">التغيّر</th>
               </tr>
             </thead>
@@ -157,7 +159,7 @@ export function PatientProgress({ patient }: { patient: PatientRecord }) {
                       {change === null ? (
                         "—"
                       ) : (
-                        <bdi>
+                        <bdi dir="ltr">
                           {change > 0 ? "+" : ""}
                           {change.toFixed(1)}
                         </bdi>
@@ -226,16 +228,11 @@ export function PatientVisits({
               <strong>الزيارة {visit.number}</strong>
               <VisitType kind={visit.kind} />
               {change !== null && (
-                <span className={change > 0 ? "record-up" : "record-down"}>
-                  <bdi>
-                    {change > 0 ? "+" : ""}
-                    {change.toFixed(1)} كغ
-                  </bdi>
-                </span>
+                <WeightChange value={change} goal={patient.goal} />
               )}
             </div>
             <p>
-              <bdi>{visit.date}</bdi> ·{" "}
+              <bdi>{displayDate(visit.date)}</bdi> ·{" "}
               <bdi>{visit.measurements.weight} كغ</bdi>
             </p>
           </>

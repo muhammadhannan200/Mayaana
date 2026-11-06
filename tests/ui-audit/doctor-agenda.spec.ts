@@ -82,7 +82,7 @@ test("Doctor Home agenda uses fictional browser-local records, RTL, dates and pa
   await expect(
     today.getByRole("link", { name: /خيالي متوقع/ })
   ).toHaveAttribute("href", "/demo/doctor/patients/today");
-  await expect(today.locator("time")).toHaveText("2026-11-04");
+  await expect(today.locator("time")).toHaveText("4/11/2026");
   await expect(
     overdue.getByRole("link", { name: /خيالي متأخر/ }).first()
   ).toHaveAttribute("href", "/demo/doctor/patients/overdue");

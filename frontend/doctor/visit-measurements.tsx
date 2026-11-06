@@ -1,4 +1,5 @@
 import { measurementFields, type QueueEntry } from "@/shared/clinical-model";
+import { WeightChange } from "@/frontend/components/weight-change";
 import { VisitAttachments } from "./visit-attachments";
 
 export function VisitMeasurements({
@@ -33,12 +34,7 @@ export function VisitMeasurements({
           </strong>
           <small>{previous ? `آخر زيارة ${previous} كغ` : "أول زيارة"}</small>
         </div>
-        {delta !== null && (
-          <span className={towardsGoal ? "visit-delta good" : "visit-delta"}>
-            <bdi>{Math.abs(delta).toFixed(1)} كغ</bdi> ·{" "}
-            {delta < 0 ? "نزول" : delta > 0 ? "زيادة" : "ثابت"}
-          </span>
-        )}
+        {delta !== null && <WeightChange value={delta} good={towardsGoal} />}
       </section>
       {completed && (
         <dl className="demo-measurements">

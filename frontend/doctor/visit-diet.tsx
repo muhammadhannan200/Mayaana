@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { Icon } from "@/frontend/components/icon";
 import { dayCountLabel, mealCountLabel } from "@/shared/arabic-count";
 import type { VisitDraft } from "@/shared/clinical-model";
+import { displayDate } from "@/shared/clinic-dates";
 
 type SaveDraft = (change: (current: VisitDraft) => VisitDraft) => void;
 
@@ -257,7 +258,9 @@ export function VisitDiet({
       <section className="visit-appointment">
         <h2>موعد المراجعة القادمة</h2>
         {completed ? (
-          <p>{appointment || "لم يُحدّد موعد متابعة"}</p>
+          <p>
+            {appointment ? displayDate(appointment) : "لم يُحدّد موعد متابعة"}
+          </p>
         ) : (
           <label className="secretary-field">
             تاريخ الموعد

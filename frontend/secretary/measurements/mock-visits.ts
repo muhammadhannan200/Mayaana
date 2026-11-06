@@ -1,4 +1,7 @@
-import type { VisitHistoryItem, VisitMeasurement } from "@/shared/clinical-model";
+import type {
+  VisitHistoryItem,
+  VisitMeasurement,
+} from "@/shared/clinical-model";
 
 // Fictional design fixtures only. Never import these into a Supabase mutation.
 // Replace this module's consumer with a clinic-scoped visits repository when available.
@@ -13,8 +16,8 @@ export const followUpFixture = {
     {
       id: "fictional-visit-2",
       number: 2,
-      date: "10 أيلول",
-      detailDate: "الخميس 10 أيلول 2026 · 10:20 ص · أدخلتها سارة",
+      date: "2026-09-10",
+      detailDate: "2026-09-10 · 10:20 ص · أدخلتها سارة",
       kind: "follow_up",
       measurements: { weight: "65.8" },
       delta: "2.1 كغ",
@@ -22,8 +25,8 @@ export const followUpFixture = {
     {
       id: "fictional-visit-1",
       number: 1,
-      date: "1 أيلول",
-      detailDate: "الإثنين 1 أيلول 2026 · 11:40 ص · أدخلتها سارة",
+      date: "2026-09-01",
+      detailDate: "2026-09-01 · 11:40 ص · أدخلتها سارة",
       kind: "full_exam",
       starting: true,
       measurements: {

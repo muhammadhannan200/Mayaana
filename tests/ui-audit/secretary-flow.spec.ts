@@ -295,7 +295,9 @@ test("complete V1: secretary intake → measurements → handoff → doctor note
     "تقليل السكريات والمشي يومياً"
   );
   await expect(doctor.locator(".visit-meal")).toContainText("خضار");
-  await expect(doctor.locator(".visit-appointment")).toContainText(appointment);
+  await expect(doctor.locator(".visit-appointment")).toContainText(
+    "15/11/2030"
+  );
   await expect(
     doctor.getByRole("button", { name: "إنهاء الزيارة", exact: true })
   ).toHaveCount(0);
